@@ -9,10 +9,10 @@
 ![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2Fruc-datalab%2FDeepAnalyze&label=Visitors&icon=graph-up&color=%23dc3545&message=&style=flat&tz=UTC)
 
 
-**DeepAnalyze** is the first agentic LLM for autonomous data science. It can autonomously complete a large number of data-centric tasks, supporting:
-- **Entire data science pipeline**: data preparation, data analysis, buliding ML model, data visualization, and report generation.
-- **Open-ended data research**: given various data sources, do research and generate analyst-grade research report.
-- **Various data types**, including: structured data (Databases, CSV, Excel), semi-structured data (JSON, XML, YAML), and unstructured data (TXT, Markdown).
+**DeepAnalyze** is the first agentic LLM for autonomous data science. It can autonomously complete a wide range of data-centric tasks without human intervention, supporting:
+- 🛠 **Entire data science pipeline**: Data preparation, data analysis, Data modeling, data visualization, and report generation.
+- 🔍 **Open-ended data research**: Explore diverse data sources and produce high-quality, analyst-grade research reports.
+- 📊 **Various data types**: Handle structured data (Databases, CSV, Excel), semi-structured data (JSON, XML, YAML), and unstructured data (TXT, Markdown).
 
 
 > [!TIP]
@@ -21,6 +21,10 @@
 
 
 ## 🖥 Demo
+
+
+
+https://github.com/user-attachments/assets/aa05e708-ac26-4657-9173-2a26891dbe7b
 
 
 
