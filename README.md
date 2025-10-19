@@ -4,7 +4,7 @@
 
 # DeepAnalyze: Agentic Large Language Models for Autonomous Data Science
 [![arXiv](https://img.shields.io/badge/arXiv-xxxx.xxxx-b31b1b.svg?logo=arXiv)](https://github.com/ruc-datalab/DeepAnalyze)
-[![homepage](https://img.shields.io/badge/%F0%9F%8C%90%20Homepage%20-Explore%20DeepAnalyze%20Cases-blue.svg)](https://ruc-deepanalyze.github.io/)
+[![homepage](https://img.shields.io/badge/%F0%9F%8C%90%20Homepage%20-DeepAnalyze%20Cases-blue.svg)](https://ruc-deepanalyze.github.io/)
 [![model](https://img.shields.io/badge/%F0%9F%A4%97%20Huggingface%20-DeepAnalyze--8B-orange.svg)](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)
 [![data](https://img.shields.io/badge/%F0%9F%93%9A%20Datasets%20-DataScience--Instruct--500K-green.svg)](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K)
 ![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2Fruc-datalab%2FDeepAnalyze&label=Visitors&icon=graph-up&color=%23dc3545&message=&style=flat&tz=UTC)
