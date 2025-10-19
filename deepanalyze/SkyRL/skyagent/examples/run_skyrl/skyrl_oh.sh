@@ -1,0 +1,61 @@
+set -x
+
+DATA_DIR="<path_to_dataset>"
+train_data=["${DATA_DIR}/train.parquet"]
+test_data=["${DATA_DIR}/validation.parquet"]
+
+
+uv run --isolated --extra skyrl-train --directory . --frozen --env-file .env -m examples.run_skyrl.skyrl_train_main  \
+  trainer.algorithm.advantage_estimator="grpo" \
+  data.train_data=$train_data \
+  data.val_data=$test_data \
+  trainer.policy.model.path="Qwen/Qwen3-32B" \
+  trainer.placement.colocate_all=true \
+  trainer.strategy=fsdp2 \
+  trainer.policy.fsdp_config.cpu_offload=true \
+  trainer.ref.fsdp_config.cpu_offload=true \
+  trainer.policy.sequence_parallel_size=4 \
+  trainer.placement.policy_num_nodes=2 \
+  trainer.placement.policy_num_gpus_per_node=8 \
+  trainer.placement.ref_num_nodes=2 \
+  trainer.placement.ref_num_gpus_per_node=8 \
+  generator.num_inference_engines=4 \
+  generator.inference_engine_tensor_parallel_size=4 \
+  trainer.train_batch_size=32 \
+  trainer.micro_train_batch_size_per_gpu=1 \
+  trainer.micro_forward_batch_size_per_gpu=1 \
+  trainer.max_prompt_length=31232 \
+  generator.max_input_length=31232 \
+  generator.max_num_batched_tokens=32768 \
+  generator.sampling_params.max_generate_length=2000 \
+  +generator.task="./examples/run_skyrl/skyrl_oh.yaml" \
+  trainer.policy.optimizer_config.lr=1.0e-6 \
+  trainer.policy_mini_batch_size=4 \
+  trainer.algorithm.use_kl_loss=false \
+  trainer.algorithm.kl_loss_coef=0 \
+  trainer.algorithm.kl_target=null \
+  trainer.algorithm.init_kl_coef=0.0 \
+  trainer.algorithm.policy_loss_type="dual_clip" \
+  trainer.algorithm.eps_clip_high=0.28 \
+  trainer.hf_save_interval=10 \
+  trainer.ckpt_interval=1 \
+  trainer.ckpt_path="/mnt/shared_storage/ckpts/skyagent-32b-r2e-1000-acc-thinking-mini4/" \
+  trainer.max_ckpts_to_keep=10 \
+  trainer.eval_before_train=false \
+  trainer.eval_batch_size=256 \
+  trainer.eval_interval=1000 \
+  trainer.epochs=100 \
+  generator.backend=vllm \
+  generator.run_engines_locally=true \
+  generator.weight_sync_backend=nccl \
+  generator.async_engine=true \
+  generator.batched=false \
+  generator.n_samples_per_prompt=8 \
+  generator.gpu_memory_utilization=0.8 \
+  generator.max_turns=50 \
+  generator.sampling_params.temperature=1 \
+  generator.sampling_params.top_p=0.95 \
+  environment.env_class=null \
+  trainer.logger="wandb" \
+  trainer.project_name="skyagent-32b-r2e" \
+  trainer.run_name="skyagent-32b-r2e-1000-acc-thinking-mini4"

@@ -1,0 +1,10 @@
+# @package deepspeed_config.eval
+zero_optimization:
+  stage: 3
+  stage3_param_persistence_threshold: "auto"
+  offload_param:
+    device: cpu # set to cpu for offload, else none
+    pin_memory: true
+gradient_clipping: 1.0
+prescale_gradient: false
+wall_clock_breakdown: false

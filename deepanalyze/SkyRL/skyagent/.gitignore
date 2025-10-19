@@ -1,0 +1,7 @@
+__pycache__/
+*.txt
+*.pyc
+**/*.egg-info/
+*.py[cod]
+*.pyo
+.venv

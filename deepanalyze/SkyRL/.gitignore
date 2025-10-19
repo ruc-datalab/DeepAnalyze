@@ -1,0 +1,41 @@
+__pycache__/
+/wandb/
+/skyrl-train/wandb/
+**/*.egg-info/
+# hydra logs
+/outputs/
+/skyrl-train/outputs/
+/data/lcb
+
+# Documentation build artifacts
+/skyrl-train/docs/_build/
+docs/_build/
+docs/_static/
+docs/_templates/
+docs/_autosummary/
+docs/api/_autosummary/
+docs/generated/
+docs/_spelling/
+
+# Documentation cache
+.doctrees/
+.cache/
+.pytest_cache/
+
+# NOTE (sumanthrh): Don't add .env to gitignore. .env file when passed to uv is used to set env vars for each ray worker process. 
+# If it's in .gitignore then it won't be a part of the working directory shipped by uv and your env vars will not be set.
+# This will just appear as a warning (silent failure) and you're gonna have a bad time.
+# .env
+
+# .env files inside directories can be ignored
+/skyrl-train/.env
+/skyrl-gym/.env 
+
+/skyrl_train/.venv
+/skyrl-gym/.venv
+
+# build
+/skyrl-gym/build
+/skyrl-gym/dist
+
+*.log

@@ -1,0 +1,49 @@
+agent_cls: skyagent.agents.oh_codeact.OHCodeActAgent
+
+runtime:
+  initializer: skyagent.tasks.swebench.utils.initialize_runtime
+  config_builder: skyagent.tasks.swebench.utils.get_config
+  instruction_getter: skyagent.tasks.swebench.utils.get_instruction
+  completer: skyagent.tasks.swebench.utils.complete_runtime
+  evaluator: skyagent.tasks.swebench.utils.evaluate_agent
+
+tools:
+  enable_bash_tool: false
+  enable_browsing: false
+  enable_llm_editor: false
+  enable_editor: true
+  enable_jupyter: false
+  enable_cmd: true
+  enable_think: false
+  enable_finish: true
+  enable_mcp: false
+
+data:
+  instance_key: instance
+  instance_id_key: instance.instance_id
+  data_source_key: data_source
+
+generator:
+  infer_backend: openai_server
+  backend_config: 
+    # TODO: model_name need not be in config
+    model_name: qwen/qwen2.5-0.5b-instruct
+    api_url: http://localhost:6002
+  num_trajectories: 4
+  max_iterations: 50
+  max_prompt_length: 31232
+  sampling_params:
+    temperature: 0.5
+    top_p: 0.95
+    max_tokens: 2000
+  remove_think_tokens: true
+  vision_is_active: false
+  qwen3_enable_thinking: true
+  qwen3_acc_thinking: false
+
+dispatcher:
+  type: async_pipeline
+  scheduler: naive
+  max_parallel_agents: 2
+  max_eval_parallel_agents: 2
+

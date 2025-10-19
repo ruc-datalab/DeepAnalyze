@@ -1,0 +1,13 @@
+python>=3.10
+scikit-learn
+pandas
+tqdm
+openai
+tiktoken
+PyMuPDF
+torch
+transformers
+google.generativeai
+openpyxl
+anthropic
+Pillow

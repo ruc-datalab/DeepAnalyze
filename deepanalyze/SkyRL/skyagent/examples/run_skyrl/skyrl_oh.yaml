@@ -1,0 +1,41 @@
+agent_cls: skyagent.agents.oh_codeact.OHCodeActAgent
+
+task: skyagent.tasks.swebench.utils.SWEBenchTask
+
+tools:
+  enable_bash_tool: true
+  enable_browsing: false
+  enable_llm_editor: false
+  enable_editor: true
+  enable_jupyter: false
+  enable_cmd: true
+  enable_think: false
+  enable_finish: true
+  enable_mcp: false
+
+data:
+  instance_key: instance
+  instance_id_key: instance.instance_id
+  data_source_key: data_source
+
+generator:
+  infer_backend: skyrl-train
+  backend_config: null
+  num_trajectories: 8
+  max_iterations: 50
+  max_prompt_length: 32768
+  sampling_params:
+    temperature: 1
+    top_p: 0.95
+    max_tokens: 32768
+  remove_think_tokens: false
+  vision_is_active: false
+  qwen3_enable_thinking: true
+  qwen3_acc_thinking: true
+
+dispatcher:
+  type: async_pipeline
+  scheduler: naive
+  max_parallel_agents: 80
+  max_eval_parallel_agents: 80
+

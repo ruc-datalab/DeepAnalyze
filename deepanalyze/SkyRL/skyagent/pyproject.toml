@@ -1,0 +1,201 @@
+# -------------------------------
+# build-system
+# -------------------------------
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+# -------------------------------
+# project (PEP 621 metadata)
+# -------------------------------
+[project]
+name = "skyagent"
+version = "0.0.1"
+
+description = "SkyAgent: Training and evaluating AI agents in complex environments."
+license = {file = "LICENSE"}  # or "Apache-2.0", if you prefer an SPDX identifier
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = "==3.12.*"
+
+dependencies=[
+  'codetiming',
+  'datasets',
+  'dill',
+  'hydra-core',
+  'numpy',
+  'pandas',
+  'pyarrow>=15.0.0',
+  'pybind11',
+  'pylatexenc',
+  'ray[default]>=2.10',
+  'transformers',
+  "hf_transfer",
+  "openhands-ai",
+  "streamlit",
+  "whatthepatch",
+  "retry",
+  "evaluate",
+  "swebench@https://github.com/SWE-Gym/SWE-Bench-Fork.git",
+  "swegym@https://github.com/SWE-Gym/SWE-Bench-Package.git",
+  "func_timeout",
+  "sympy",
+  "gdown",
+  "matplotlib",
+  "seaborn",
+  "tabulate",
+  "browsergym-webarena==0.13.3",
+  "browsergym-miniwob==0.13.3",
+  "json5",
+  "math_verify",
+  "jsonlines",
+  "daytona-api-client==0.20.1",
+  "polars",
+  "datasets==4.0.0",
+  "loguru",
+  "wandb",
+]
+
+[project.optional-dependencies]
+skyrl-train = ["skyrl-train[vllm]"]
+verl = ["verl[vllm,gpu] @ git+https://github.com/sumanthrh/verl.git@skyagent", "vllm==0.8.5"]
+
+[tool.uv]
+override-dependencies = ["ray==2.44.0", "xgrammar==0.1.17",  "opentelemetry-api==1.26.0", "opentelemetry-sdk==1.26.0", "opentelemetry-exporter-otlp==1.26.0", "opentelemetry-exporter-otlp-proto-grpc==1.26.0"]
+
+conflicts = [
+  [
+    { extra = "skyrl-train" },
+    { extra = "verl" },
+  ]
+]
+
+[tool.uv.sources]
+openhands-ai = { path = "./SkyRL-OpenHands", editable = true }
+skyrl-train = { path = "./skyrl-train", editable = true }
+
+
+# -------------------------------
+# tool.setuptools - Additional config
+# -------------------------------
+[tool.setuptools]
+packages = ["skyagent"]
+
+# If you need to mimic `package_dir={'': '.'}`:
+[tool.setuptools.package-dir]
+"" = "."
+
+
+[tool.pylint.message_control]
+disable = [
+    "abstract-method",
+    "anomalous-backslash-in-string",
+    "arguments-differ",
+    "arguments-renamed",
+    "assignment-from-none",
+    "attribute-defined-outside-init",
+    "bad-str-strip-call",
+    "bare-except",
+    "broad-exception-caught",
+    "broad-exception-raised",
+    "cell-var-from-loop",
+    "chained-comparison",
+    "consider-iterating-dictionary",
+    "consider-using-enumerate",
+    "consider-using-f-string",
+    "consider-using-from-import",
+    "consider-using-generator",
+    "consider-using-in",
+    "consider-using-max-builtin",
+    "consider-using-set-comprehension",
+    "consider-using-sys-exit",
+    "consider-using-with",
+    "cyclic-import",
+    "dangerous-default-value",
+    "duplicate-code",
+    "eval-used",
+    "expression-not-assigned",
+    "f-string-without-interpolation",
+    "fixme",
+    "function-redefined",
+    "global-statement",
+    "global-variable-not-assigned",
+    "import-error",
+    "import-outside-toplevel",
+    "import-self",
+    "inconsistent-return-statements",
+    "invalid-character-zero-width-space",
+    "invalid-name",
+    "line-too-long",
+    "logging-fstring-interpolation",
+    "logging-not-lazy",
+    "missing-class-docstring",
+    "missing-final-newline",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "multiple-imports",
+    "no-else-continue",
+    "no-else-raise",
+    "no-else-return",
+    "no-member",
+    "no-self-argument",
+    "no-value-for-parameter",
+    "not-an-iterable",
+    "not-callable",
+    "notimplemented-raised",
+    "pointless-exception-statement",
+    "pointless-string-statement",
+    "pointless-statement",
+    "possibly-used-before-assignment",
+    "protected-access",
+    "raise-missing-from",
+    "raising-format-tuple",
+    "redefined-argument-from-local",
+    "redefined-builtin",
+    "redefined-outer-name",
+    "redundant-u-string-prefix",
+    "reimported",
+    "simplifiable-if-expression",
+    "simplifiable-if-statement",
+    "singleton-comparison",
+    "super-init-not-called",
+    "superfluous-parens",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-boolean-expressions",
+    "too-many-branches",
+    "too-many-instance-attributes",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-positional-arguments",
+    "too-many-return-statements",
+    "too-many-statements",
+    "trailing-newlines",
+    "trailing-newlines",
+    "trailing-whitespace",
+    "unbalanced-tuple-unpacking",
+    "undefined-loop-variable",
+    "undefined-variable",
+    "ungrouped-imports",
+    "unidiomatic-typecheck",
+    "unnecessary-comprehension",
+    "unnecessary-lambda",
+    "unnecessary-lambda-assignment",
+    "unnecessary-pass",
+    "unspecified-encoding",
+    "unused-argument",
+    "unused-import",
+    "unused-variable",
+    "unused-wildcard-import",
+    "use-a-generator",
+    "use-dict-literal",
+    "used-before-assignment",
+    "useless-object-inheritance",
+    "useless-parent-delegation",
+    "useless-return",
+    "wildcard-import",
+    "wrong-import-order",
+    "wrong-import-position",
+]

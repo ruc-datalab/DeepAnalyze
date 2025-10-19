@@ -1,0 +1,10 @@
+name: skyrl-train-gpu-ci
+entrypoint: bash ci/gpu_ci_run.sh
+image_uri: erictang000/skyrl-train-ray-2.48.0-py3.12-cu12.8 # (Optional) Exclusive with `containerfile`.
+cloud: sky-anyscale-aws-us-east-1
+ray_version: "2.48.0"
+compute_config: l4_ci 
+working_dir: . # (Optional) Use current working directory "." as the working_dir. Can be any local path or remote .zip file in cloud storage.
+env_vars:
+  RAY_RUNTIME_ENV_HOOK: ray._private.runtime_env.uv_runtime_env_hook.hook
+max_retries: 0 # (Optional) Maximum number of times the job will be retried before being marked failed. Defaults to `1`.

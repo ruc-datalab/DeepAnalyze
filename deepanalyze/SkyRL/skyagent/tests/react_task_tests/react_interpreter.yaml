@@ -1,0 +1,33 @@
+agent_cls: skyagent.agents.react.ReActAgent
+
+task: skyagent.tasks.general_react.utils.GeneralReactTask
+
+tools:
+  enabled: ["finish", "code_interpreter"]
+
+data:
+  data_source_key: data_source
+
+generator:
+  infer_backend: openai_server
+  backend_config: 
+    # TODO: model_name need not be in config
+    model_name: Qwen/Qwen3-8B
+    api_url: http://localhost:8000
+  num_trajectories: 1
+  max_iterations: 10
+  max_prompt_length: 38912
+  sampling_params:
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 38912
+  remove_think_tokens: true
+  vision_is_active: false
+  qwen3_enable_thinking: true
+  qwen3_acc_thinking: true
+
+dispatcher:
+  type: async_batch
+  scheduler: naive
+  max_parallel_agents: 64
+  max_eval_parallel_agents: 64

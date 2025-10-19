@@ -1,0 +1,12 @@
+name: skyrl-train-gpu-e2e-test
+entrypoint: bash ci/gpu_e2e_test_run.sh
+image_uri: erictang000/skyrl-train-ray-2.48.0-py3.12-cu12.8 # (Optional) Exclusive with `containerfile`.
+cloud: sky-anyscale-aws-us-east-1
+ray_version: "2.48.0"
+compute_config: l4_ci 
+working_dir: . # (Optional) Use current working directory "." as the working_dir. Can be any local path or remote .zip file in cloud storage.
+env_vars:
+  RAY_OVERRIDE_JOB_RUNTIME_ENV: "1"
+  WANDB_API_KEY: $WANDB_API_KEY
+  RAY_RUNTIME_ENV_HOOK: ray._private.runtime_env.uv_runtime_env_hook.hook
+max_retries: 1 # (Optional) Maximum number of times the job will be retried before being marked failed. Defaults to `1`.

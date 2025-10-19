@@ -1,0 +1,21 @@
+=== File Summary ===
+Shape: (1000, 2)
+
+First 5 rows:
+         name bool
+0   student10  neg
+1  student101  neg
+2  student103  neg
+3  student107  neg
+4  student110  neg
+
+Data types:
+name    object
+bool    object
+
+Descriptive stats:
+              name  bool
+count         1000  1000
+unique        1000     2
+top     student999   pos
+freq             1   643

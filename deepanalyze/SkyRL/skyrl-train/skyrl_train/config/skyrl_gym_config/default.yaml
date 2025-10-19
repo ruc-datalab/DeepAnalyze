@@ -1,0 +1,25 @@
+# @package environment.skyrl_gym
+# number of background workers for env step calls. Set to 0 to disable background workers.
+max_env_workers: 32
+
+text2sql:
+  db_path: "/home/ray/default/sql_data"
+
+code:
+  file_path: "/home/ray/default/sql_data"
+
+deepanalyze:
+  workspace: "xxxxx"
+  api_key: "xxxxx"
+  base_url: "xxxxx"
+  llm_judgement_model: "xxxxx"
+
+llm_as_a_judge:
+  model: "gpt-4o-mini"
+  base_url: null  # or a local endpoint: http://localhost:8000/v1
+
+search:
+  log_requests: false
+  search_url: "http://127.0.0.1:8000/retrieve"
+  topk: 3
+  timeout: 30

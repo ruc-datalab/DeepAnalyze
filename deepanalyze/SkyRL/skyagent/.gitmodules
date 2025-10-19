@@ -1,0 +1,4 @@
+[submodule "verl"]
+	path = verl
+	url = https://github.com/sumanthrh/verl
+	branch = skyagent

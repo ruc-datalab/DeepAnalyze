@@ -1,0 +1,224 @@
+defaults:
+  - _self_
+  - deepspeed_config@deepspeed_config.train: train
+  - deepspeed_config@deepspeed_config.eval: eval
+  - skyrl_gym_config: default
+
+data:
+  train_data: ["${oc.env:HOME}/data/gsm8k/train.parquet"]
+  val_data: ["${oc.env:HOME}/data/gsm8k/validation.parquet"]
+
+trainer:
+  placement:
+    colocate_all: true
+    colocate_policy_ref: true
+    colocate_critic_reward: false
+    policy_num_nodes: 1
+    policy_num_gpus_per_node: 4
+    critic_num_nodes: 1
+    critic_num_gpus_per_node: 4
+    ref_num_nodes: 1
+    ref_num_gpus_per_node: 4
+    reward_num_nodes: 1
+    reward_num_gpus_per_node: 4
+  sequence_parallel_backend: "ulysses"
+  strategy: fsdp2
+  policy:
+    model:
+      path: "Qwen/Qwen2.5-1.5B-Instruct"
+    deepspeed_config: ${deepspeed_config.train}
+    optimizer_config:
+      lr: 1.0e-6
+      adam_betas: [0.9, 0.999]
+      weight_decay: 1e-2
+      max_grad_norm: 1.0 # gradient clipping
+      offload_after_step: true # offload optimizer state to cpu after each step. Applicable only when `colocate_all=true`
+      num_warmup_steps: 0
+      scheduler: "constant_with_warmup"
+    fsdp_config:
+      cpu_offload: false # offload params + optimizer state to cpu during fwd pass
+      reshard_after_forward: true # fsdp2 only, [True, False, int between 1 and fsdp_size]
+      fsdp_size: -1
+    sequence_parallel_size: 1
+    # uses torch compile with logits calculation
+    use_torch_compile: false
+    # saves memory snapshots to os.path.join(ckpt_path, "memory_snapshots") - can visualize by dragging pickle files to https://docs.pytorch.org/memory_viz
+    record_memory: false
+  ref:
+    sequence_parallel_size: 1
+    deepspeed_config: ${deepspeed_config.eval}
+    fsdp_config:
+      cpu_offload: true
+      reshard_after_forward: true
+      fsdp_size: -1
+  critic:
+    model:
+      path: null
+    deepspeed_config: ${deepspeed_config.train}
+    optimizer_config:
+      lr: 5.0e-6
+      adam_betas: [0.9, 0.999]
+      weight_decay: 1e-2
+      max_grad_norm: 1.0 # gradient clipping
+      offload_after_step: true # offload optimizer state to cpu after each step. Applicable only when `colocate_all=true`
+      num_warmup_steps: 0
+      scheduler: "constant_with_warmup"
+    fsdp_config:
+      cpu_offload: false
+      reshard_after_forward: true
+      fsdp_size: -1
+    sequence_parallel_size: 1
+  reward:
+    model:
+      path: null
+    deepspeed_config: ${deepspeed_config.eval}
+    fsdp_config:
+      cpu_offload: true
+      reshard_after_forward: true
+      fsdp_size: -1
+    sequence_parallel_size: 1
+  algorithm:
+    advantage_estimator: "grpo"  # "grpo", "gae", "rloo", "reinforce++", or customizable with AdvantageEstimatorRegistry
+    kl_ctrl: # only used if use_kl_in_reward is true (not applied in the case of use_kl_loss=true) - uses kl_loss_coef as the initial KL coefficient
+      type: "fixed" # "fixed" or "adaptive"
+      kl_target: 0.1 # target KL divergence for adaptive KL controller
+      horizon: 10000 # controls the update rate of the adaptive KL controller
+    kl_estimator_type: "k3" # "k1", "k2", "k3", "abs" - see http://joschu.net/blog/kl-approx.html for details
+    use_kl_estimator_k3: false # to be deprecated, use kl_estimator_type="k3" instead
+    use_abs_kl: false # to be deprecated, use kl_estimator_type="abs" instead
+    # note: use_kl_in_reward and use_kl_loss should be mutually exclusive
+    use_kl_in_reward: false # apply kl loss to rewards
+    use_kl_loss: true # used in policy model
+    kl_loss_coef: 0.001
+    # this adds training batch level normalization to advantages
+    advantage_batch_normalize: false
+    value_head_prefix: "value_head"
+    policy_loss_type: "regular" # "regular", "dual_clip", "gspo", or customizable with PolicyLossRegistry
+    loss_reduction: "token_mean" # "token_mean", "sequence_mean", "seq_mean_token_sum_norm"
+    grpo_norm_by_std: true # set to false to disable normalization by std in GRPO
+    # GAE parameters
+    lambd: 1.0
+    gamma: 1.0
+    # PPO parameters
+    eps_clip_low: 0.2
+    eps_clip_high: 0.2
+    # dual clip parameters
+    clip_ratio_c: 3.0
+    # Truncated Importance Sampling as proposed in https://fengyao.notion.site/off-policy-rl 
+    tis_imp_ratio_cap: -1.0
+    use_tis: false
+
+    # value loss parameters
+    value_clip: 0.2
+    normalize_reward: true
+    dynamic_sampling:
+      type: null # filter, replace, or null
+      max_sample_batches: 30 # sample at most this many batches before stopping, -1 to sample forever
+      min_replace_ratio: 0.3 # minimum proportion of good samples with which to replace bad samples (for replace strategy only)
+    
+
+  gradient_checkpointing: true
+  gradient_checkpointing_use_reentrant: false
+  seed: 42
+  resume_mode: latest # null/"none", "latest", "from_path"
+  resume_path: null
+  ckpt_path: "${oc.env:HOME}/ckpts/" # Path for resumable training checkpoints (model state, optimizer state, etc.)
+  max_ckpts_to_keep: 1 # -1 to keep all checkpoints, N to keep the last N checkpoints
+  ckpt_interval: 10  # Save full training checkpoint every `ckpt_interval` steps.
+  hf_save_interval: -1  # Save HF format model(s)every `hf_save_interval` steps.
+  export_path: "${oc.env:HOME}/exports/" # Path for exported artifacts (HF models, debug dumps, etc.)
+  bf16: true
+  epochs: 1  # Number of passes over the full dataset
+  update_epochs_per_batch: 1  # Number of gradient update passes over each train batch
+  train_batch_size: 1024  # See `utils/utils.py::validate_batch_sizes` for train, mini, and micro batch size constraints.
+  policy_mini_batch_size: 256
+  critic_mini_batch_size: 256
+  micro_train_batch_size_per_gpu: 1
+  micro_forward_batch_size_per_gpu: 1
+  update_ref_every_epoch: false
+  use_sample_packing: true
+  eval_batch_size: 1024
+  eval_before_train: true
+  eval_interval: 5 # Set to -1 to disable evaluation.
+  # max prompt length in training dataset
+  max_prompt_length: 512
+  flash_attn: true
+  disable_fast_tokenizer: false
+  target_modules: "all-linear"
+  use_orm_score: false
+  project_name: "skyrl"
+  run_name: "test_run"
+  logger: "wandb"
+  dump_data_batch: false
+  dump_eval_results: true
+
+
+generator:
+  model_dtype: "bfloat16" # should match dtype for inference engine
+  run_engines_locally: true
+  num_inference_engines: 1
+  backend: "vllm"
+  weight_sync_backend: "nccl"
+  # if using cuda_ipc, we send in batches of this size in GB
+  weight_transfer_threshold_cuda_ipc_GB: 1.0
+  inference_engine_tensor_parallel_size: 4
+  n_samples_per_prompt: 5
+  async_engine: true
+  batched: false
+  max_input_length: ${trainer.max_prompt_length} # max generator input length used for multi-turn conversations - for single turn set equal to max_prompt_length
+  # VLLM_ENABLE_V1_MULTIPROCESSING=0 for reproducibility
+  vllm_v1_disable_multiproc: false
+  enable_prefix_caching: true
+  enable_chunked_prefill: true
+  max_num_batched_tokens: 131072
+  enforce_eager: true
+  gpu_memory_utilization: 0.5
+  max_num_seqs: 32
+  remote_inference_engine_urls: ["127.0.0.1:8001"]
+  max_turns: 1
+
+  override_existing_update_group: "auto" # "auto", "enable", "disable"
+  # sampling params for generation phase
+  sampling_params:
+    max_generate_length: 1024
+    temperature: 0.6
+    top_p: 1.0
+    min_p: 0.0
+    top_k: -1
+    logprobs: null
+    stop_token_ids: [151676,151645]
+
+  # whether to use a conversation based format for multi-turn generations
+  # if false, append multi-turn model responses and env observations to the original assistant response
+  # if true, each multi-turn model response and env observations is stored in a separate assistant/user message respectively
+  use_conversation_multi_turn: true
+
+  # sampling params for evaluation
+  eval_sampling_params:
+    max_generate_length: ${generator.sampling_params.max_generate_length}
+    temperature: 0.0
+    top_p: 1.0
+    min_p: 0.0
+    top_k: -1
+    logprobs: null
+
+  # number of samples per prompt for evaluation
+  eval_n_samples_per_prompt: 1
+
+  # NOTE (sumanthrh): This flag sets the reward to 0 if the `stop_reason` is not `stop`.
+  # This is useful in cases where the LLM generation was truncated or aborted.
+  # Cases where this is useful: Often, we have format rewards for the LLM to follow,
+  # but in cases where the LLM didn't finish the response, we typically don't want to reward it.
+  # This is a general setting for all environments.
+  # TODO (erictang000): Show clear ablations for benefits of this on GSM8K or SQL.
+  zero_reward_on_non_stop: false
+
+  # Whether to apply DAPO Overlong Filtering to the loss masks.
+  # For each trajectory that exceeds the max length (i.e., truncated and does not end with an
+  # EOS token), this masks out every token in the loss mask.
+  apply_overlong_filtering: false
+
+environment:
+  env_class: "gsm8k"
+  # NOTE: environment specific defaults for environment.skyrl_gym are set at the following path:
+  # skyrl_gym: config/skyrl_gym_config/default.yaml
