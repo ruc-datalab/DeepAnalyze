@@ -3,7 +3,7 @@
 </p>
 
 # DeepAnalyze: Agentic Large Language Models for Autonomous Data Science
-[![arXiv](https://img.shields.io/badge/arXiv-xxxx.xxxx-b31b1b.svg?logo=arXiv)](https://github.com/ruc-datalab/DeepAnalyze)
+[![arXiv](https://img.shields.io/badge/arXiv-2510.16872-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2510.16872)
 [![homepage](https://img.shields.io/badge/%F0%9F%8C%90%20Homepage%20-DeepAnalyze%20Cases-blue.svg)](https://ruc-deepanalyze.github.io/)
 [![model](https://img.shields.io/badge/%F0%9F%A4%97%20Huggingface%20-DeepAnalyze--8B-orange.svg)](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)
 [![data](https://img.shields.io/badge/%F0%9F%93%9A%20Datasets%20-DataScience--Instruct--500K-darkgreen.svg)](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K)
@@ -13,9 +13,9 @@
 
 
 **DeepAnalyze** is the first agentic LLM for autonomous data science. It can autonomously complete a wide range of data-centric tasks without human intervention, supporting:
-- 🛠 **Entire data science pipeline**: Data preparation, data analysis, Data modeling, data visualization, and report generation.
-- 🔍 **Open-ended data research**: Explore diverse data sources and produce high-quality, analyst-grade research reports.
-- 📊 **Various data types**: Handle structured data (Databases, CSV, Excel), semi-structured data (JSON, XML, YAML), and unstructured data (TXT, Markdown).
+- 🛠 **Entire data science pipeline**: Automatically perform any data science tasks such as data preparation, analysis, modeling, visualization, and report generation.
+- 🔍 **Open-ended data research**: Conduct deep research on diverse data sources, including structured data (Databases, CSV, Excel), semi-structured data (JSON, XML, YAML), and unstructured data (TXT, Markdown), and finally produce analyst-grade research reports.
+- 📊 **Fully open-source**: The [model](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B), [code](https://github.com/ruc-datalab/DeepAnalyze), [training data](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K), and [demo](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B) of DeepAnalyze are all open-sourced, allowing you to deploy or extend your own data analysis assistant.
 
 <p align="center" width="100%">
 <img src="./assets/deepanalyze.jpg" alt="deepanalyze" style="width: 70%; min-width: 300px; display: block; margin: auto;">
@@ -33,6 +33,7 @@ https://github.com/user-attachments/assets/aa05e708-ac26-4657-9173-2a26891dbe7b
 > [!TIP]
 >
 > Clone this repository to deploy DeepAnalyze locally as your data analyst, completing any data science tasks without any workflow or closed-source APIs.
+> 🔥 The UI of the demo is an initial version. Welcome to further develop it, and we will include you as a contributor.
 
 
 - Clone this repo and download [DeepAnalyze-8B](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B).
@@ -76,26 +77,16 @@ https://github.com/user-attachments/assets/aa05e708-ac26-4657-9173-2a26891dbe7b
   Generate a data science report.
   
   # Data
-  File 1:
-  {"name": "bool.xlsx", "size": "4.8KB"}
-  File 2:
-  {"name": "person.csv", "size": "10.6KB"}
-  File 3:
-  {"name": "disabled.xlsx", "size": "5.6KB"}
-  File 4:
-  {"name": "enlist.csv", "size": "6.7KB"}
-  File 5:
-  {"name": "filed_for_bankrupcy.csv", "size": "1.0KB"}
-  File 6:
-  {"name": "longest_absense_from_school.xlsx", "size": "16.0KB"}
-  File 7:
-  {"name": "male.xlsx", "size": "8.8KB"}
-  File 8:
-  {"name": "no_payment_due.xlsx", "size": "15.6KB"}
-  File 9:
-  {"name": "unemployed.xlsx", "size": "5.6KB"}
-  File 10:
-  {"name": "enrolled.csv", "size": "20.4KB"}"""
+  File 1: {"name": "bool.xlsx", "size": "4.8KB"}
+  File 2: {"name": "person.csv", "size": "10.6KB"}
+  File 3: {"name": "disabled.xlsx", "size": "5.6KB"}
+  File 4: {"name": "enlist.csv", "size": "6.7KB"}
+  File 5: {"name": "filed_for_bankrupcy.csv", "size": "1.0KB"}
+  File 6: {"name": "longest_absense_from_school.xlsx", "size": "16.0KB"}
+  File 7: {"name": "male.xlsx", "size": "8.8KB"}
+  File 8: {"name": "no_payment_due.xlsx", "size": "15.6KB"}
+  File 9: {"name": "unemployed.xlsx", "size": "5.6KB"}
+  File 10: {"name": "enrolled.csv", "size": "20.4KB"}"""
   workspace = "/home/u2023000922/zhangshaolei/deepanalyze_dev/example/student_loan/"
   
   deepanalyze = DeepAnalyzeVLLM(
@@ -183,6 +174,15 @@ https://github.com/user-attachments/assets/aa05e708-ac26-4657-9173-2a26891dbe7b
 If this repository is useful for you, please cite as:
 
 ```
+@misc{deepanalyze,
+      title={DeepAnalyze: Agentic Large Language Models for Autonomous Data Science}, 
+      author={Shaolei Zhang and Ju Fan and Meihao Fan and Guoliang Li and Xiaoyong Du},
+      year={2025},
+      eprint={2510.16872},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2510.16872}, 
+}
 ```
 
 If you have any questions, please feel free to submit an issue or contact `zhangshaolei98@ruc.edu.cn`.
