@@ -28,7 +28,8 @@
 <p align="center" width="100%">
 Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 🛠
 </p>
-https://github.com/user-attachments/assets/aa05e708-ac26-4657-9173-2a26891dbe7b
+
+https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 
 > [!TIP]
 >
