@@ -53,7 +53,7 @@ jsonschema==4.24.0
 jsonschema-specifications==2025.4.1
 kiwisolver==1.4.9
 lark==1.2.2
-llguidance==1.0.1
+llguidance
 llvmlite==0.44.0
 lm-format-enforcer==0.10.11
 markdown-it-py==3.0.0
@@ -121,7 +121,7 @@ python-multipart==0.0.20
 pytz==2025.2
 pyxlsb==1.0.10
 PyYAML==6.0.2
-pyzmq @ file:///croot/pyzmq_1734687138743/work
+pyzmq # if fail to pip, use conda
 ray==2.47.1
 referencing==0.36.2
 regex==2024.11.6
@@ -155,91 +155,72 @@ unicorn==2.1.3
 urllib3==2.5.0
 uvicorn==0.35.0
 uvloop==0.21.0
-vllm==0.8.5
 watchfiles==1.1.0
 wcwidth==0.2.13
 websockets==15.0.1
-xformers==0.0.27.post2
 xgboost==3.0.4
 xgrammar==0.1.21
 yarl==1.20.1
 zipp==3.23.0
-gradio==5.44.1
-openai>=1.0.0
-requests>=2.25.0
-fastapi>=0.104.0
-uvicorn>=0.24.0
-python-multipart>=0.0.6
-websockets>=12.0
-
+vllm==0.8.5
 # 数据处理与分析
-pandas==2.3.1
-scipy==1.13.1
-pandasql==0.7.3
-pyjanitor==0.31.0
-feature-engine==1.8.3
-missingno==0.5.2
+pandasql
+pyjanitor
+feature-engine
+missingno
 
 # 数据可视化
-matplotlib==3.8.4
-seaborn==0.13.2
-plotly==6.2.0
-bokeh==3.7.3
-squarify==0.4.4
-matplotlib-venn==1.1.2
-wordcloud==1.9.4
-folium==0.20.0
-contextily==1.6.2
+plotly
+bokeh
+squarify
+matplotlib-venn
+wordcloud
+folium
+contextily
 
 # 机器学习 / 深度学习
-scikit-learn==1.6.1
-xgboost==3.0.2
-mlxtend==0.23.4
-imbalanced-learn==0.13.0
-optuna==4.4.0
-shap==0.48.0
-lime==0.2.0.1
+mlxtend
+imbalanced-learn
+optuna
+shap
+lime
 
 # 时间序列与预测
-prophet==1.1.7
-pmdarima==2.0.4
-tslearn==0.6.4
-lifelines==0.30.0
+prophet
+pmdarima
+tslearn
+lifelines
 
 # 贝叶斯 / 概率建模
-pymc==5.23.0
-pymc3==3.11.6
-pystan==3.10.0
-cmdstanpy==1.2.5
-pyro-ppl==1.9.1
-Theano-PyMC==1.1.2
+pymc
+pystan
+cmdstanpy
+pyro-ppl
 
 # 因果推断
-dowhy==0.12
-econml==0.16.0
-causalml==0.15.5
-CausalInference==0.1.3
-zepid==0.9.1
+dowhy
+econml
+causalml
+CausalInference
+zepid
 
 # 地理数据科学
-geopandas==1.1.1
-shapely==2.1.1
-rasterio==1.4.3
-rasterstats==0.20.0
-fiona==1.10.1
-rtree==1.4.0
-pysal==25.1
-libpysal==4.13.0
-esda==2.7.0
-giddy==2.3.6
-segregation==2.5.2
-spopt==0.6.1
-spreg==1.8.3
-spglm==1.1.0
-splot==1.1.7
-spaghetti==1.7.6
-tobler==0.12.1
+geopandas
+shapely
+rasterio
+rasterstats
+fiona
+rtree
+pysal
+libpysal
+esda
+giddy
+segregation
+spopt
+spreg
+spglm
+splot
+spaghetti
+tobler
 
-# 数据报告与自动化
-ydata-profiling==4.16.1
-pandas-profiling==3.6.6
+
