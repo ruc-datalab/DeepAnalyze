@@ -7,6 +7,7 @@
 [![homepage](https://img.shields.io/badge/%F0%9F%8C%90%20Homepage%20-DeepAnalyze%20Cases-blue.svg)](https://ruc-deepanalyze.github.io/)
 [![model](https://img.shields.io/badge/%F0%9F%A4%97%20Huggingface%20-DeepAnalyze--8B-orange.svg)](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)
 [![data](https://img.shields.io/badge/%F0%9F%93%9A%20Datasets%20-DataScience--Instruct--500K-darkgreen.svg)](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K)
+[![star](https://img.shields.io/github/stars/ruc-datalab/DeepAnalyze?style=social&label=Code+Stars)](https://github.com/ruc-datalab/DeepAnalyze)
 ![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2Fruc-datalab%2FDeepAnalyze&label=Visitors&icon=graph-up&color=%23dc3545&message=&style=flat&tz=UTC)
 
 > **Authors**: **[Shaolei Zhang](https://zhangshaolei1998.github.io/), [Ju Fan*](http://iir.ruc.edu.cn/~fanj/), [Meihao Fan](https://scholar.google.com/citations?user=9RTm2qoAAAAJ), [Guoliang Li](https://dbgroup.cs.tsinghua.edu.cn/ligl/), [Xiaoyong Du](http://info.ruc.edu.cn/jsky/szdw/ajxjgcx/jsjkxyjsx1/js2/7374b0a3f58045fc9543703ccea2eb9c.htm)**
@@ -22,6 +23,9 @@
 </p>
 
 
+> Welcome to ⭐ star DeepAnalyze. Any useful issues and pull requests will be included in contributors.
+
+
 ## 🖥 Demo
 
 
@@ -34,6 +38,7 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 > [!TIP]
 >
 > Clone this repository to deploy DeepAnalyze locally as your data analyst, completing any data science tasks without any workflow or closed-source APIs.
+>
 > 🔥 The UI of the demo is an initial version. Welcome to further develop it, and we will include you as a contributor.
 
 
@@ -70,6 +75,9 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 - Deploy DeepAnalyze-8B via vllm: `vllm serve DeepAnalyze-8B`
 
 - Run these scripts for any data science tasks:
+  - You can specify **any data science tasks**, including specific data tasks and open-ended data research.
+  - You can specify **any number of data sources**, and DeepAnalyze will automatically explore them.
+  - You can specify **any type of data sources**, e.g., structured data (Databases, CSV, Excel), semi-structured data (JSON, XML, YAML), and unstructured data (TXT, Markdown)
 
   ```python
   from deepanalyze import DeepAnalyzeVLLM
@@ -88,6 +96,7 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
   File 8: {"name": "no_payment_due.xlsx", "size": "15.6KB"}
   File 9: {"name": "unemployed.xlsx", "size": "5.6KB"}
   File 10: {"name": "enrolled.csv", "size": "20.4KB"}"""
+
   workspace = "/home/u2023000922/zhangshaolei/deepanalyze_dev/example/student_loan/"
   
   deepanalyze = DeepAnalyzeVLLM(
@@ -112,6 +121,8 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
   <p align="center" width="100%">
     <img src="./assets/report.png" alt="deepanalyze" style="width: 100%; min-width: 300px; display: block; margin: auto;">
   </p>
+
+  > For more examples and task completion details, please refer to [DeepAnalyze's homepage](https://ruc-deepanalyze.github.io/).
 
 ### API
 - You can build an OpenAI-Style API, using this script (note to change `MODEL_PATH = "DeepAnalyze-8B"` in [demo/backend.py](demo/backend.py) to your vllm model name):
