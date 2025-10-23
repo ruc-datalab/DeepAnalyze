@@ -658,9 +658,12 @@ def bot_stream(messages, workspace, session_id="default"):
             if workspace
             else collect_file_info(WORKSPACE_DIR)
         )
-        messages[-1][
-            "content"
-        ] = f"# Instruction\n{user_message} Include data preparation, data analysis, visualization, data insight in the report.\n\n# Data\n{file_info}\nUse <Analyze>, <Understand>, <Code>, <Execute>, <Answer> tags."
+        if file_info:
+            messages[-1][
+                "content"
+            ] = f"# Instruction\n{user_message}\n\n# Data\n{file_info}"
+        else:
+            messages[-1]["content"] = f"# Instruction\n{user_message}"
     # print("111",messages)
     initial_workspace = set(workspace)
     assistant_reply = ""
