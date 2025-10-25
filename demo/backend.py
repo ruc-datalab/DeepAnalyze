@@ -121,13 +121,45 @@ def execute_code_safe(
             pass
 
 
-# API endpoint and model path
-API_BASE = "http://localhost:8000/v1"  # this localhost is for vllm api, do not change
-MODEL_PATH = "DeepAnalyze-8B"  # replace to your path to DeepAnalyze-8B
+# ==============================================================================
+# Model Configuration
+# ==============================================================================
+# Set USE_OPENROUTER=true to use OpenRouter API (supports 100+ models)
+# Otherwise, uses local vLLM server
+USE_OPENROUTER = os.environ.get("USE_OPENROUTER", "false").lower() == "true"
 
+if USE_OPENROUTER:
+    # OpenRouter Configuration
+    API_BASE = "https://openrouter.ai/api/v1"
+    MODEL_PATH = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet")
+    API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-# Initialize OpenAI client
-client = openai.OpenAI(base_url=API_BASE, api_key="dummy")
+    if not API_KEY:
+        raise ValueError(
+            "OPENROUTER_API_KEY environment variable is required when USE_OPENROUTER=true"
+        )
+
+    # Initialize OpenAI client with OpenRouter
+    client = openai.OpenAI(
+        base_url=API_BASE,
+        api_key=API_KEY,
+        default_headers={
+            "HTTP-Referer": os.environ.get("SITE_URL", "https://github.com/ruc-datalab/DeepAnalyze"),
+            "X-Title": "DeepAnalyze",
+        }
+    )
+    print(f"🌐 Using OpenRouter API")
+    print(f"   Model: {MODEL_PATH}")
+else:
+    # Local vLLM Configuration
+    API_BASE = "http://localhost:8000/v1"
+    MODEL_PATH = os.environ.get("MODEL_PATH", "DeepAnalyze-8B")
+
+    # Initialize OpenAI client for local vLLM
+    client = openai.OpenAI(base_url=API_BASE, api_key="dummy")
+    print(f"🖥️  Using local vLLM server")
+    print(f"   API Base: {API_BASE}")
+    print(f"   Model: {MODEL_PATH}")
 
 # Workspace directory
 WORKSPACE_BASE_DIR = "workspace"
