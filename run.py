@@ -1,4 +1,12 @@
-from deepanalyze import DeepAnalyzeVLLM
+from deepanalyze_gemini import DeepAnalyzeGemini
+import os
+
+# It is recommended to set the API key as an environment variable
+# export GEMINI_API_KEY="your_api_key"
+api_key = os.environ.get("GEMINI_API_KEY")
+
+if not api_key:
+    raise ValueError("GEMINI_API_KEY environment variable not set.")
 
 prompt = """# Instruction
 Generate a data science report.
@@ -25,11 +33,11 @@ File 9:
 File 10:
 {"name": "enrolled.csv", "size": "20.4KB"}"""
 
-workspace = "/home/u2023000922/zhangshaolei/deepanalyze_dev/example/student_loan/"
+workspace = "example/student_loan/"
 
-
-deepanalyze = DeepAnalyzeVLLM(
-    "/fs/fast/u2023000922/zhangshaolei/checkpoints/deepanalyze-8b/"
+deepanalyze = DeepAnalyzeGemini(
+    model_name="gemini-flash-latest",
+    api_key=api_key,
 )
 answer = deepanalyze.generate(prompt, workspace=workspace)
 print(answer["reasoning"])
