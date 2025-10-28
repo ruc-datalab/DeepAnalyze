@@ -6,7 +6,7 @@ from deepanalyze import DeepAnalyzeVLLM
 
 prompt = """Analyze which teaching method (treatment) performs better."""
 
-workspace = "example/Simpson/data"
+workspace = "example/simpson_paradox_analysis/data"
 
 deepanalyze = DeepAnalyzeVLLM(
     "DeepAnalyze-88"
@@ -175,7 +175,7 @@ Basic dataset information saved to 'dataset_overview.txt'
 
 #### Step 4: File
 
-- [dataset_overview.txt](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/dataset_overview.txt)
+- [dataset_overview.txt](./dataset_overview.txt)
 
 #### Step 5: Understand
 
@@ -300,27 +300,27 @@ print("Analysis complete. Visualizations and statistical results saved to files.
 #### Step 8: Execute
 
 ```
-/home/zhangsl/aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmpg6atwui4.py:15: FutureWarning: 
+./aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmpg6atwui4.py:15: FutureWarning: 
 
 The `ci` parameter is deprecated. Use `errorbar=('ci', 95)` for the same effect.
 
   ax = sns.barplot(x='treatment', y='success', data=df, ci=95)
-/home/zhangsl/aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmpg6atwui4.py:24: FutureWarning: 
+./aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmpg6atwui4.py:24: FutureWarning: 
 
 The `ci` parameter is deprecated. Use `errorbar=('ci', 95)` for the same effect.
 
   sns.barplot(x='dept', y='success', hue='treatment', data=df, ci=95)
 Traceback (most recent call last):
-  File "/home/zhangsl/aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmpg6atwui4.py", line 37, in <module>
+  File "./aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmpg6atwui4.py", line 37, in <module>
     df['age_group'] = df['age_group'].cat.reorder_categories(['young', 'middle', 'senior'])  # Assuming 'senior' exists
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/pandas/core/accessor.py", line 112, in f
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/pandas/core/accessor.py", line 112, in f
     return self._delegate_method(name, *args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/pandas/core/arrays/categorical.py", line 2974, in _delegate_method
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/pandas/core/arrays/categorical.py", line 2974, in _delegate_method
     res = method(*args, **kwargs)
           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/pandas/core/arrays/categorical.py", line 1279, in reorder_categories
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/pandas/core/arrays/categorical.py", line 1279, in reorder_categories
     raise ValueError(
 ValueError: items in new_categories are not the same as in old categories
 
@@ -328,10 +328,10 @@ ValueError: items in new_categories are not the same as in old categories
 
 #### Step 9: File
 
-- [success_by_dept_treatment.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/success_by_dept_treatment.png)
-![success_by_dept_treatment.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/success_by_dept_treatment.png)
-- [success_by_treatment.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/success_by_treatment.png)
-![success_by_treatment.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/success_by_treatment.png)
+- [success_by_dept_treatment.png](./success_by_dept_treatment.png)
+![success_by_dept_treatment.png](./success_by_dept_treatment.png)
+- [success_by_treatment.png](./success_by_treatment.png)
+![success_by_treatment.png](./success_by_treatment.png)
 
 #### Step 10: Understand
 
@@ -468,28 +468,28 @@ print("Analysis complete. Updated visualizations and statistical results saved t
 
 ```
 Traceback (most recent call last):
-  File "/home/zhangsl/aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmpwkwylqxh.py", line 50, in <module>
+  File "./aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmpwkwylqxh.py", line 50, in <module>
     model = sm.Logit(y, X).fit()
             ^^^^^^^^^^^^^^
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/discrete/discrete_model.py", line 475, in __init__
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/discrete/discrete_model.py", line 475, in __init__
     super().__init__(endog, exog, offset=offset, check_rank=check_rank,
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/discrete/discrete_model.py", line 185, in __init__
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/discrete/discrete_model.py", line 185, in __init__
     super().__init__(endog, exog, **kwargs)
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/model.py", line 270, in __init__
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/model.py", line 270, in __init__
     super().__init__(endog, exog, **kwargs)
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/model.py", line 95, in __init__
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/model.py", line 95, in __init__
     self.data = self._handle_data(endog, exog, missing, hasconst,
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/model.py", line 135, in _handle_data
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/model.py", line 135, in _handle_data
     data = handle_data(endog, exog, missing, hasconst, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/data.py", line 675, in handle_data
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/data.py", line 675, in handle_data
     return klass(endog, exog=exog, missing=missing, hasconst=hasconst,
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/data.py", line 84, in __init__
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/data.py", line 84, in __init__
     self.endog, self.exog = self._convert_endog_exog(endog, exog)
                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/zhangsl/anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/data.py", line 509, in _convert_endog_exog
+  File "./anaconda3/envs/webui/lib/python3.12/site-packages/statsmodels/base/data.py", line 509, in _convert_endog_exog
     raise ValueError("Pandas data cast to numpy dtype of object. "
 ValueError: Pandas data cast to numpy dtype of object. Check input data with np.asarray(data).
 
@@ -497,10 +497,10 @@ ValueError: Pandas data cast to numpy dtype of object. Check input data with np.
 
 #### Step 14: File
 
-- [success_by_treatment_v2.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/success_by_treatment_v2.png)
-![success_by_treatment_v2.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/success_by_treatment_v2.png)
-- [success_by_dept_treatment_v2.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/success_by_dept_treatment_v2.png)
-![success_by_dept_treatment_v2.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/success_by_dept_treatment_v2.png)
+- [success_by_treatment_v2.png](./success_by_treatment_v2.png)
+![success_by_treatment_v2.png](./success_by_treatment_v2.png)
+- [success_by_dept_treatment_v2.png](./success_by_dept_treatment_v2.png)
+![success_by_dept_treatment_v2.png](./success_by_dept_treatment_v2.png)
 
 #### Step 15: Understand
 
@@ -644,7 +644,7 @@ print("Analysis completed. Results saved to files.")
 ```
 Model fitting failed. Check error_log.txt for details.
 Analysis completed. Results saved to files.
-/home/zhangsl/aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmp7e3bx96o.py:73: FutureWarning: 
+./aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmp7e3bx96o.py:73: FutureWarning: 
 
 The `ci` parameter is deprecated. Use `errorbar=('ci', 95)` for the same effect.
 
@@ -654,9 +654,9 @@ The `ci` parameter is deprecated. Use `errorbar=('ci', 95)` for the same effect.
 
 #### Step 19: File
 
-- [error_log.txt](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/error_log.txt)
-- [treatment_by_dept.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/treatment_by_dept.png)
-![treatment_by_dept.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/treatment_by_dept.png)
+- [error_log.txt](./error_log.txt)
+- [treatment_by_dept.png](./treatment_by_dept.png)
+![treatment_by_dept.png](./treatment_by_dept.png)
 
 #### Step 20: Understand
 
@@ -805,7 +805,7 @@ print("Analysis completed. Check output files for results.")
 Firth model failed: Pandas data cast to numpy dtype of object. Check input data with np.asarray(data).
 Regularized model failed: Pandas data cast to numpy dtype of object. Check input data with np.asarray(data).
 Analysis completed. Check output files for results.
-/home/zhangsl/aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmp9gqzwup_.py:64: FutureWarning: 
+./aichat-main/workspace/session_1761013874300_0vsdgfuyu/tmp9gqzwup_.py:64: FutureWarning: 
 
 The `ci` parameter is deprecated. Use `errorbar=('ci', 95)` for the same effect.
 
@@ -815,9 +815,9 @@ The `ci` parameter is deprecated. Use `errorbar=('ci', 95)` for the same effect.
 
 #### Step 24: File
 
-- [enhanced_treatment_effect.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/enhanced_treatment_effect.png)
-![enhanced_treatment_effect.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/enhanced_treatment_effect.png)
-- [data_quality_report.txt](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/data_quality_report.txt)
+- [enhanced_treatment_effect.png](./enhanced_treatment_effect.png)
+![enhanced_treatment_effect.png](./enhanced_treatment_effect.png)
+- [data_quality_report.txt](./data_quality_report.txt)
 
 #### Step 25: Understand
 
@@ -998,10 +998,10 @@ Analysis completed. Check output files.
 
 #### Step 29: File
 
-- [data_validation_report.txt](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/data_validation_report.txt)
-- [final_treatment_effect.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/final_treatment_effect.png)
-![final_treatment_effect.png](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/final_treatment_effect.png)
-- [final_model_results.txt](http://10.77.110.215:8100/session_1761013874300_0vsdgfuyu/generated/final_model_results.txt)
+- [data_validation_report.txt](./data_validation_report.txt)
+- [final_treatment_effect.png](./final_treatment_effect.png)
+![final_treatment_effect.png](./final_treatment_effect.png)
+- [final_model_results.txt](./final_model_results.txt)
 
 #### Step 30: Answer
 
@@ -1045,6 +1045,7 @@ The complete analysis files (model results, visualizations, and data validation 
 ### GPT5
 
 #### GPT5-auto
+Generated via the model’s web interface
 ````text
 Here’s what I found from your file:
 - Detected treatment column: treatment
@@ -1067,6 +1068,7 @@ If you want me to adjust for a pre-test score or other covariates (e.g., baselin
 ````
 
 #### GPT5-Thinking
+Generated via the model’s web interface
 ````text
 I’ve analyzed your file and compared the teaching methods.
 Here’s what I prepared for you:
@@ -1087,6 +1089,7 @@ If you want, I can:
 ````
 
 ### Claude Sonnet 4.5
+Generated via the model’s web interface
 ````text
 I'll analyze the dataset to compare the performance of different teaching methods.Now I'll analyze this data to compare teaching method performance.Now let me create a visualization to better illustrate these findings:## Analysis Results: Teaching Method Performance
 Treatment 0 (traditional/control method) performs significantly better than Treatment 1 (new method).
@@ -1108,6 +1111,7 @@ Conclusion: Treatment 0 (the traditional/control method) is clearly the superior
 ````
 
 ### Claude Sonnet 4.5(Extended Thinking)
+Generated via the model’s web interface
 ````text
 I'll analyze the teaching methods data for you. Let me first examine the uploaded file to understand its structure.Now I'll analyze the teaching methods to determine which performs better. Let me load and examine the data.Now let me create a comprehensive summary report:## Analysis Complete: Simpson's Paradox Detected! ⚠️
 The Short Answer: Neither treatment is definitively better. This dataset exhibits Simpson's Paradox—the overall comparison is completely misleading due to confounding.
@@ -1118,7 +1122,10 @@ Key Findings
 - Treatment 0 appears dramatically better, but this is misleading!
 ✓ Proper Comparison (Within Departments):
 When controlling for department difficulty:
-暂时无法在飞书文档外展示此内容
+| Department           | Treatment 0 | Treatment 1 | Winner                 |
+|----------------------|-------------|-------------|------------------------|
+| A_hard (difficult)   | 19.10%      | 23.10%      | Treatment 1 (+3.9 pts) |
+| B_easy (easy)        | 86.40%      | 91.10%      | Treatment 1 (+4.7 pts) |
 Treatment 1 is slightly better in BOTH departments, but these differences are not statistically significant (p > 0.05).
 Why The Paradox?
 The confounding is severe:
@@ -1131,6 +1138,7 @@ Consider the treatments roughly equivalent. The data doesn't provide strong evid
 ````
 
 ### DeepSeek
+Generated via the model’s web interface
 ````text
 We are given a dataset with columns: dept, treatment, success, age_group, income.
 We are to analyze which teaching method (treatment) performs better.
