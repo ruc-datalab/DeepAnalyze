@@ -1,2 +1,0 @@
-# Instruction
-Analyze which teaching method (treatment) performs better.
