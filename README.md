@@ -29,9 +29,9 @@
 
 
 ## 🔥 News
-- [2025.10.28]: We welcome all contributions, including improving the repo and sharing use cases (see [`CONTRIBUTION.md`](CONTRIBUTION.md)); merged PRs will be listed as contributors.
-- [2025.10.27]: **DeepAnalyze** has attracted widespread attention, gaining **1K+** GitHub stars and **200K+** Twitter views within a week.
-- [2025.10.21]: **DeepAnalyze**'s [paper](https://arxiv.org/abs/2510.16872), [code](https://github.com/ruc-datalab/DeepAnalyze), [model](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B), [training data](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K) are released!
+- **[2025.10.28]**: We welcome all contributions, including improving the DeepAnalyze and sharing use cases (see [`CONTRIBUTION.md`](CONTRIBUTION.md)). All merged PRs will be listed as contributors.
+- **[2025.10.27]**: DeepAnalyze has attracted widespread attention, gaining **1K+** GitHub stars and **200K+** Twitter views within a week.
+- **[2025.10.21]**: DeepAnalyze's [paper](https://arxiv.org/abs/2510.16872), [code](https://github.com/ruc-datalab/DeepAnalyze), [model](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B), [training data](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K) are released!
 
 ## 🖥 Demo
 
@@ -186,7 +186,7 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 
 
 ## 👏 Contribution
-- We welcome all forms of contributions, and merged PRs will be listed as contributors.
+> We welcome all forms of contributions, and merged PRs will be listed as contributors.
 ### Contribution on Code and Model
 
 - We welcome all forms of contributions on DeepAnalyze's code, model and UI, such as Docker packaging, DeepAnalyze model conversion and quantization, and submitting DeepAnalyze workflows based on closed-source LLMs. 
@@ -225,10 +225,12 @@ If you have any questions, please feel free to submit an issue or contact `zhang
 
 ## 🌟 Misc
 
-If you like DeepAnalyze, give it a GitHub Star ⭐. Welcome to join the [DeepAnalyze WeChat group](./assets/wechat.jpg), chat and share ideas with others!
+Welcome to join the [DeepAnalyze WeChat group](./assets/wechat.jpg), chat and share ideas with others!
+
 <p align="left" width="100%">
 <img src="./assets/wechat.jpg" alt="DeepAnalyze" style="width: 30%; min-width: 300px; display: block; margin: auto;">
 </p>
 
+If you like DeepAnalyze, give it a GitHub Star ⭐. 
 
 [![Star History Chart](https://api.star-history.com/svg?repos=ruc-datalab/DeepAnalyze&type=date&legend=top-left)](https://www.star-history.com/#ruc-datalab/DeepAnalyze&type=date&legend=top-left)
