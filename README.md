@@ -28,8 +28,10 @@
 </p>
 
 
-> Welcome to ⭐ star DeepAnalyze. Any useful issues and pull requests will be included in contributors.
-
+## 🔥 News
+- [2025.10.28]: We welcome all contributions, including improving the repo and sharing use cases (see [`CONTRIBUTION.md`](CONTRIBUTION.md)); merged PRs will be listed as contributors.
+- [2025.10.27]: **DeepAnalyze** has attracted widespread attention, gaining **1K+** GitHub stars and **200K+** Twitter views within a week.
+- [2025.10.21]: **DeepAnalyze**'s [paper](https://arxiv.org/abs/2510.16872), [code](https://github.com/ruc-datalab/DeepAnalyze), [model](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B), [training data](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K) are released!
 
 ## 🖥 Demo
 
@@ -102,7 +104,7 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
   File 9: {"name": "unemployed.xlsx", "size": "5.6KB"}
   File 10: {"name": "enrolled.csv", "size": "20.4KB"}"""
 
-  workspace = "/home/u2023000922/zhangshaolei/deepanalyze_dev/example/student_loan/"
+  workspace = "/home/u2023000922/zhangshaolei/deepanalyze_public/DeepAnalyze/example/analysis_on_student_loan/"
   
   deepanalyze = DeepAnalyzeVLLM(
       "/fs/fast/u2023000922/zhangshaolei/checkpoints/deepanalyze-8b/"
@@ -182,6 +184,23 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 ### 3. Evaluation
 - We have unified the evaluation of most existing data science benchmarks using vLLM (with more being continuously added...). You can directly follow the introduction in [./playground](./playground) to quickly evaluate DeepAnalyze or your own agent.
 
+
+## 👏 Contribution
+- We welcome all forms of contributions, and merged PRs will be listed as contributors.
+### Contribution on Code and Model
+
+- We welcome all forms of contributions on DeepAnalyze's code, model and UI, such as Docker packaging, DeepAnalyze model conversion and quantization, and submitting DeepAnalyze workflows based on closed-source LLMs. 
+- You can submit a pull request directly.
+
+### Contribution on Case Study
+
+- We also especially encourage you to share your use cases and feedback when using DeepAnalyze; these are extremely valuable for helping us improve DeepAnalyze.
+- You can place your use cases in a new folder under [`.example/`](.example/). We recommend following the folder structure of [`.example/analysis_on_student_loan/`](.example/analysis_on_student_loan/), which includes three parts:
+    - `data/`: stores the uploaded files
+    - `prompt.txt`: input instructions
+    - `README.md`: documentation. We suggest including the input, DeepAnalyze’s output, outputs from other closed-source LLMs (optional), and your evaluation/comments of the case.
+- DeepAnalyze only has 8B parameters, so we also welcome examples where DeepAnalyze performs slightly worse than the closed-source LLMs — this will help us improve DeepAnalyze.
+
 ## 🤝 Acknowledgement
 - Training framework: [ms-swift](https://github.com/modelscope/ms-swift), [SkyRL](https://github.com/NovaSky-AI/SkyRL)
 - Source of Training Data: [Reasoning-Table](https://github.com/MJinXiang/Reasoning-Table), [Spider](https://yale-lily.github.io/spider), [BIRD](https://bird-bench.github.io/), [DABStep](https://huggingface.co/blog/dabstep)
@@ -207,5 +226,9 @@ If you have any questions, please feel free to submit an issue or contact `zhang
 ## 🌟 Misc
 
 If you like DeepAnalyze, give it a GitHub Star ⭐. Welcome to join the [DeepAnalyze WeChat group](./assets/wechat.jpg), chat and share ideas with others!
+<p align="left" width="100%">
+<img src="./assets/wechat.jpg" alt="DeepAnalyze" style="width: 30%; min-width: 300px; display: block; margin: auto;">
+</p>
+
 
 [![Star History Chart](https://api.star-history.com/svg?repos=ruc-datalab/DeepAnalyze&type=date&legend=top-left)](https://www.star-history.com/#ruc-datalab/DeepAnalyze&type=date&legend=top-left)
