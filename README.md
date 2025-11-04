@@ -66,7 +66,7 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 
 ### Requirements
 
-- Install packages: `torch==2.6.0`, `transformers==4.53.2`, `vllm==0.8.5`
+- Install packages: `torch`, `transformers`, `vllm>=0.8.5`
     ```bash
     conda create -n deepanalyze python=3.12 -y
     conda activate deepanalyze
@@ -76,6 +76,9 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
     (cd ./deepanalyze/ms-swift/ && pip install -e .)
     (cd ./deepanalyze/SkyRL/ && pip install -e .)
     ```
+- [`requirements.txt`](requirements.txt) lists the minimal dependencies required for DeepAnalyze inference.
+For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deepanalyze/ms-swift/requirements.txt) and [`./deepanalyze/SkyRL/pyproject.toml`](./deepanalyze/SkyRL/pyproject.toml)
+- We recommend separating the inference and training environments to avoid dependency conflicts.
 
 ### Command Interaction
 
