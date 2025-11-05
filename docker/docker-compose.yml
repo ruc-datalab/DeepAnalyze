@@ -1,0 +1,48 @@
+# Docker Compose configuration for DeepAnalyze vLLM service
+# Usage: docker-compose up -d
+
+version: '3.8'
+
+services:
+  vllm:
+    # Use pre-built image from Docker Hub or locally built image
+    image: deepanalyze-env:latest
+    # Or pull from Docker Hub:
+    # image: yourusername/deepanalyze-env:latest
+    
+    container_name: deepanalyze-vllm
+    
+    # GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    # Port mapping
+    ports:
+      - "8000:8000"
+    
+    # Volume mounts
+    volumes:
+      - ./workspace:/workspace
+      - ./models:/models
+    
+    # Environment variables (optional)
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      # - VLLM_USE_MODELSCOPE=False
+    
+    # Startup command
+    # Uncomment and modify to start vLLM server automatically
+    # command: python3 -m vllm.entrypoints.openai.api_server --model /models/your-model-name --host 0.0.0.0 --port 8000
+    
+    # Default: interactive bash shell
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+    
+    # Restart policy
+    restart: unless-stopped

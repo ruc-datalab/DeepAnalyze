@@ -1,0 +1,41 @@
+# Docker 构建时忽略的文件
+# 这些文件不会被复制到镜像中
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 虚拟环境
+venv/
+env/
+ENV/
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# 临时文件
+*.log
+*.tmp
+.DS_Store
+
+# 大文件
+*.tar
+*.tar.gz
+*.zip
+*.safetensors
+*.bin
+
+# 模型文件（通常很大，运行时再挂载）
+models/
+checkpoints/
+
