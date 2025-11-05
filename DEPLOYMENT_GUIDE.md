@@ -60,7 +60,7 @@ Frontend running on: http://localhost:4000
 All services started successfully.
 
 Service URLs:
-  Mock API:     http://localhost:8000    ← LM Studio 服务
+  Mock API:     http://localhost:8000    ← 模型API地址
   Backend API:  http://localhost:8200    ← 后端 API
   Frontend:     http://localhost:4000    ← 用户界面
 ```
@@ -68,7 +68,7 @@ Service URLs:
 **各服务说明：**
 | 服务 | 端口 | 用途 |
 |------|------|------|
-| LM Studio | 8000 | 模型推理服务 |
+| 模型 API | 8000 | 模型推理服务 |
 | Backend API | 8200 | 后端应用接口 |
 | File Service | 8100 | 文件上传下载服务 |
 | Frontend | 4000 | 前端用户界面 |
