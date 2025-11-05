@@ -143,7 +143,24 @@ INFO:     Uvicorn running on http://0.0.0.0:8200
 
 ## 第三步：准备 LM Studio 环境
 
-现在可以开始配置 LM Studio 了。确保服务已在第一步成功启动。
+在开始配置 LM Studio 之前，请确保你已经安装了 LM Studio 应用。
+
+### 3.0 安装 LM Studio
+
+如果还没有安装 LM Studio，请前往官方网站下载：
+
+**📥 下载链接：** https://lmstudio.ai/
+
+根据你的操作系统选择相应的版本：
+- **macOS**：Apple Silicon 版本或 Intel 版本
+- **Windows**：Windows 10/11 版本
+- **Linux**：支持各主流 Linux 发行版
+
+下载并安装后，启动 LM Studio 应用，准备进行后续配置。
+
+**📚 更多信息：**
+- 官方服务器文档：https://lmstudio.ai/docs/developer/core/server
+- 该文档详细说明了如何配置和启动 LM Studio 的本地服务器，包括 API 使用方法
 
 ### 3.1 打开 LM Studio 并进入开发模式
 
