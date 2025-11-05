@@ -22,16 +22,46 @@ DeepAnalyze 是一个自动化数据科学分析工具。本教程展示如何�
 
 在配置 LM Studio 模型之前，你需要先启动后端服务和前端界面。这样可以避免启动时的进程冲突。
 
-### 1.1 进入项目目录并激活环境
+### 1.1 获取项目代码
 
-打开终端，进入 DeepAnalyze 项目的 `demo` 文件夹：
+如果还没有克隆 DeepAnalyze 项目，请先从 GitHub 获取项目代码：
+
+**📥 项目地址：** https://github.com/ruc-datalab/DeepAnalyze.git
 
 ```bash
-# 激活 conda 环境
+# 克隆项目到本地
+git clone https://github.com/ruc-datalab/DeepAnalyze.git
+
+# 进入项目目录
+cd DeepAnalyze
+```
+
+### 1.2 准备项目环境
+
+进入项目后，需要根据需要配置开发环境。为了保持环境的干净和稳定，**强烈建议使用以下官方推荐的方案之一**：
+
+#### 方案 A：使用 Docker（推荐）
+Docker 能完全隔离环境，避免与系统其他工具的冲突。请参考项目的 Docker 部署指南。
+
+#### 方案 B：使用 Conda
+如果你已经有 Conda 环境，可以创建一个新的虚拟环境来运行 DeepAnalyze，保证环境隔离：
+
+```bash
+# 创建新的 conda 环境
+conda create -n deepanalyze python=3.12 -y
 conda activate deepanalyze
 
+# 安装依赖
+pip install -r requirements.txt
+```
+
+### 1.3 启动所有服务
+
+进入 `demo` 目录并启动所有服务：
+
+```bash
 # 进入 demo 目录
-cd ~/Downloads/DeepAnalyze/demo
+cd demo
 
 # 启动所有服务
 sh start.sh
@@ -73,7 +103,7 @@ Service URLs:
 | File Service | 8100 | 文件上传下载服务 |
 | Frontend | 4000 | 前端用户界面 |
 
-### 1.2 常见启动错误与解决方案
+### 1.4 常见启动错误与解决方案
 
 启动时可能会遇到一些 Python 模块缺失的错误。这些是正常的，按照错误提示安装对应的包即可。
 
@@ -106,7 +136,7 @@ pip install <模块名>
 
 例如，如果显示缺少 `PIL`，就运行 `pip install Pillow`（PIL 的包名是 Pillow）。
 
-### 1.3 验证服务启动成功
+### 1.5 验证服务启动成功
 
 启动成功后，你应该看到：
 - ✅ 三个 PID 信息（Backend PID、Frontend PID）
