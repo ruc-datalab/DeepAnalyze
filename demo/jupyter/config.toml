@@ -5,3 +5,7 @@
 START_JUPYTER = true
 # port of Jupyter Lab in localhost
 JUPYTER_PORT = 8888
+
+[PROMPT]
+# Name of the prompt template file (all files in `prompt/`)
+PROMPT_TEMPLATE = "general"

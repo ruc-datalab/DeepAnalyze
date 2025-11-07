@@ -84,6 +84,7 @@ jupyter/
 ├── utils.py        # 实用工具函数
 ├── config.toml     # 配置文件
 ├── .env.example    # 环境变量示例
+├── prompt/         # 提示模板
 └── test/           # 测试文件
 ```
 

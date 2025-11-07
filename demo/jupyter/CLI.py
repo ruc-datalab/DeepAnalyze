@@ -2,7 +2,8 @@ import sys
 import signal
 import subprocess
 import asyncio
-from server import jupyter_process, bot_stream
+from server import jupyter_process, bot_stream, config
+from utils import load_system_prompt
 
 def signal_handler(sig, frame):
     """Process Ctrl+C signal to stop terminal and Jupyter process"""
@@ -17,11 +18,17 @@ def signal_handler(sig, frame):
 
 async def interactive_chat():
     """Interactive chat function to handle user input and bot responses"""
+    messages = []
+
+    # Load system prompt from config
+    system_prompt = load_system_prompt(config)
+    if system_prompt is not None:
+        messages.append({"role": "system", "content": system_prompt})
+        print("System prompt loaded.")
+    
     print("Interactive chat started. Type your messages and press Enter to send.")
     print("Type 'exit', 'quit' or press Ctrl+C to exit.")
     print("=" * 50)
-    
-    messages = []
     
     while True:
         try:

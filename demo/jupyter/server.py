@@ -109,7 +109,7 @@ async def bot_stream(messages):
     
     # Get file context
     file_info = await list_workspace_files(mcp_client)
-    # print(f"File info: \n{file_info}")
+    print(f"Workspace file info: \n{file_info}")
     
     # Process messages
     if messages and messages[0]["role"] == "assistant":

@@ -77,6 +77,7 @@ jupyter/
 ├── utils.py        # Utility functions
 ├── config.toml     # Configuration file
 ├── .env.example    # Environment variable example
+├── prompt/         # Prompt templates
 └── test/           # Test files
 ```
 
