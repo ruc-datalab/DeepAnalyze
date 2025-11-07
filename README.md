@@ -40,12 +40,6 @@
 Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 🛠
 </p>
 
-- Clone this repo and download [DeepAnalyze-8B](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B).
-- Deploy DeepAnalyze-8B via vllm: `vllm serve DeepAnalyze-8B`
-
-<details>
-<summary>WebUI Demo</summary>
-
 https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 
 > [!TIP]
@@ -53,6 +47,12 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 > Clone this repository to deploy DeepAnalyze locally as your data analyst, completing any data science tasks without any workflow or closed-source APIs.
 >
 > 🔥 The UI of the demo is an initial version. Welcome to further develop it, and we will include you as a contributor.
+
+- Clone this repo and download [DeepAnalyze-8B](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B).
+- Deploy DeepAnalyze-8B via vllm: `vllm serve DeepAnalyze-8B`
+
+<details>
+<summary>WebUI Demo</summary>
 
 - Run these scripts to launch the API and interface, and then interact through the browser (http://localhost:4000):
     ```bash
@@ -69,9 +69,13 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 
 <details>
 <summary>JupyterUI Demo</summary>
-Familiar with Jupyter Notebook? Try the JupyterUI demo!
-This Demo runs Jupyter Lab as frontend, creating a new notebook, converting `Analyze|Understan|Answer` to Markdown cells, converting `Code` to Code cells and executing them as `Execute`.
-Go to [`demo/jupyter`](./demo/jupyter) to see more and try!
+
+Familiar with Jupyter Notebook? Try the **JupyterUI demo**!
+
+This Demo runs Jupyter Lab as frontend, creating a new notebook, converting `<Analyze|Understan|Answer>` to Markdown cells, converting `<Code>` to Code cells and executing them as `<Execute>`.
+
+Go to [demo/jupyter](./demo/jupyter) to see more and try!
+
 </details>
 
 ## 🚀 Quick Start
