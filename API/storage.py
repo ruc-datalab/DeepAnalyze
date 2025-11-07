@@ -122,7 +122,8 @@ class Storage:
     def create_thread(
         self,
         metadata: Optional[Dict] = None,
-        file_ids: Optional[List[str]] = None
+        file_ids: Optional[List[str]] = None,
+        tool_resources: Optional[Dict] = None
     ) -> ThreadObject:
         """Create a thread record"""
         with self._lock:
@@ -135,6 +136,7 @@ class Storage:
                 "last_accessed_at": now,
                 "metadata": metadata or {},
                 "file_ids": file_ids or [],
+                "tool_resources": tool_resources,
             }
             self.threads[thread_id] = thread
             self.messages[thread_id] = []
@@ -145,14 +147,20 @@ class Storage:
             os.makedirs(os.path.join(workspace_dir, "generated"), exist_ok=True)
 
             # Copy files to thread workspace
-            if file_ids:
-                for fid in file_ids:
-                    if fid in self.files:
-                        file_data = self.files[fid]
-                        src_path = file_data.get("filepath")
-                        if src_path and os.path.exists(src_path):
-                            dst_path = uniquify_path(Path(workspace_dir) / file_data["filename"])
-                            shutil.copy2(src_path, dst_path)
+            all_file_ids = set(file_ids or [])
+
+            # Add files from tool_resources analyze tool
+            if tool_resources and "analyze" in tool_resources:
+                analyze_file_ids = tool_resources["analyze"].get("file_ids", [])
+                all_file_ids.update(analyze_file_ids)
+
+            for fid in all_file_ids:
+                if fid in self.files:
+                    file_data = self.files[fid]
+                    src_path = file_data.get("filepath")
+                    if src_path and os.path.exists(src_path):
+                        dst_path = uniquify_path(Path(workspace_dir) / file_data["filename"])
+                        shutil.copy2(src_path, dst_path)
 
             return ThreadObject(**thread)
 

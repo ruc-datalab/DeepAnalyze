@@ -41,4 +41,4 @@ DEFAULT_MODEL = "DeepAnalyze-8B"
 STOP_TOKEN_IDS = [151676, 151645]
 
 # Supported tools
-SUPPORTED_TOOLS = ["NotImplemented"]
+SUPPORTED_TOOLS = ["code_interpreter", "analyze"]

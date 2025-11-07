@@ -105,6 +105,11 @@ def collect_all_associated_files(thread_id: str, assistant, storage) -> List[str
     for message in messages:
         all_file_ids.update(message.file_ids)
 
+    # Add files from tool_resources analyze tool
+    if thread and thread.tool_resources and "analyze" in thread.tool_resources:
+        analyze_file_ids = thread.tool_resources["analyze"].get("file_ids", [])
+        all_file_ids.update(analyze_file_ids)
+
     return list(all_file_ids)
 
 

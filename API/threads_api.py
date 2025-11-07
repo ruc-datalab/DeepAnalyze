@@ -24,6 +24,7 @@ messages_router = APIRouter(prefix="/v1/threads", tags=["messages"])
 async def create_thread(
     metadata: Optional[Dict] = Body(None),
     file_ids: Optional[List[str]] = Body(None),
+    tool_resources: Optional[Dict] = Body(None),
 ):
     """Create a thread (OpenAI compatible)"""
     # Validate file_ids
@@ -32,7 +33,14 @@ async def create_thread(
             if not storage.get_file(fid):
                 raise HTTPException(status_code=400, detail=f"File {fid} not found")
 
-    thread = storage.create_thread(metadata=metadata or {}, file_ids=file_ids)
+    # Validate tool_resources file_ids for analyze tool
+    if tool_resources and "analyze" in tool_resources:
+        analyze_file_ids = tool_resources["analyze"].get("file_ids", [])
+        for fid in analyze_file_ids:
+            if not storage.get_file(fid):
+                raise HTTPException(status_code=400, detail=f"File {fid} not found")
+
+    thread = storage.create_thread(metadata=metadata or {}, file_ids=file_ids, tool_resources=tool_resources)
     return thread
 
 

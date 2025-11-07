@@ -30,6 +30,7 @@ def create_app() -> FastAPI:
 
     # Include all routers
     from file_api import router as file_router
+    from models_api import router as models_router
     from assistants_api import router as assistants_router
     from threads_api import threads_router, messages_router
     from runs_api import router as runs_router
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     from admin_api import router as admin_router
 
     app.include_router(file_router)
+    app.include_router(models_router)
     app.include_router(assistants_router)
     app.include_router(threads_router)
     app.include_router(messages_router)
@@ -79,6 +81,7 @@ def main():
     print(f"   - File Server: http://localhost:{HTTP_SERVER_PORT}")
     print(f"   - Workspace: workspace")
     print("\n📖 API Endpoints:")
+    print("   - Models API: /v1/models")
     print("   - Files API: /v1/files")
     print("   - Assistants API: /v1/assistants")
     print("   - Threads API: /v1/threads")

@@ -46,6 +46,7 @@ class ThreadObject(BaseModel):
     last_accessed_at: int
     metadata: Dict[str, Any] = Field(default_factory=dict)
     file_ids: List[str] = Field(default_factory=list)
+    tool_resources: Optional[Dict[str, Any]] = Field(default=None)
 
 
 class MessageObject(BaseModel):
@@ -158,3 +159,17 @@ class ThreadStatsResponse(BaseModel):
     expired_threads: int # > 12 hours
     timeout_hours: int
     timestamp: int
+
+
+class ModelObject(BaseModel):
+    """OpenAI Model Object"""
+    id: str
+    object: Literal["model"] = "model"
+    created: Optional[int] = None
+    owned_by: Optional[str] = None
+
+
+class ModelsListResponse(BaseModel):
+    """OpenAI Models List Response"""
+    object: Literal["list"] = "list"
+    data: List[ModelObject]
