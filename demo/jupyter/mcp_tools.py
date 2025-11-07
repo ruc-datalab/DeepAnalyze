@@ -12,6 +12,7 @@ def convert_to_backend_format(mcp_result: CallToolResult) -> str:
     for content in mcp_result.content:
         if isinstance(content, TextContent):
             text.append(content.text)
+        # * IMPORTANT: DeepAnalyze-8B can't process Multimodal content, convert it to text.
         elif isinstance(content, ImageContent):
             text.append(f"[IMG OUTPUT]")
         else:
