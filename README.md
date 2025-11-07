@@ -70,7 +70,7 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 <details>
 <summary>JupyterUI Demo</summary>
 Familiar with Jupyter Notebook? Try the JupyterUI demo!
-This Demo runs Jupyter Lab as frontend, creating a new notebook, converting `<Analyze|Understan|Answer>` to Markdown cells, converting `<Code>` to Code cells and executing them as `<Execute>`.
+This Demo runs Jupyter Lab as frontend, creating a new notebook, converting `Analyze|Understan|Answer` to Markdown cells, converting `Code` to Code cells and executing them as `Execute`.
 Go to [`demo/jupyter`](./demo/jupyter) to see more and try!
 </details>
 
