@@ -1305,7 +1305,7 @@ requires-dist = [
     { name = "datalayer-pycrdt", specifier = "==0.12.17" },
     { name = "fastmcp", specifier = ">=2.13.0.2" },
     { name = "jupyter-collaboration", specifier = ">=4.1.1" },
-    { name = "jupyter-mcp-server", specifier = ">=0.18.2" },
+    { name = "jupyter-mcp-server", specifier = ">=0.19.0" },
     { name = "jupyterlab", specifier = ">=4" },
     { name = "matplotlib", specifier = ">=3.10.7" },
     { name = "notebook", specifier = ">=7" },
@@ -1429,7 +1429,7 @@ wheels = [
 
 [[package]]
 name = "jupyter-mcp-server"
-version = "0.18.2"
+version = "0.19.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1446,9 +1446,9 @@ dependencies = [
     { name = "traitlets" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/82/98/98f4380ed3e6d08d4395211e937c8be09ddab25706f926d03bd31fe39a85/jupyter_mcp_server-0.18.2.tar.gz", hash = "sha256:ab462ebfc127e72688fafb4fa6c24ec9176b00afc52f2ea0433d10ad12eadd02", size = 65402, upload-time = "2025-10-30T16:01:03.791Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/96/40/d4f307ce5ea1285036f831d90cbba791fea4a5a6955fce177ae0e09d5620/jupyter_mcp_server-0.19.0.tar.gz", hash = "sha256:f5e4076d6476d95a92c219d62f4139278e66bde30ad7f51ff85b82caa167ce8c", size = 67225, upload-time = "2025-11-07T09:07:07.451Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/57/31/c9001426c02d76f33aaceebde8cb0ddbb1e3c586f32c7527dcd9d7a8e8ed/jupyter_mcp_server-0.18.2-py3-none-any.whl", hash = "sha256:9c8ddd3c7bac9490de322b2e4c8e496c1f1a96556ab0236f158a14755de5453f", size = 91237, upload-time = "2025-10-30T16:01:02.454Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/85/24ce66a26b8587c846c5a7de7eaef155ee9a8406bae9bdce33d51faa84e0/jupyter_mcp_server-0.19.0-py3-none-any.whl", hash = "sha256:7bf9e7cd86f9800064906fd1f7448452fe0421d8a948c9574afafe5d3722a23b", size = 93948, upload-time = "2025-11-07T09:07:05.896Z" },
 ]
 
 [[package]]

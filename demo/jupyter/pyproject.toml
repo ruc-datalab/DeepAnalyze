@@ -12,7 +12,7 @@ dependencies = [
     # Core jupyter dependencies
     "datalayer-pycrdt==0.12.17",
     "jupyter-collaboration>=4.1.1",
-    "jupyter-mcp-server>=0.18.2",
+    "jupyter-mcp-server>=0.19.0",
     "jupyterlab>=4",
     "notebook>=7",
     # Common data science dependencies
