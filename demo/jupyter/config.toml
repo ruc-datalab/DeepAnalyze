@@ -1,0 +1,7 @@
+# Jupyter Lab configuration
+[JUPYTER]
+# Set to true to start Jupyter Lab
+# Set to false to connect to an existing Jupyter Lab instance
+START_JUPYTER = true
+# port of Jupyter Lab in localhost
+JUPYTER_PORT = 8888

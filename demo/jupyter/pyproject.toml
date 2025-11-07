@@ -1,0 +1,30 @@
+[project]
+name = "jupyter"
+version = "0.1.0"
+description = "jupyter frontend for deep analyze"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # Core dependencies
+    "openai>=2.7.1",
+    "fastmcp>=2.13.0.2",
+    "python-dotenv>=1.2.1",
+    # Core jupyter dependencies
+    "datalayer-pycrdt==0.12.17",
+    "jupyter-collaboration>=4.1.1",
+    "jupyter-mcp-server>=0.18.2",
+    "jupyterlab>=4",
+    "notebook>=7",
+    # Common data science dependencies
+    "pandas>=2.3.3",
+    "scikit-learn>=1.7.2",
+    "matplotlib>=3.10.7",
+    "seaborn>=0.13.2",
+    # You can add more dependencies as needed, like:
+    # "xgboost",
+]
+
+# THU pypi mirror
+# [[tool.uv.index]]
+# url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+# default = true
