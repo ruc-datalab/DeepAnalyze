@@ -1,0 +1,9 @@
+{
+  "prompts": [
+    {
+      "name": "general",
+      "description": "general prompt for data analysis",
+      "path": "general.md"
+    }
+  ]
+}
