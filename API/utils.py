@@ -476,6 +476,29 @@ def start_http_server():
     handler = partial(
         http.server.SimpleHTTPRequestHandler, directory=WORKSPACE_BASE_DIR
     )
-    with socketserver.TCPServer(("", HTTP_SERVER_PORT), handler) as httpd:
+
+    class SafeTCPServer(socketserver.TCPServer):
+        """TCPServer with timeout to prevent blocking"""
+        allow_reuse_address = True
+
+        def serve_forever(self, poll_interval=0.5):
+            """Override serve_forever with timeout"""
+            self._BaseServer__shutdown_request = False
+            while not self._BaseServer__shutdown_request:
+                try:
+                    self.handle_request()
+                except (OSError, KeyboardInterrupt):
+                    break
+                except Exception as e:
+                    print(f"HTTP server error: {e}")
+                    continue
+
+    with SafeTCPServer(("", HTTP_SERVER_PORT), handler) as httpd:
+        httpd.timeout = 1  # Add timeout to prevent blocking
         print(f"HTTP Server serving {WORKSPACE_BASE_DIR} at port {HTTP_SERVER_PORT}")
-        httpd.serve_forever()
+        try:
+            httpd.serve_forever(poll_interval=0.1)  # Use polling instead of blocking
+        except KeyboardInterrupt:
+            print("HTTP server shutting down...")
+        except Exception as e:
+            print(f"HTTP server error: {e}")

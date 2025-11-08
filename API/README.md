@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-1. **Start vLLM Model Server** (required):
+1. **Start vLLM Model Server**:
 ```bash
 vllm serve DeepAnalyze-8B --host 0.0.0.0 --port 8000
 ```
@@ -14,15 +14,14 @@ vllm serve DeepAnalyze-8B --host 0.0.0.0 --port 8000
 pip install -r requirements.txt
 ```
 
-### Starting the API Server
+### Starting the Server
 
 ```bash
 cd API
-python main.py
+python start_server.py
 ```
 
-The server will start on multiple ports:
-- **API Server**: `http://localhost:8200` (API)
+- **API Server**: `http://localhost:8200` (Main API)
 - **File Server**: `http://localhost:8100` (File downloads)
 - **Health Check**: `http://localhost:8200/health`
 
@@ -30,297 +29,156 @@ The server will start on multiple ports:
 
 ```bash
 cd example
-python example.py
+python example.py          # Simple requests example
+python exampleOpenAI.py    # OpenAI library example
 ```
 
-### Simple File Upload Example
+## 📚 API Usage
 
+### 1. File Upload
+
+**Requests Example:**
 ```python
 import requests
 
-API_BASE = "http://localhost:8200"
-
-# Upload a file
 with open('data.csv', 'rb') as f:
     files = {'file': ('data.csv', f, 'text/csv')}
     data = {'purpose': 'assistants'}
-    response = requests.post(f'{API_BASE}/v1/files', files=files, data=data)
+    response = requests.post('http://localhost:8200/v1/files', files=files, data=data)
 
-if response.status_code == 200:
-    file_obj = response.json()
-    file_id = file_obj['id']
-    print(f"✅ File uploaded successfully: {file_id}")
-    print(f"   Filename: {file_obj['filename']}")
-    print(f"   Size: {file_obj['bytes']} bytes")
-else:
-    print(f"❌ Upload failed: {response.text}")
+file_id = response.json()['id']
+print(f"File uploaded: {file_id}")
 ```
 
-Run the interactive example program to test all API features.
+**OpenAI Library Example:**
+```python
+import openai
 
-## 📚 API Endpoints
+client = openai.OpenAI(
+    base_url="http://localhost:8200/v1",
+    api_key="dummy"
+)
 
-### Overview
+with open('data.csv', 'rb') as f:
+    file_obj = client.files.create(file=f, purpose="assistants")
 
-The API provides these main endpoints:
-- **Health Check**: `/health`
-- **Files API**: `/v1/files` (File upload/download)
-- **Chat API**: `/v1/chat/completions` (Extended with file support)
-- **Assistants API**: `/v1/assistants` 
-- **Threads API**: `/v1/threads` (Conversation management)
-- **Messages API**: `/v1/threads/{thread_id}/messages`
-- **Runs API**: `/v1/threads/{thread_id}/runs` (Task execution)
-- **Admin API**: `/v1/admin` (System management)
+print(f"File uploaded: {file_obj.id}")
+```
 
-## 🔧 Core Features
+### 2. Simple Chat (No Files)
 
-### 1. Extended Chat Completions with File Support
-
-The chat completions API extends OpenAI's standard with file attachment capabilities:
+**Requests Example:**
 
 ```python
-import requests
-import json
-
-API_BASE = "http://localhost:8200"
-MODEL = "DeepAnalyze-8B"
-
-# Upload file first
-with open('data.csv', 'rb') as f:
-    files = {'file': ('data.csv', f, 'text/csv')}
-    data = {'purpose': 'assistants'}
-    response = requests.post(f'{API_BASE}/v1/files', files=files, data=data)
-
-file_obj = response.json()
-file_id = file_obj['id']
-print(f"✅ File uploaded: {file_id}")
-
-# Chat with file analysis
-response = requests.post(f'{API_BASE}/v1/chat/completions', json={
-    "model": MODEL,
+response = requests.post('http://localhost:8200/v1/chat/completions', json={
+    "model": "DeepAnalyze-8B",
     "messages": [
-        {"role": "user", "content": "Analyze this dataset and provide insights"}
+        {"role": "user", "content": "用一句话介绍Python编程语言"}
     ],
-    "file_ids": [file_id],
-    "temperature": 0.3,
-    "stream": False,
-    "execute_code": True  # Enable automatic code execution
+    "temperature": 0.4
+})
+
+content = response.json()['choices'][0]['message']['content']
+print(content)
+```
+
+**OpenAI Library Example:**
+```python
+response = client.chat.completions.create(
+    model="DeepAnalyze-8B",
+    messages=[
+        {"role": "user", "content": "用一句话介绍Python编程语言"}
+    ],
+    temperature=0.4
+)
+
+print(response.choices[0].message.content)
+```
+
+### 3. Chat with Files
+
+**Requests Example:**
+```python
+response = requests.post('http://localhost:8200/v1/chat/completions', json={
+    "model": "DeepAnalyze-8B",
+    "messages": [
+        {
+            "role": "user",
+            "content": "分析这个数据文件，计算各部门的平均薪资，并生成可视化图表。",
+            "file_ids": [file_id]  
+        }
+    ],
+    "temperature": 0.4
 })
 
 result = response.json()
 content = result['choices'][0]['message']['content']
-generated_files = result.get('generated_files', [])
+files = result['choices'][0]['message'].get('files', [])
 
-print("🤖 Analysis Result:")
-print(content)
-
-if generated_files:
-    print(f"\n📁 Generated {len(generated_files)} files:")
-    for f in generated_files:
-        print(f"  📄 {f['name']}: {f['url']}")
+print(f"Response: {content}")
+for file_info in files:
+    print(f"Generated file: {file_info['name']} - {file_info['url']}")
 ```
 
-
-
-### 2. Multi-Level File Association
-
-Advanced file management across three levels:
-
+**OpenAI Library Example:**
 ```python
-API_BASE = "http://localhost:8200"
-MODEL = "DeepAnalyze-8B"
-
-# Assistant-level files (knowledge base, templates)
-assistant_response = requests.post(f'{API_BASE}/v1/assistants', json={
-    "model": MODEL,
-    "name": "Business Analyst",
-    "description": "Analyzes business and financial data",
-    "instructions": "You are a business analyst. Analyze the provided financial and market data.",
-    "file_ids": ["file-template-123"]  # Assistant files
-})
-
-assistant = assistant_response.json()
-assistant_id = assistant['id']
-
-# Thread-level files (datasets, background materials)
-thread_response = requests.post(f'{API_BASE}/v1/threads', json={
-    "metadata": {"project": "sales_analysis"},
-    "file_ids": ["file-dataset-456"]  # Thread files
-})
-
-thread = thread_response.json()
-thread_id = thread['id']
-
-# Message-level files (specific query attachments)
-message_response = requests.post(f'{API_BASE}/v1/threads/{thread_id}/messages', json={
-    "role": "user",
-    "content": "Analyze this with the provided templates and datasets",
-    "file_ids": ["file-query-789"]  # Message files
-})
-
-message = message_response.json()
-```
-
-**File Collection**: During run execution, all files from Assistant, Thread, and Message levels are automatically collected and made available to the model.
-
-### 3. Complete Assistants API Workflow
-
-```python
-API_BASE = "http://localhost:8200"
-MODEL = "DeepAnalyze-8B"
-
-# 1. Create assistant
-assistant_response = requests.post(f'{API_BASE}/v1/assistants', json={
-    "model": MODEL,
-    "name": "Data Analyst",
-    "description": "Professional data analysis assistant",
-    "instructions": "You are a professional data analyst. Analyze data and provide comprehensive insights."
-})
-
-assistant = assistant_response.json()
-assistant_id = assistant['id']
-
-# 2. Create thread
-thread_response = requests.post(f'{API_BASE}/v1/threads', json={
-    "metadata": {"project": "analysis"}
-})
-
-thread = thread_response.json()
-thread_id = thread['id']
-
-# 3. Add message with file
-message_response = requests.post(
-    f'{API_BASE}/v1/threads/{thread_id}/messages',
-    json={
-        "role": "user",
-        "content": "Analyze the uploaded data and create visualizations",
-        "file_ids": [file_id]  # file_id should be obtained from file upload
-    }
+response = client.chat.completions.create(
+    model="DeepAnalyze-8B",
+    messages=[
+        {
+            "role": "user",
+            "content": "分析这个数据文件，计算各部门的平均薪资，并生成可视化图表。",
+            "file_ids": [file_id]  
+        }
+    ],
+    temperature=0.4
 )
 
-message = message_response.json()
+message = response.choices[0].message
+print(f"Response: {message.content}")
 
-# 4. Create and monitor run
-run_response = requests.post(
-    f'{API_BASE}/v1/threads/{thread_id}/runs',
-    json={"assistant_id": assistant_id}
-)
-
-run = run_response.json()
-run_id = run['id']
-
-# Monitor until completion
-import time
-while True:
-    run_status_response = requests.get(f'{API_BASE}/v1/threads/{thread_id}/runs/{run_id}')
-    run_status = run_status_response.json()
-    status = run_status['status']
-
-    if status == 'completed':
-        print("✅ Analysis completed!")
-        break
-    elif status in ['failed', 'cancelled', 'expired']:
-        print(f"❌ Run failed: {status}")
-        break
-
-    time.sleep(2)
-
-# 5. Get results and generated files
-messages_response = requests.get(f'{API_BASE}/v1/threads/{thread_id}/messages')
-messages = messages_response.json()['data']
-
-files_response = requests.get(f'{API_BASE}/v1/threads/{thread_id}/files')
-files = files_response.json()['data']
-
-print(f"Generated {len(files)} files during analysis")
+# Access generated files (new format)
+if hasattr(message, 'files') and message.files:
+    for file_info in message.files:
+        print(f"Generated file: {file_info['name']} - {file_info['url']}")
 ```
 
-## 🏗️ Architecture
+### 4. Chat with Files (file_ids in top level)
 
-### Multi-Port Design
-
-- **Port 8000**: vLLM model server (external)
-- **Port 8200**: Main API server (FastAPI)
-- **Port 8100**: File HTTP server for downloads
-
-### Core Components
-
-1. **API Gateway** (`main.py`): FastAPI application setup
-2. **Chat Engine** (`chat_api.py`): Extended chat completions with file support
-3. **Assistant Manager** (`assistants_api.py`): Assistant lifecycle management
-4. **File Handler** (`file_api.py`): File upload/download management
-5. **Thread Manager** (`threads_api.py`): Conversation thread management
-6. **Execution Engine** (`utils.py`): Safe code execution in sandboxed environments
-7. **Storage Layer** (`storage.py`): In-memory data management with workspace isolation
-
-## 📊 Configuration
-
-### Environment Variables
+**Requests Example:**
 ```python
-# API Configuration
-API_HOST = "0.0.0.0"           # API server host
-API_PORT = 8200               # API server port
-MODEL_PATH = "DeepAnalyze-8B"  # Model name
+response = requests.post('http://localhost:8200/v1/chat/completions', json={
+    "model": "DeepAnalyze-8B",
+    "messages": [
+        {"role": "user", "content": "分析这个数据文件"}
+    ],
+    "file_ids": [file_id],  # file_ids parameter (old format)
+    "temperature": 0.4
+})
 
-# vLLM Configuration
-API_BASE = "http://localhost:8000/v1"  # vLLM endpoint
+result = response.json()
+content = result['choices'][0]['message']['content']
+files = result.get('generated_files', [])  # old format
 
-# File Management
-WORKSPACE_BASE_DIR = "workspace"       # Base workspace directory
-HTTP_SERVER_PORT = 8100               # File server port
-
-# Execution Settings
-CODE_EXECUTION_TIMEOUT = 120          # Code execution timeout (seconds)
-MAX_NEW_TOKENS = 32768               # Maximum response tokens
-DEFAULT_TEMPERATURE = 0.4            # Default sampling temperature
+print(f"Response: {content}")
+for file_info in files:
+    print(f"Generated file: {file_info['name']} - {file_info['url']}")
 ```
 
+### 5. Streaming Chat with Files
 
-## 🔧 Management API
-
-### Thread Cleanup
-```http
-POST /v1/admin/cleanup-threads?timeout_hours=12
-```
-
-### Thread Statistics
-```http
-GET /v1/admin/threads-stats
-```
-
-**Response:**
-```json
-{
-  "total_threads": 150,
-  "recent_threads": 25,
-  "old_threads": 100,
-  "expired_threads": 25,
-  "timeout_hours": 12,
-  "timestamp": 1704067200
-}
-```
-
-## 📝 Usage Examples
-
-### Example 1: Simple Data Analysis
+**Requests Example:**
 ```python
-API_BASE = "http://localhost:8200"
-MODEL = "DeepAnalyze-8B"
-
-# Upload data
-with open('sales_data.csv', 'rb') as f:
-    files = {'file': ('sales.csv', f, 'text/csv')}
-    data = {'purpose': 'assistants'}
-    response = requests.post(f'{API_BASE}/v1/files', files=files, data=data)
-    file_id = response.json()['id']
-
-# Analyze with streaming
-response = requests.post(f'{API_BASE}/v1/chat/completions', json={
-    "model": MODEL,
-    "messages": [{"role": "user", "content": "Analyze sales trends and forecast next quarter"}],
-    "file_ids": [file_id],
-    "stream": True,
-    "execute_code": True
+response = requests.post('http://localhost:8200/v1/chat/completions', json={
+    "model": "DeepAnalyze-8B",
+    "messages": [
+        {
+            "role": "user",
+            "content": "流式分析这个数据并生成趋势图。",
+            "file_ids": [file_id]
+        }
+    ],
+    "stream": True
 }, stream=True)
 
 for line in response.iter_lines():
@@ -330,154 +188,129 @@ for line in response.iter_lines():
             data_str = line_str[6:]
             if data_str == '[DONE]':
                 break
-            try:
-                chunk = json.loads(data_str)
-                if 'choices' in chunk and chunk['choices']:
-                    delta = chunk['choices'][0].get('delta', {})
-                    if 'content' in delta:
-                        print(delta['content'], end='', flush=True)
-            except json.JSONDecodeError:
-                pass
+            chunk = json.loads(data_str)
+            if 'choices' in chunk and chunk['choices']:
+                delta = chunk['choices'][0].get('delta', {})
+                if 'content' in delta:
+                    print(delta['content'], end='', flush=True)
 ```
 
-### Example 2: Multi-File Analysis
+**OpenAI Library Example:**
 ```python
-API_BASE = "http://localhost:8200"
-MODEL = "DeepAnalyze-8B"
+stream = client.chat.completions.create(
+    model="DeepAnalyze-8B",
+    messages=[
+        {
+            "role": "user",
+            "content": "流式分析这个数据并生成趋势图。",
+            "file_ids": [file_id]
+        }
+    ],
+    stream=True
+)
 
-# Upload multiple data sources
-file_ids = []
-for filename in ['sales.csv', 'marketing.csv', 'customers.csv']:
-    with open(filename, 'rb') as f:
-        files = {'file': (filename, f, 'text/csv')}
-        data = {'purpose': 'assistants'}
-        response = requests.post(f'{API_BASE}/v1/files', files=files, data=data)
-        file_ids.append(response.json()['id'])
-
-# Comprehensive analysis
-response = requests.post(f'{API_BASE}/v1/chat/completions', json={
-    "model": MODEL,
-    "messages": [{"role": "user", "content": "Create a comprehensive business analysis integrating all data sources"}],
-    "file_ids": file_ids,
-    "temperature": 0.3,
-    "stream": False,
-    "execute_code": True
-})
-
-result = response.json()
-content = result['choices'][0]['message']['content']
-generated_files = result.get('generated_files', [])
-print(f"Analysis complete. Generated {len(generated_files)} files.")
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end='', flush=True)
+    if hasattr(chunk, 'generated_files') and chunk.generated_files:
+        collected_files.extend(chunk.generated_files)
 ```
 
-### Example 3: Complete Assistants API Workflow
+### 6. Complete Assistants Workflow
+
+**Requests Example:**
 ```python
-API_BASE = "http://localhost:8200"
-MODEL = "DeepAnalyze-8B"
+# 1. Create assistant
+assistant = requests.post('http://localhost:8200/v1/assistants', json={
+    "model": "DeepAnalyze-8B",
+    "name": "Data Analyst",
+    "instructions": "分析数据并提供洞察。",
+    "tools": [{"type": "analyze"}]
+}).json()
 
-# 1. Upload data file
-with open('financial_data.csv', 'rb') as f:
-    files = {'file': ('financial_data.csv', f, 'text/csv')}
-    data = {'purpose': 'assistants'}
-    response = requests.post(f'{API_BASE}/v1/files', files=files, data=data)
-    file_id = response.json()['id']
+# 2. Create thread
+thread = requests.post('http://localhost:8200/v1/threads', json={
+    "metadata": {"project": "analysis"}
+}).json()
 
-# 2. Create assistant
-response = requests.post(f'{API_BASE}/v1/assistants', json={
-    "model": MODEL,
-    "name": "Financial Analyst",
-    "description": "Analyzes financial data",
-    "instructions": "You are a financial analyst. Analyze data and provide insights.",
-    "file_ids": [file_id]  # Optional: associate files at assistant level
-})
-
-assistant = response.json()
-assistant_id = assistant['id']
-
-# 3. Create thread
-response = requests.post(f'{API_BASE}/v1/threads', json={
-    "metadata": {"project": "financial_analysis"}
-})
-
-thread = response.json()
-thread_id = thread['id']
-
-# 4. Add message
-response = requests.post(f'{API_BASE}/v1/threads/{thread_id}/messages', json={
+# 3. Add message
+requests.post(f'http://localhost:8200/v1/threads/{thread["id"]}/messages', json={
     "role": "user",
-    "content": "请分析这个财务数据，计算每月的利润，并创建一个可视化图表。"
+    "content": "分析这个数据集并确定哪种教学方法效果更好。",
+    "file_ids": [file_id]
 })
 
-message = response.json()
+# 4. Create run
+run = requests.post(f'http://localhost:8200/v1/threads/{thread["id"]}/runs', json={
+    "assistant_id": assistant["id"]
+}).json()
 
-# 5. Create run
-response = requests.post(f'{API_BASE}/v1/threads/{thread_id}/runs', json={
-    "assistant_id": assistant_id
-})
+# 5. Monitor completion
+while run["status"] in ["queued", "in_progress"]:
+    run = requests.get(f'http://localhost:8200/v1/threads/{thread["id"]}/runs/{run["id"]}').json()
+    time.sleep(1)
 
-run = response.json()
-run_id = run['id']
-
-# 6. Monitor run status
-import time
-while True:
-    response = requests.get(f'{API_BASE}/v1/threads/{thread_id}/runs/{run_id}')
-    run = response.json()
-    status = run['status']
-
-    if status == 'completed':
-        print("✅ Analysis completed!")
-        break
-    elif status in ['failed', 'cancelled', 'expired']:
-        print(f"❌ Run failed: {status}")
-        break
-
-    time.sleep(2)
-
-# 7. Get results
-response = requests.get(f'{API_BASE}/v1/threads/{thread_id}/messages')
-messages = response.json()['data']
-
+# 6. Get results
+messages = requests.get(f'http://localhost:8200/v1/threads/{thread["id"]}/messages').json()['data']
 for msg in messages:
-    if msg['role'] == 'assistant':
-        content = msg['content'][0]['text']['value']
-        print(f"Analysis Result:\n{content}")
+    if msg["role"] == "assistant":
+        content = msg["content"][0]["text"]["value"]
+        print(f"Analysis: {content}")
         break
-
-# 8. Get generated files
-response = requests.get(f'{API_BASE}/v1/threads/{thread_id}/files')
-files = response.json()['data']
-
-if files:
-    print(f"Generated {len(files)} files:")
-    for f in files:
-        print(f"  📄 {f['name']}: {f['url']}")
 ```
 
-## 📋 Complete API Reference
+**OpenAI Library Example:**
+```python
+# 1. Create assistant
+assistant = client.beta.assistants.create(
+    name="Data Analyst",
+    instructions="分析数据并提供洞察。",
+    model="DeepAnalyze-8B",
+    tools=[{"type": "analyze"}]
+)
 
-### Health Check API
+# 2. Create thread
+thread = client.beta.threads.create(
+    tool_resources={
+        "analyze": {
+            "file_ids": [file_id]
+        }
+    }
+)
 
-#### GET /health
-Health check endpoint to verify API server status.
+# 3. Add message
+message = client.beta.threads.messages.create(
+    thread_id=thread.id,
+    role="user",
+    content="分析这个数据集并确定哪种教学方法效果更好。"
+)
 
-**Request:**
-```http
-GET /health
+# 4. Create run
+run = client.beta.threads.runs.create(
+    thread_id=thread.id,
+    assistant_id=assistant.id
+)
+
+# 5. Monitor completion
+while run.status in ["queued", "in_progress"]:
+    run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+    time.sleep(1)
+
+# 6. Get results
+messages = client.beta.threads.messages.list(thread_id=thread.id)
+for msg in messages.data:
+    if msg.role == "assistant":
+        content = msg.content[0].text.value
+        print(f"Analysis: {content}")
+        break
 ```
 
-**Response:**
-```json
-{
-  "status": "healthy",
-  "timestamp": 1704067200
-}
-```
+## 📋 API Reference
 
 ### Files API
 
 #### POST /v1/files
-Upload a file to be used in analysis.
+Upload a file for analysis.
 
 **Request:**
 ```http
@@ -505,7 +338,7 @@ List all uploaded files.
 
 **Request:**
 ```http
-GET /v1/files?purpose=assistants
+GET /v1/files
 ```
 
 **Response:**
@@ -525,15 +358,15 @@ GET /v1/files?purpose=assistants
 }
 ```
 
-#### GET /v1/files/{file_id}
-Retrieve file information.
+#### GET /v1/files/{file_id}/content
+Download file content.
 
 **Request:**
 ```http
-GET /v1/files/{file_id}
+GET /v1/files/{file_id}/content
 ```
 
-**Response:** Same as individual file object above
+**Response:** Binary file content
 
 #### DELETE /v1/files/{file_id}
 Delete a file.
@@ -552,16 +385,6 @@ DELETE /v1/files/{file_id}
 }
 ```
 
-#### GET /v1/files/{file_id}/content
-Download file content.
-
-**Request:**
-```http
-GET /v1/files/{file_id}/content
-```
-
-**Response:** Binary file content
-
 ### Chat Completions API
 
 #### POST /v1/chat/completions
@@ -574,17 +397,17 @@ Extended chat completion with file support.
   "messages": [
     {
       "role": "user",
-      "content": "Analyze this dataset and provide insights"
+      "content": "分析这个数据文件",
+      "file_ids": ["file-abc123"]  // OpenAI compatible: file_ids in messages
     }
   ],
-  "file_ids": ["file-abc123..."],
+  "file_ids": ["file-def456"],     // Optional: file_ids parameter (backward compatibility)
   "temperature": 0.4,
-  "stream": false,
-  "execute_code": true
+  "stream": false
 }
 ```
 
-**Response (non-streaming):**
+**Response (Non-Streaming):**
 ```json
 {
   "id": "chatcmpl-xyz789...",
@@ -596,25 +419,31 @@ Extended chat completion with file support.
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "Analysis results with <Analyze>, <Code>, <Execute>, <Answer> tags"
+        "content": "分析结果...",
+        "files": [                    // New format: files in message
+          {
+            "name": "chart.png",
+            "url": "http://localhost:8100/thread-123/generated/chart.png"
+          }
+        ]
       },
       "finish_reason": "stop"
     }
   ],
-  "generated_files": [
+  "generated_files": [              // Backward compatibility: generated_files field
     {
       "name": "chart.png",
       "url": "http://localhost:8100/thread-123/generated/chart.png"
     }
   ],
-  "attached_files": ["file-abc123..."]
+  "attached_files": ["file-abc123"] // Input files
 }
 ```
 
-**Response (streaming):**
+**Response (Streaming):**
 ```
-data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"content": "First part"}}]}
-data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"content": " of response"}}], "generated_files": {"name":"file_name","url":"http://localhost:8100/..."}}
+data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"content": "分析"}}]}
+data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"files": [{"name":"chart.png","url":"..."}]}, "finish_reason": "stop"}]}
 data: [DONE]
 ```
 
@@ -630,7 +459,7 @@ Create an assistant.
   "name": "Data Analyst",
   "description": "Professional data analysis assistant",
   "instructions": "You are a professional data analyst...",
-  "tools": [],
+  "tools": [{"type": "analyze"}],
   "file_ids": ["file-abc123..."],
   "metadata": {"version": "1.0"}
 }
@@ -646,7 +475,7 @@ Create an assistant.
   "description": "Professional data analysis assistant",
   "model": "DeepAnalyze-8B",
   "instructions": "You are a professional data analyst...",
-  "tools": [],
+  "tools": [{"type": "analyze"}],
   "file_ids": ["file-abc123..."],
   "metadata": {"version": "1.0"}
 }
@@ -667,16 +496,6 @@ GET /v1/assistants
   "data": [assistant objects]
 }
 ```
-
-#### GET /v1/assistants/{assistant_id}
-Retrieve an assistant.
-
-**Request:**
-```http
-GET /v1/assistants/{assistant_id}
-```
-
-**Response:** Assistant object
 
 #### DELETE /v1/assistants/{assistant_id}
 Delete an assistant.
@@ -834,7 +653,7 @@ Create and execute a run.
   "completed_at": null,
   "model": "DeepAnalyze-8B",
   "instructions": "You are a professional data analyst...",
-  "tools": [],
+  "tools": [{"type": "analyze"}],
   "file_ids": [],
   "metadata": {}
 }
@@ -866,7 +685,7 @@ GET /v1/threads/{thread_id}/runs
 }
 ```
 
-### Thread Files API (Extended)
+### Thread Files API
 
 #### GET /v1/threads/{thread_id}/files
 List files associated with a thread (including generated files).
@@ -899,66 +718,54 @@ GET /v1/threads/{thread_id}/files
 }
 ```
 
-### Admin API
+### Health Check API
 
-#### POST /v1/admin/cleanup-threads
-Manually trigger cleanup of expired threads.
+#### GET /health
+Check API server status.
 
 **Request:**
 ```http
-POST /v1/admin/cleanup-threads?timeout_hours=12
+GET /health
 ```
 
 **Response:**
 ```json
 {
-  "status": "success",
-  "cleaned_threads": 5,
-  "timeout_hours": 12,
+  "status": "healthy",
   "timestamp": 1704067200
 }
 ```
 
-#### GET /v1/admin/threads-stats
-Get thread statistics.
+## 🏗️ Architecture
 
-**Request:**
-```http
-GET /v1/admin/threads-stats
+### Multi-Port Design
+
+- **Port 8000**: vLLM model server (external)
+- **Port 8200**: Main API server (FastAPI)
+- **Port 8100**: File HTTP server for downloads
+
+## 🔧 Configuration
+
+### Environment Variables
+
+```python
+# API Configuration
+API_BASE = "http://localhost:8000/v1"  # vLLM endpoint
+MODEL_PATH = "DeepAnalyze-8B"          # Model name
+WORKSPACE_BASE_DIR = "workspace"       # File storage
+HTTP_SERVER_PORT = 8100               # File server port
+
+# Model Settings
+DEFAULT_TEMPERATURE = 0.4            # Default sampling temperature
+MAX_NEW_TOKENS = 32768               # Maximum response tokens
+STOP_TOKEN_IDS = [32000, 32007]      # Special token IDs
 ```
 
-**Response:**
-```json
-{
-  "total_threads": 150,
-  "recent_threads": 25,
-  "old_threads": 100,
-  "expired_threads": 25,
-  "timeout_hours": 12,
-  "timestamp": 1704067200
-}
-```
 
-## 🔍 Response Status Codes
 
-- `200 OK`: Successful request
-- `400 Bad Request`: Invalid parameters, file not found
-- `404 Not Found`: Resource not found (thread, message, assistant, file)
-- `422 Unprocessable Entity`: Validation error (invalid file type, size exceeded)
-- `500 Internal Server Error`: Model error, code execution failure
+## 🛠️ Examples
 
-## 🏷️ Object Types
+The `example/` directory contains comprehensive examples:
 
-### Status Values (Runs)
-- `queued`: Run is queued for execution
-- `in_progress`: Run is currently executing
-- `requires_action`: Run needs user input
-- `cancelling`: Run is being cancelled
-- `cancelled`: Run was cancelled
-- `failed`: Run failed with error
-- `completed`: Run completed successfully
-- `expired`: Run expired before completion
-
-### Tool Types
-- `NotImplemented`: Placeholder for future tools
-
+- `example.py` - Simple requests example
+- `exampleOpenAI.py` - OpenAI library example

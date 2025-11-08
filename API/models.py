@@ -101,7 +101,12 @@ class ChatCompletionRequest(BaseModel):
     file_ids: Optional[List[str]] = Field(default=None)
     temperature: Optional[float] = Field(0.4)
     stream: Optional[bool] = Field(False)
-    execute_code: Optional[bool] = Field(True)
+
+
+class FileInfo(BaseModel):
+    """File information model for OpenAI compatibility"""
+    filename: str
+    url: str
 
 
 class ChatCompletionChoice(BaseModel):

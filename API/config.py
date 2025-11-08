@@ -31,7 +31,7 @@ MAX_NEW_TOKENS = 32768
 
 # File handling configuration
 FILE_STORAGE_DIR = os.path.join(WORKSPACE_BASE_DIR, "_files")
-VALID_FILE_PURPOSES = ["assistants", "fine-tune", "answers"]
+VALID_FILE_PURPOSES = ["assistants", "fine-tune", "answers", "file-extract"]
 
 # Model configuration
 DEFAULT_TEMPERATURE = 0.4

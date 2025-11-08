@@ -14,6 +14,11 @@ from models import HealthResponse
 from utils import start_http_server
 from storage import storage
 
+# Safety constants
+# MAX_CLEANUP_ERRORS = 10
+# MAX_ITERATIONS = 1000
+# CLEANUP_BACKOFF_SECONDS = 30
+
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application"""

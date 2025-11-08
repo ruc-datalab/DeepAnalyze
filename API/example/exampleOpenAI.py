@@ -6,6 +6,7 @@ Demonstrates assistant workflow with analyze tool
 import openai
 import time
 import re
+from pathlib import Path
 
 # Configure OpenAI client for DeepAnalyze
 API_BASE = "http://localhost:8200/v1"
@@ -41,142 +42,237 @@ def extract_files_from_content(content):
     return files_dict
 
 
-def assistant_with_analyze_tool():
-    """Assistant with analyze tool and file analysis"""
-    print("🚀 DeepAnalyze Analyze Tool Example")
-    print("="*50)
-
+def file_api_examples():
+    """Demonstrate various file API operations"""
     try:
-        # Upload file
-        print("📤 Uploading Simpson.csv file...")
+        # Create test file
+        test_file_path = Path("test.txt")
+        test_file_path.write_text("Test content")
+
+        # Create files with different purposes
+        file1 = client.files.create(file=test_file_path, purpose="file-extract")
+        file2 = client.files.create(file=test_file_path, purpose="assistants")
+
+        print(f"Created files: {file1.id} (extract), {file2.id} (assistants)")
+
+        # List files
+        files_list = client.files.list()
+        print(f"Total files: {len(files_list.data)}")
+
+        # Get content (file-extract purpose)
+        if file1.purpose == "file-extract":
+            content = client.files.content(file1.id)
+            print(f"File content: {content.text}")
+
+        # Cleanup
+        client.files.delete(file1.id)
+        client.files.delete(file2.id)
+        test_file_path.unlink()
+        print("✅ File API examples completed")
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+
+def chat_completion_with_message_file_ids():
+    """Chat completion with file_ids in messages (OpenAI compatibility)"""
+    try:
+        # Use existing Simpson.csv file
         with open("./Simpson.csv", "rb") as f:
             file_obj = client.files.create(file=f, purpose="assistants")
-        print(f"✅ File uploaded: {file_obj.id}")
 
-        # Create assistant with analyze tool
+        # New format: file_ids in messages
+        messages = [
+            {
+                "role": "user",
+                "content": "分析数据，总结主要发现。",
+                "file_ids": [file_obj.id]
+            }
+        ]
+
+        response = client.chat.completions.create(model=MODEL, messages=messages)
+        message = response.choices[0].message
+
+        print(f"Response: {message.content[:100]}...")
+
+        # Show files from both formats
+        if hasattr(message, 'files') and message.files:
+            print(f"Files (message): {len(message.files)}")
+        if hasattr(response, 'generated_files') and response.generated_files:
+            print(f"Files (response): {len(response.generated_files)}")
+
+        # Backward compatibility example
+        response2 = client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": "生成图表"}],
+            file_ids=[file_obj.id]
+        )
+        print(f"Response 2: {response2.choices[0].message.content[:100]}...")
+
+        client.files.delete(file_obj.id)
+        print("✅ Chat completion examples completed")
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+
+def streaming_chat_completion_with_files():
+    """Streaming chat completion with file handling"""
+    try:
+        # Use existing Simpson.csv file
+        with open("./Simpson.csv", "rb") as f:
+            file_obj = client.files.create(file=f, purpose="assistants")
+
+        # Streaming with file_ids in messages
+        messages = [
+            {
+                "role": "user",
+                "content": "分析数据并生成可视化图表。",
+                "file_ids": [file_obj.id]
+            }
+        ]
+
+        print("Streaming...")
+        stream = client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            stream=True
+        )
+
+        full_response = ""
+        collected_files = []
+
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                content = chunk.choices[0].delta.content
+                print(content, end='', flush=True)
+                full_response += content
+
+            # Collect files from chunks
+            if hasattr(chunk, 'generated_files') and chunk.generated_files:
+                collected_files.extend(chunk.generated_files)
+
+        print(f"\n✅ Streaming complete ({len(full_response)} chars, {len(collected_files)} files)")
+
+        client.files.delete(file_obj.id)
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def assistant_with_analyze_tool():
+    """Assistant with analyze tool and file analysis"""
+    try:
+        # Upload file and create assistant
+        with open("./Simpson.csv", "rb") as f:
+            file_obj = client.files.create(file=f, purpose="assistants")
+
         assistant = client.beta.assistants.create(
             name="Data Analysis Assistant",
-            instructions="You are a data analysis expert. Analyze the provided data and generate insights.",
+            instructions="Analyze data and provide insights.",
             model=MODEL,
             tools=[{"type": "analyze"}],
         )
-        print(f"✅ Created assistant: {assistant.id}")
 
-        # Create thread with tool_resources (analyze tool files)
+        # Create thread with file
         thread = client.beta.threads.create(
-            tool_resources={
-                "analyze": {
-                    "file_ids": [file_obj.id]
-                }
-            }
+            tool_resources={"analyze": {"file_ids": [file_obj.id]}}
         )
-        print(f"✅ Created thread: {thread.id}")
 
-        # Create message
-        message = client.beta.threads.messages.create(
+        # Create message and run
+        client.beta.threads.messages.create(
             thread_id=thread.id,
             role="user",
-            content="Analyze the Simpson dataset and determine which teaching method performs better. Please provide statistical analysis.",
+            content="分析数据并确定哪种教学方法效果更好。",
         )
-        print(f"✅ Created message: {message.id}")
 
-        # Create run
         run = client.beta.threads.runs.create(
             thread_id=thread.id,
             assistant_id=assistant.id,
         )
-        print(f"✅ Created run: {run.id}")
 
         # Wait for completion
-        print("⏳ Waiting for completion...")
-        all_generated_files = {}
-
         while run.status in ["queued", "in_progress"]:
             time.sleep(1)
-            run = client.beta.threads.runs.retrieve(
-                thread_id=thread.id,
-                run_id=run.id
-            )
-            print(f"   Status: {run.status}")
+            run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
 
         if run.status == "completed":
-            # Get messages
             messages = client.beta.threads.messages.list(thread_id=thread.id)
             for msg in messages.data:
                 if msg.role == "assistant":
                     content = msg.content[0].text.value
-                    print(f"\n🤖 Assistant: {content}\n")
+                    print(f"Assistant: {content[:200]}...")
 
-                    # 提取文件信息
                     files_from_message = extract_files_from_content(content)
                     if files_from_message:
-                        print("📁 在此消息中发现文件:")
-                        for filename, url in files_from_message.items():
-                            print(f"   - {filename}: {url}")
-                            all_generated_files[filename] = url
-
-            # 显示所有收集到的文件
-            if all_generated_files:
-                print(f"\n📋 总共收集到 {len(all_generated_files)} 个文件:")
-                for filename, url in all_generated_files.items():
-                    print(f"   📄 {filename}")
-                    print(f"      🔗 {url}")
-                    print(f"      💾 直接下载: http://localhost:8100/{thread.id}/generated/{filename}")
-                    print()
-
-                print("💡 提示: 你可以通过以下方式访问这些文件:")
-                print("   1. 直接点击上述URL下载")
-                print("   2. 使用 requests.get(url) 下载文件内容")
-                print("   3. 文件也存储在 workspace/thread-{id}/generated/ 目录中")
-            else:
-                print("📝 此分析没有生成文件")
-
-        else:
-            print(f"❌ Run failed with status: {run.status}")
+                        print(f"Generated files: {len(files_from_message)}")
+                        return files_from_message
 
         # Cleanup
         client.files.delete(file_obj.id)
         client.beta.assistants.delete(assistant.id)
         client.beta.threads.delete(thread.id)
-        print("🧹 Cleaned up")
 
-        return all_generated_files
+        return {}
 
     except Exception as e:
         print(f"❌ Error: {e}")
         return {}
 
 
+
+
+
 def main():
-    """Run the example"""
-    print("Make sure the DeepAnalyze API server is running on localhost:8200")
-    print("And the vLLM model server is running on localhost:8000\n")
+    """Interactive example selector"""
+    print("🚀 DeepAnalyze API Examples")
+    print("API: localhost:8200 | Model: localhost:8000\n")
 
-    try:
-        # Test connection
-        models = client.models.list()
-        print(f"✅ Connected to API. Available models: {[m.id for m in models.data]}\n")
+    examples = {
+        "1": ("File API", file_api_examples),
+        "2": ("Assistant", assistant_with_analyze_tool),
+        "3": ("Chat Completion", chat_completion_with_message_file_ids),
+        "4": ("Streaming", streaming_chat_completion_with_files),
+        "5": ("All Examples", None)
+    }
 
-        # Run example and get files
-        generated_files = assistant_with_analyze_tool()
+    while True:
+        print("📋 Examples:")
+        for num, (name, _) in examples.items():
+            print(f"{num}. {name}")
+        print("0. Exit")
 
-        # 演示如何使用返回的文件字典
-        if generated_files:
-            print(f"\n🎯 文件字典使用示例:")
-            print(f"返回的文件字典: {generated_files}")
-            print(f"文件数量: {len(generated_files)}")
+        choice = input("\nSelect (0-5): ").strip()
 
-            # 遍历所有文件
-            for filename, url in generated_files.items():
-                print(f"\n📄 处理文件: {filename}")
-                print(f"   URL: {url}")
+        if choice == "0":
+            print("👋 Goodbye!")
+            break
 
-    except Exception as e:
-        print(f"❌ Connection error: {e}")
-        print("\nPlease check that:")
-        print("1. DeepAnalyze API server is running on localhost:8200")
-        print("2. vLLM model server is running on localhost:8000")
-        print("3. Simpson.csv file exists in the current directory")
+        if choice not in examples:
+            print("❌ Invalid choice")
+            continue
+
+        try:
+            # Test connection
+            models = client.models.list()
+            print(f"✅ Connected: {[m.id for m in models.data]}")
+
+            if choice == "5":  # Run all examples
+                for num, (name, func) in list(examples.items())[:-1]:
+                    print(f"\n{name}:")
+                    func()
+            else:
+                name, func = examples[choice]
+                print(f"\n{name}:")
+                func()
+
+        except KeyboardInterrupt:
+            print("\n👋 Goodbye!")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            print("Ensure API server (localhost:8200) and model server (localhost:8000) are running")
+            if choice in ["2", "5"]:
+                print("And Simpson.csv exists in current directory")
 
 
 if __name__ == "__main__":

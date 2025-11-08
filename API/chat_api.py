@@ -41,7 +41,6 @@ async def chat_completions(
     file_ids: Optional[List[str]] = Body(None),
     temperature: Optional[float] = Body(DEFAULT_TEMPERATURE),
     stream: Optional[bool] = Body(False),
-    execute_code: Optional[bool] = Body(True),
 ):
     """
     Extended chat completion API with file attachment support.
@@ -53,11 +52,10 @@ async def chat_completions(
     - file_ids: Optional list of file IDs to attach to the conversation
     - temperature: Sampling temperature (default 0.4)
     - stream: Whether to stream the response (default False)
-    - execute_code: Whether to enable code execution (default True)
 
     Returns:
     - Standard OpenAI chat completion response
-    - Additional field 'generated_files' with list of generated file URLs (if execute_code=True)
+    - Additional field 'generated_files' with list of generated file URLs
     """
     # Create temporary thread
     temp_thread = storage.create_thread(metadata={"temporary": True})
@@ -66,17 +64,30 @@ async def chat_completions(
     os.makedirs(generated_dir, exist_ok=True)
 
     try:
-        # Copy files to workspace
+        # Collect all file IDs from both parameter and messages
+        all_file_ids = set()
+
+        # Add file_ids from parameter (backward compatibility)
         if file_ids:
-            for fid in file_ids:
-                file_obj = storage.get_file(fid)
-                if not file_obj:
-                    raise HTTPException(status_code=400, detail=f"File {fid} not found")
-                src_path = storage.files[fid].get("filepath")
-                if src_path and os.path.exists(src_path):
-                    from utils import uniquify_path
-                    dst_path = uniquify_path(Path(workspace_dir) / file_obj.filename)
-                    shutil.copy2(src_path, dst_path)
+            all_file_ids.update(file_ids)
+
+        # Extract file_ids from messages (new OpenAI compatibility)
+        for message in messages:
+            if isinstance(message, dict) and "file_ids" in message:
+                message_file_ids = message.get("file_ids", [])
+                if isinstance(message_file_ids, list):
+                    all_file_ids.update(message_file_ids)
+
+        # Copy files to workspace
+        for fid in all_file_ids:
+            file_obj = storage.get_file(fid)
+            if not file_obj:
+                raise HTTPException(status_code=400, detail=f"File {fid} not found")
+            src_path = storage.files[fid].get("filepath")
+            if src_path and os.path.exists(src_path):
+                from utils import uniquify_path
+                dst_path = uniquify_path(Path(workspace_dir) / file_obj.filename)
+                shutil.copy2(src_path, dst_path)
 
         # Build messages with DeepAnalyze prompt template
         vllm_messages: List[Dict[str, Any]] = prepare_vllm_messages(
@@ -86,8 +97,8 @@ async def chat_completions(
         # Track generated files
         generated_files = []
 
-        # Stream response with code execution
-        if stream and execute_code:
+        # Stream response with code execution (always enabled)
+        if stream:
             def generate_stream_with_execution():
                 assistant_reply = ""
                 finished = False
@@ -192,26 +203,35 @@ async def chat_completions(
                         yield f"data: {json.dumps(chunk_data)}\n\n"
 
                 # Send final chunk with generated files
+                final_chunk_data = {}
+                if generated_files:
+                    final_chunk_data["files"] = generated_files
+
                 final_chunk = {
                     "id": f"chatcmpl-{uuid.uuid4().hex[:24]}",
                     "object": "chat.completion.chunk",
                     "created": int(time.time()),
                     "model": model,
                     "choices": [
-                        {"index": 0, "delta": {}, "finish_reason": "stop"}
+                        {
+                            "index": 0,
+                            "delta": final_chunk_data,
+                            "finish_reason": "stop"
+                        }
                     ],
-                    "generated_files": generated_files,
                 }
+
+                # Keep backward compatibility with generated_files field
+                if generated_files:
+                    final_chunk["generated_files"] = generated_files
+
                 yield f"data: {json.dumps(final_chunk)}\n\n"
                 yield "data: [DONE]\n\n"
 
             return StreamingResponse(generate_stream_with_execution(), media_type="text/event-stream")
 
-        elif stream:
-            print("Streaming without code execution is not implemented.")
-            return HTTPException(status_code=501, detail="Without code execution is not implemented.")
         else:
-            # Non-streaming response processed with code execution workflow
+            # Non-streaming response processed with code execution workflow (always enabled)
             assistant_reply = ""
             finished = False
             generated_files = []
@@ -270,6 +290,17 @@ async def chat_completions(
             assistant_reply += report_block
 
             result_content = assistant_reply
+
+            # Prepare message with files for OpenAI compatibility
+            message_data = {
+                "role": "assistant",
+                "content": result_content,
+            }
+
+            # Add files to message object (new OpenAI compatibility)
+            if generated_files:
+                message_data["files"] = generated_files
+
             result = {
                 "id": f"chatcmpl-{uuid.uuid4().hex[:24]}",
                 "object": "chat.completion",
@@ -278,15 +309,13 @@ async def chat_completions(
                 "choices": [
                     {
                         "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": result_content,
-                        },
+                        "message": message_data,
                         "finish_reason": "stop",
                     }
                 ],
             }
 
+            # Keep backward compatibility with generated_files field
             if generated_files:
                 result["generated_files"] = generated_files
             if file_ids:
