@@ -15,8 +15,6 @@ TEST_RESPONSES = [
 ]
 
 current_response_index = 0
-
-# 记录请求计数，用于调试
 request_count = 0
 
 app = FastAPI(title="Mock OpenAI API Server")

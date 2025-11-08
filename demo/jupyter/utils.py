@@ -16,11 +16,7 @@ async def jupyter_lab_alive(port: int) -> bool:
             async with session.get(url) as resp:
                 return resp.status == 200
     except Exception:
-        return False    
-
-def get_prompt_info(config: dict, prompt_index: dict) -> dict | None:
-    """Get prompt info from config and index file."""
-
+        return False
 
 def load_system_prompt(config: dict) -> str | None:
     """Load system prompt from config and index file."""
