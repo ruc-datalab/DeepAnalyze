@@ -40,8 +40,6 @@
 Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 🛠
 </p>
 
-https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
-
 > [!TIP]
 >
 > Clone this repository to deploy DeepAnalyze locally as your data analyst, completing any data science tasks without any workflow or closed-source APIs.
@@ -53,6 +51,8 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 
 <details>
 <summary>WebUI Demo</summary>
+
+https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 
 - Run these scripts to launch the API and interface, and then interact through the browser (http://localhost:4000):
     ```bash
@@ -71,6 +71,8 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 <summary>JupyterUI Demo</summary>
 
 Familiar with Jupyter Notebook? Try the **JupyterUI demo**!
+
+https://github.com/user-attachments/assets/a2335f45-be0e-4787-a4c1-e93192891c5f
 
 This Demo runs Jupyter Lab as frontend, creating a new notebook, converting `<Analyze|Understan|Answer>` to Markdown cells, converting `<Code>` to Code cells and executing them as `<Execute>`.
 
