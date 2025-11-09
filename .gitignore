@@ -19,3 +19,7 @@ wheels/
 .cursor/
 .vscode/
 .trae/
+
+#other
+**/.claude/
+API/workspace/

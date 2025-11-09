@@ -392,8 +392,10 @@ def render_file_block(
         url = build_download_url(thread_id, rel)
         name = Path(p).name
         lines.append(f"- [{name}]({url})")
-        if generated_files_sink is not None:
-            generated_files_sink.append({"name": name, "url": url})
+        #考虑去重
+        if generated_files_sink is not None :
+            if {"name": name, "url": url} not in generated_files_sink:
+                generated_files_sink.append({"name": name, "url": url})
         if Path(p).suffix.lower() in [
             ".png",
             ".jpg",

@@ -152,7 +152,11 @@ def streaming_chat_completion_with_files():
             if hasattr(chunk, 'generated_files') and chunk.generated_files:
                 collected_files.extend(chunk.generated_files)
 
+
+
         print(f"\n✅ Streaming complete ({len(full_response)} chars, {len(collected_files)} files)")
+        for file in collected_files:
+            print(f"- {file['name']}: {file['url']}")
 
         client.files.delete(file_obj.id)
 
