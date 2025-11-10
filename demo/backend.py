@@ -691,7 +691,7 @@ def bot_stream(messages, workspace, session_id="default"):
             if "</Answer>" in cur_res:
                 finished = True
                 break
-        if chunk.choices[0].finish_reason == "stop" and not finished:
+        if chunk.choices and chunk.choices[0].finish_reason == "stop" and not finished:
             if not cur_res.endswith("</Code>"):
                 cur_res += "</Code>"
                 assistant_reply += "</Code>"
