@@ -101,16 +101,6 @@ def chat_completion_with_message_file_ids():
         if hasattr(response, 'generated_files') and response.generated_files:
             print(f"Files (response): {len(response.generated_files)}")
 
-        # Backward compatibility example
-        response2 = client.chat.completions.create(
-            model=MODEL,
-            messages=[{"role": "user", "content": "生成图表"}],
-            file_ids=[file_obj.id]
-        )
-        print(f"Response 2: {response2.choices[0].message.content[:100]}...")
-
-        client.files.delete(file_obj.id)
-        print("✅ Chat completion examples completed")
 
     except Exception as e:
         print(f"❌ Error: {e}")

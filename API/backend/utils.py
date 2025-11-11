@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import http.server
 import socketserver
+import asyncio
 from pathlib import Path
 from urllib.parse import quote
 from datetime import datetime
@@ -197,6 +198,58 @@ def execute_code_safe(
         return output
     except subprocess.TimeoutExpired:
         return f"[Timeout]: execution exceeded {timeout_sec} seconds"
+    except Exception as e:
+        return f"[Error]: {str(e)}"
+    finally:
+        try:
+            if tmp_path and os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception:
+            pass
+
+
+async def execute_code_safe_async(
+    code_str: str, workspace_dir: str, timeout_sec: int = 120
+) -> str:
+    """Execute Python code in a separate process with timeout (async version)"""
+    exec_cwd = os.path.abspath(workspace_dir)
+    os.makedirs(exec_cwd, exist_ok=True)
+    tmp_path = None
+    try:
+        fd, tmp_path = tempfile.mkstemp(suffix=".py", dir=exec_cwd)
+        os.close(fd)
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.write(code_str)
+
+        child_env = os.environ.copy()
+        child_env.setdefault("MPLBACKEND", "Agg")
+        child_env.setdefault("QT_QPA_PLATFORM", "offscreen")
+        child_env.pop("DISPLAY", None)
+
+        # Use asyncio.subprocess for non-blocking execution
+        process = await asyncio.create_subprocess_exec(
+            sys.executable, tmp_path,
+            cwd=exec_cwd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=child_env,
+        )
+
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=timeout_sec
+            )
+            output = (stdout.decode() if stdout else "") + (stderr.decode() if stderr else "")
+            return output
+        except asyncio.TimeoutError:
+            # Kill the process if it times out
+            try:
+                process.kill()
+                await process.wait()
+            except Exception:
+                pass
+            return f"[Timeout]: execution exceeded {timeout_sec} seconds"
     except Exception as e:
         return f"[Error]: {str(e)}"
     finally:

@@ -22,13 +22,14 @@ from models import ChatCompletionRequest, ChatCompletionResponse, ChatCompletion
 from storage import storage
 from utils import (
     get_thread_workspace, prepare_vllm_messages, execute_code_safe,
-    WorkspaceTracker, render_file_block, generate_report_from_messages,
-    extract_code_from_segment
+    execute_code_safe_async, WorkspaceTracker, render_file_block,
+    generate_report_from_messages, extract_code_from_segment
 )
 
 
-# Initialize OpenAI client for vllm
+# Initialize OpenAI clients for vllm
 vllm_client = openai.OpenAI(base_url=API_BASE, api_key="dummy")
+vllm_client_async = openai.AsyncOpenAI(base_url=API_BASE, api_key="dummy")
 
 # Create router for chat endpoints
 router = APIRouter(prefix="/v1/chat", tags=["chat"])
@@ -238,7 +239,8 @@ async def chat_completions(
             tracker = WorkspaceTracker(workspace_dir, generated_dir)
 
             while not finished:
-                response = vllm_client.chat.completions.create(
+                # Use async client to avoid blocking
+                response = await vllm_client_async.chat.completions.create(
                     model=model,
                     messages=vllm_messages,
                     temperature=temperature,
@@ -252,7 +254,8 @@ async def chat_completions(
 
                 cur_res = ""
                 last_finish_reason: Optional[str] = None
-                for chunk in response:
+                # For async streaming, we need to iterate through async chunks
+                async for chunk in response:
                     if chunk.choices and chunk.choices[0].delta.content is not None:
                         delta = chunk.choices[0].delta.content
                         cur_res += delta
@@ -274,7 +277,8 @@ async def chat_completions(
                     vllm_messages.append({"role": "assistant", "content": cur_res})
                     code_str = extract_code_from_segment(cur_res)
                     if code_str:
-                        exe_output = execute_code_safe(code_str, workspace_dir)
+                        # Use async version of execute_code_safe to avoid blocking
+                        exe_output = await execute_code_safe_async(code_str, workspace_dir)
                         artifacts = tracker.diff_and_collect()
                         exe_str = f"\n<Execute>\n```\n{exe_output}\n```\n</Execute>\n"
                         file_block = render_file_block(
