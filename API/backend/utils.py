@@ -473,34 +473,19 @@ def generate_report_from_messages(
 
 
 def start_http_server():
-    """Start HTTP file server for workspace files"""
     os.makedirs(WORKSPACE_BASE_DIR, exist_ok=True)
+    
+    # 使用 ThreadingTCPServer 处理并发
     handler = partial(
-        http.server.SimpleHTTPRequestHandler, directory=WORKSPACE_BASE_DIR
+        http.server.SimpleHTTPRequestHandler, 
+        directory=WORKSPACE_BASE_DIR
     )
-
-    class SafeTCPServer(socketserver.TCPServer):
-        """TCPServer with timeout to prevent blocking"""
-        allow_reuse_address = True
-
-        def serve_forever(self, poll_interval=0.5):
-            """Override serve_forever with timeout"""
-            self._BaseServer__shutdown_request = False
-            while not self._BaseServer__shutdown_request:
-                try:
-                    self.handle_request()
-                except (OSError, KeyboardInterrupt):
-                    break
-                except Exception as e:
-                    print(f"HTTP server error: {e}")
-                    continue
-
-    with SafeTCPServer(("", HTTP_SERVER_PORT), handler) as httpd:
-        httpd.timeout = 1  # Add timeout to prevent blocking
+    
+    with socketserver.ThreadingTCPServer(("", HTTP_SERVER_PORT), handler) as httpd:
+        httpd.allow_reuse_address = True
         print(f"HTTP Server serving {WORKSPACE_BASE_DIR} at port {HTTP_SERVER_PORT}")
         try:
-            httpd.serve_forever(poll_interval=0.1)  # Use polling instead of blocking
+            httpd.serve_forever()
         except KeyboardInterrupt:
             print("HTTP server shutting down...")
-        except Exception as e:
-            print(f"HTTP server error: {e}")
+            httpd.shutdown()

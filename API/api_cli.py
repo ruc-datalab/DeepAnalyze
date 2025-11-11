@@ -96,6 +96,15 @@ class DeepAnalyzeCLI:
 
             file_size = full_path.stat().st_size
 
+            # 安全处理文件名，避免编码错误
+            safe_filename = full_path.name
+            try:
+                # 确保文件名可以安全编码
+                safe_filename.encode('utf-8')
+            except UnicodeEncodeError:
+                # 如果文件名包含无效字符，使用安全文件名
+                safe_filename = f"file_{int(time.time())}{full_path.suffix}"
+
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
@@ -104,7 +113,7 @@ class DeepAnalyzeCLI:
                 console=console
             ) as progress:
 
-                task = progress.add_task(f"[cyan]上传 {full_path.name}...", total=100)
+                task = progress.add_task(f"[cyan]上传 {safe_filename}...", total=100)
 
                 # 模拟上传进度
                 for i in range(0, 101, 10):
@@ -120,17 +129,24 @@ class DeepAnalyzeCLI:
 
                 progress.update(task, completed=100)
 
+            # 安全处理返回的文件名
+            safe_response_filename = file_obj.filename
+            try:
+                safe_response_filename.encode('utf-8')
+            except UnicodeEncodeError:
+                safe_response_filename = safe_filename  # 使用我们之前的安全文件名
+
             self.uploaded_files.append({
                 'id': file_obj.id,
-                'name': file_obj.filename,
+                'name': safe_response_filename,
                 'path': str(full_path),
                 'size': file_size,
                 'purpose': file_obj.purpose
             })
 
-            console.print(f"[green]✅ 文件上传成功![/green]")
+            console.print("[green]✅ 文件上传成功![/green]")
             console.print(f"[dim]文件ID: {file_obj.id}[/dim]")
-            console.print(f"[dim]文件名: {file_obj.filename}[/dim]")
+            console.print(f"[dim]文件名: {safe_response_filename}[/dim]")
             console.print(f"[dim]文件大小: {decimal(file_size)}[/dim]")
             console.print(f"[dim]用途: {file_obj.purpose}[/dim]")
             return file_obj.id
@@ -140,28 +156,115 @@ class DeepAnalyzeCLI:
             return None
 
     def list_uploaded_files(self):
-        """显示已上传的文件列表"""
-        if not self.uploaded_files:
-            console.print("[yellow]📝 暂无已上传的文件[/yellow]")
+        """显示所有文件列表（用户上传文件、中间文件和输出文件）"""
+        # 获取输出文件（图片和MD报告）
+        output_files = [f for f in self.generated_files if f.get('type') == 'output']
+
+        # 检查是否有任何文件
+        if not self.uploaded_files and not self.intermediate_files and not output_files:
+            console.print("[yellow]📝 暂无文件[/yellow]")
             return
 
-        table = Table(title="已上传文件", show_header=True, header_style="bold magenta")
-        table.add_column("文件名", style="cyan", no_wrap=True)
-        table.add_column("文件ID", style="green")
-        table.add_column("文件大小", style="yellow")
-        table.add_column("用途", style="blue")
-        table.add_column("状态", style="green")
+        # 显示用户上传的文件
+        if self.uploaded_files:
+            table = Table(title="用户上传文件", show_header=True, header_style="bold magenta")
+            table.add_column("文件名", style="cyan", no_wrap=True)
+            table.add_column("文件ID", style="green")
+            table.add_column("文件大小", style="yellow")
+            table.add_column("用途", style="blue")
+            table.add_column("状态", style="green")
 
-        for file_info in self.uploaded_files:
-            table.add_row(
-                file_info['name'],
-                file_info['id'][:8] + "...",
-                decimal(file_info['size']),
-                file_info.get('purpose', 'assistants'),
-                "✅ 已上传"
-            )
+            for file_info in self.uploaded_files:
+                table.add_row(
+                    file_info['name'],
+                    file_info['id'][:8] + "...",
+                    decimal(file_info['size']),
+                    file_info.get('purpose', 'assistants'),
+                    "✅ 已上传"
+                )
 
-        console.print(table)
+            console.print(table)
+
+        # 显示中间文件
+        if self.intermediate_files:
+            if self.uploaded_files:
+                console.print()  # 添加空行分隔
+
+            intermediate_table = Table(title="生成的中间文件", show_header=True, header_style="bold cyan")
+            intermediate_table.add_column("文件名", style="cyan", no_wrap=True)
+            intermediate_table.add_column("文件ID", style="green")
+            intermediate_table.add_column("来源", style="yellow")
+            intermediate_table.add_column("用途", style="blue")
+            intermediate_table.add_column("状态", style="orange3")
+
+            for file_info in self.intermediate_files:
+                intermediate_table.add_row(
+                    file_info['name'],
+                    file_info['id'][:8] + "...",
+                    "AI生成",
+                    file_info.get('purpose', 'assistants'),
+                    "🔄 中间文件"
+                )
+
+            console.print(intermediate_table)
+
+        # 显示输出文件（图片和MD报告）
+        if output_files:
+            if self.uploaded_files or self.intermediate_files:
+                console.print()  # 添加空行分隔
+
+            output_table = Table(title="生成的输出文件", show_header=True, header_style="bold green")
+            output_table.add_column("文件名", style="cyan", no_wrap=True)
+            output_table.add_column("URL", style="blue")
+            output_table.add_column("来源", style="yellow")
+            output_table.add_column("大小", style="magenta")
+            output_table.add_column("状态", style="bright_blue")
+
+            for file_info in output_files:
+                file_name = file_info.get('name', '未知文件')
+                file_url = file_info.get('url', '无URL')
+                file_size = file_info.get('size', '未知')
+
+                # 根据文件扩展名确定文件类型
+                if file_name.lower().endswith(('.md', '.markdown')):
+                    file_type = "📄 报告"
+                elif file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp')):
+                    file_type = "🖼️ 图片"
+                else:
+                    file_type = "📁 输出"
+
+                # 创建带超链接的URL显示（显示截断文本，但链接到完整URL）
+                if file_url != '无URL':
+                    display_url = file_url[:60] + "..." if len(file_url) > 60 else file_url
+                    url_text = Text(display_url, style="blue")
+                    url_text.stylize(f"link {file_url}")
+                else:
+                    url_text = Text("无URL", style="blue")
+
+                # 确定文件大小显示
+                size_display = str(file_size) if file_size != '未知' else "未知"
+
+                output_table.add_row(
+                    file_name,
+                    url_text,
+                    file_type,
+                    size_display,
+                    "📋 已生成"
+                )
+
+            console.print(output_table)
+
+        # 显示说明信息
+        if self.intermediate_files or output_files:
+            console.print()
+            explanations = []
+            if self.intermediate_files:
+                explanations.append("🔄 中间文件：AI生成的数据文件，已自动上传用于后续对话上下文")
+            if output_files:
+                explanations.append("📋 输出文件：AI生成的报告和图片，可直接访问URL查看")
+
+            for explanation in explanations:
+                console.print(f"[dim]{explanation}[/dim]")
 
     def is_intermediate_file(self, file_info: Dict[str, Any]) -> bool:
         """判断文件是否应该作为中间文件上传（排除报告和图片）"""
@@ -188,7 +291,17 @@ class DeepAnalyzeCLI:
             file_name = file_info.get('name', 'unknown_file')
             file_url = file_info.get('url', '')
 
-            console.print(f"[dim]📤 上传中间文件: {file_name}[/dim]")
+            # 安全处理文件名
+            safe_file_name = file_name
+            try:
+                safe_file_name.encode('utf-8')
+            except UnicodeEncodeError:
+                # 如果文件名包含无效字符，使用安全文件名
+                import time
+                file_ext = os.path.splitext(file_name)[1]
+                safe_file_name = f"intermediate_file_{int(time.time())}{file_ext}"
+
+            console.print(f"[dim]📤 上传中间文件: {safe_file_name}[/dim]")
 
             # 尝试从URL下载文件内容并上传
             import requests
@@ -199,7 +312,7 @@ class DeepAnalyzeCLI:
             response = requests.get(file_url)
             if response.status_code == 200:
                 # 创建临时文件
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file_name)[1]) as temp_file:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(safe_file_name)[1]) as temp_file:
                     temp_file.write(response.content)
                     temp_file_path = temp_file.name
 
@@ -214,23 +327,23 @@ class DeepAnalyzeCLI:
                     # 保存到中间文件列表
                     self.intermediate_files.append({
                         'id': file_obj.id,
-                        'name': file_name,
+                        'name': safe_file_name,
                         'original_url': file_url,
                         'purpose': file_obj.purpose
                     })
 
-                    console.print(f"[dim]✅ 中间文件上传成功: {file_name} -> {file_obj.id}[/dim]")
+                    console.print(f"[dim]✅ 中间文件上传成功: {safe_file_name} -> {file_obj.id}[/dim]")
                     return file_obj.id
 
                 finally:
                     # 删除临时文件
                     os.unlink(temp_file_path)
             else:
-                console.print(f"[red]❌ 下载中间文件失败: {file_name}[/red]")
+                console.print(f"[red]❌ 下载中间文件失败: {safe_file_name}[/red]")
                 return None
 
         except Exception as e:
-            console.print(f"[red]❌ 上传中间文件失败 {file_name}: {e}[/red]")
+            console.print(f"[red]❌ 上传中间文件失败 {safe_file_name}: {e}[/red]")
             return None
 
     def chat_with_file(self, message: str, file_ids: List[str] = None, stream: bool = True):
@@ -334,9 +447,29 @@ class DeepAnalyzeCLI:
                         })
                     else:
                         # 报告和图片文件，直接保存
+                        # 尝试从URL获取文件大小
+                        file_size = file_info.get('size', '未知')
+                        if file_size == '未知' and file_url:
+                            try:
+                                import requests
+                                response = requests.head(file_url, timeout=5)
+                                if response.status_code == 200 and 'content-length' in response.headers:
+                                    size_bytes = int(response.headers['content-length'])
+                                    file_size = decimal(size_bytes)
+                                else:
+                                    # 如果HEAD请求失败，尝试完整下载
+                                    response = requests.get(file_url, timeout=10)
+                                    if response.status_code == 200:
+                                        size_bytes = len(response.content)
+                                        file_size = decimal(size_bytes)
+                            except Exception:
+                                # 如果获取失败，保持为'未知'
+                                pass
+
                         self.generated_files.append({
                             **file_info,
-                            'type': 'output'
+                            'type': 'output',
+                            'size': file_size
                         })
                         console.print(f"[dim]• {file_name}: {file_url or file_id}[/dim]")
 
@@ -455,9 +588,17 @@ class DeepAnalyzeCLI:
             file_url = file_info.get('url', '无URL')
             file_size = file_info.get('size', '未知')
 
+            # 创建带超链接的URL显示（显示截断文本，但链接到完整URL）
+            if file_url != '无URL':
+                display_url = file_url[:50] + "..." if len(file_url) > 50 else file_url
+                url_text = Text(display_url, style="green")
+                url_text.stylize(f"link {file_url}")
+            else:
+                url_text = Text("无URL", style="green")
+
             table.add_row(
                 file_name,
-                file_url[:50] + "..." if len(file_url) > 50 else file_url,
+                url_text,
                 str(file_size),
                 "📄 报告" if file_name.lower().endswith(('.md', '.markdown')) else "🖼️ 图片"
             )
