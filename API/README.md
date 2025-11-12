@@ -4,14 +4,10 @@
 
 ### Prerequisites
 
-1. **Start vLLM Model Server**:
+**Start vLLM Model Server**:
+
 ```bash
 vllm serve DeepAnalyze-8B --host 0.0.0.0 --port 8000
-```
-
-2. **Install Dependencies**:
-```bash
-pip install -r requirements.txt
 ```
 
 ### Starting the Server
@@ -31,7 +27,7 @@ The API server will create a new `workspace` folder in the current directory as 
 
 ```bash
 cd example
-python example.py          # Simple requests example
+python exampleRequest.py          #  requests example
 python exampleOpenAI.py    # OpenAI library example
 ```
 
@@ -74,7 +70,7 @@ print(f"File uploaded: {file_obj.id}")
 response = requests.post('http://localhost:8200/v1/chat/completions', json={
     "model": "DeepAnalyze-8B",
     "messages": [
-        {"role": "user", "content": "用一句话介绍Python编程语言"}
+        {"role": "user", "content": "Introduce Python programming language in one sentence"}
     ],
     "temperature": 0.4
 })
@@ -84,11 +80,12 @@ print(content)
 ```
 
 **OpenAI Library Example:**
+
 ```python
 response = client.chat.completions.create(
     model="DeepAnalyze-8B",
     messages=[
-        {"role": "user", "content": "用一句话介绍Python编程语言"}
+        {"role": "user", "content": "Introduce Python programming language in one sentence"}
     ],
     temperature=0.4
 )
@@ -105,7 +102,7 @@ response = requests.post('http://localhost:8200/v1/chat/completions', json={
     "messages": [
         {
             "role": "user",
-            "content": "分析这个数据文件，计算各部门的平均薪资，并生成可视化图表。",
+            "content": "Analyze this data file, calculate average salary by department, and generate visualization charts.",
             "file_ids": [file_id]  
         }
     ],
@@ -128,7 +125,7 @@ response = client.chat.completions.create(
     messages=[
         {
             "role": "user",
-            "content": "分析这个数据文件，计算各部门的平均薪资，并生成可视化图表。",
+            "content": "Analyze this data file, calculate average salary by department, and generate visualization charts.",
             "file_ids": [file_id]  
         }
     ],
@@ -154,7 +151,7 @@ response = requests.post('http://localhost:8200/v1/chat/completions', json={
     "messages": [
         {
             "role": "user",
-            "content": "流式分析这个数据并生成趋势图。",
+            "content": "Analyze this data and generate trend charts.",
             "file_ids": [file_id]
         }
     ],
@@ -182,7 +179,7 @@ stream = client.chat.completions.create(
     messages=[
         {
             "role": "user",
-            "content": "流式分析这个数据并生成趋势图。",
+            "content": "Analyze this data and generate trend charts.",
             "file_ids": [file_id]
         }
     ],
@@ -335,9 +332,6 @@ data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices":
 data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"files": [{"name":"chart.png","url":"..."}]}, "finish_reason": "stop"}]}
 data: [DONE]
 ```
-
-
-
 
 
 
