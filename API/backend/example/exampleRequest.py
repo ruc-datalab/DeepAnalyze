@@ -35,7 +35,7 @@ def chat_with_file():
     # Upload file
     with open("./Simpson.csv", 'rb') as f:
         files = {'file': ('Simpson.csv', f, 'text/csv')}
-        data = {'purpose': 'assistants'}
+        data = {'purpose': 'file-extract'}
         response = requests.post(f"{API_BASE}/v1/files", files=files, data=data)
 
     if response.status_code != 200:
@@ -67,75 +67,6 @@ def chat_with_file():
     requests.delete(f"{API_BASE}/v1/files/{file_id}")
 
 
-def assistants_workflow():
-    """Full Assistants API workflow with data analysis"""
-    # Use existing Simpson.csv file
-    with open("./Simpson.csv", 'rb') as f:
-        files = {'file': ('Simpson.csv', f, 'text/csv')}
-        data = {'purpose': 'assistants'}
-        response = requests.post(f"{API_BASE}/v1/files", files=files, data=data)
-
-    file_id = response.json()['id']
-
-    try:
-        # Create assistant
-        assistant = requests.post(f"{API_BASE}/v1/assistants", json={
-            "model": MODEL,
-            "name": "Data Analyst",
-            "instructions": "Analyze data and provide insights.",
-            "file_ids": [file_id]
-        }).json()
-
-        # Create thread
-        thread = requests.post(f"{API_BASE}/v1/threads", json={
-            "metadata": {"example": "workflow"}
-        }).json()
-
-        # Add message
-        requests.post(
-            f"{API_BASE}/v1/threads/{thread['id']}/messages",
-            json={
-                "role": "user",
-                "content": "分析数据并确定哪种教学方法效果更好。"
-            }
-        )
-
-        # Create run
-        run = requests.post(
-            f"{API_BASE}/v1/threads/{thread['id']}/runs",
-            json={"assistant_id": assistant['id']}
-        ).json()
-
-        # Wait for completion
-        for i in range(60):
-            status = requests.get(
-                f"{API_BASE}/v1/threads/{thread['id']}/runs/{run['id']}"
-            ).json()['status']
-
-            if status == 'completed':
-                break
-            elif status in ['failed', 'cancelled', 'expired']:
-                print(f"❌ Run {status}")
-                return
-            time.sleep(2)
-
-        # Get results
-        messages = requests.get(f"{API_BASE}/v1/threads/{thread['id']}/messages").json()['data']
-        for msg in messages:
-            if msg['role'] == 'assistant':
-                content = msg['content'][0]['text']['value']
-                print(f"Assistant: {content[:100]}...")
-                break
-
-        # Check generated files
-        files = requests.get(f"{API_BASE}/v1/threads/{thread['id']}/files").json()['data']
-        if files:
-            print(f"Files: {len(files)} generated")
-
-    except Exception as e:
-        print(f"❌ Error: {e}")
-    finally:
-        requests.delete(f"{API_BASE}/v1/files/{file_id}")
 
 
 def file_ids_in_messages():
@@ -143,7 +74,7 @@ def file_ids_in_messages():
     # Upload file
     with open("./Simpson.csv", 'rb') as f:
         files = {'file': ('Simpson.csv', f, 'text/csv')}
-        data = {'purpose': 'assistants'}
+        data = {'purpose': 'file-extract'}
         response = requests.post(f"{API_BASE}/v1/files", files=files, data=data)
 
     file_id = response.json()['id']
@@ -184,7 +115,7 @@ def streaming_chat():
     # Upload file
     with open("./Simpson.csv", 'rb') as f:
         files = {'file': ('Simpson.csv', f, 'text/csv')}
-        data = {'purpose': 'assistants'}
+        data = {'purpose': 'file-extract'}
         response = requests.post(f"{API_BASE}/v1/files", files=files, data=data)
 
     file_id = response.json()['id']
@@ -246,10 +177,9 @@ def main():
     examples = {
         "1": ("Simple Chat", simple_chat),
         "2": ("Chat with File", chat_with_file),
-        "3": ("Assistants Workflow", assistants_workflow),
-        "4": ("File IDs in Messages", file_ids_in_messages),
-        "5": ("Streaming Chat", streaming_chat),
-        "6": ("All Examples", None)
+        "3": ("File IDs in Messages", file_ids_in_messages),
+        "4": ("Streaming Chat", streaming_chat),
+        "5": ("All Examples", None)
     }
 
     while True:
@@ -258,7 +188,7 @@ def main():
             print(f"{num}. {name}")
         print("0. Exit")
 
-        choice = input("\nSelect (0-6): ").strip()
+        choice = input("\nSelect (0-5): ").strip()
 
         if choice == "0":
             print("👋 Goodbye!")
@@ -269,7 +199,7 @@ def main():
             continue
 
         try:
-            if choice == "6":  # Run all examples
+            if choice == "5":  # Run all examples
                 for num, (name, func) in list(examples.items())[:-1]:
                     print(f"\n{name}:")
                     func()

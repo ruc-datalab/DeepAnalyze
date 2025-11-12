@@ -5,6 +5,9 @@ Sets up the FastAPI application and starts the server
 
 import time
 import threading
+import signal
+import sys
+import atexit
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -36,18 +39,11 @@ def create_app() -> FastAPI:
     # Include all routers
     from file_api import router as file_router
     from models_api import router as models_router
-    from assistants_api import router as assistants_router
-    from threads_api import threads_router, messages_router
-    from runs_api import router as runs_router
     from chat_api import router as chat_router
     from admin_api import router as admin_router
 
     app.include_router(file_router)
     app.include_router(models_router)
-    app.include_router(assistants_router)
-    app.include_router(threads_router)
-    app.include_router(messages_router)
-    app.include_router(runs_router)
     app.include_router(chat_router)
     app.include_router(admin_router)
 
@@ -63,22 +59,6 @@ def create_app() -> FastAPI:
     return app
 
 
-def schedule_thread_cleanup():
-    """Background thread to periodically clean up expired threads"""
-    import time as time_module
-
-    while True:
-        try:
-            cleaned_count = storage.cleanup_expired_threads(timeout_hours=12)
-            if cleaned_count > 0:
-                print(f"Thread cleanup completed: removed {cleaned_count} expired threads")
-        except Exception as e:
-            print(f"Thread cleanup error: {e}")
-
-        # Sleep for configured interval
-        time_module.sleep(CLEANUP_INTERVAL_MINUTES * 60)
-
-
 def main():
     """Main entry point to start the API server"""
     print("🚀 Starting DeepAnalyze OpenAI-Compatible API Server...")
@@ -88,10 +68,8 @@ def main():
     print("\n📖 API Endpoints:")
     print("   - Models API: /v1/models")
     print("   - Files API: /v1/files")
-    print("   - Assistants API: /v1/assistants")
     print("   - Threads API: /v1/threads")
     print("   - Messages API: /v1/threads/{thread_id}/messages")
-    print("   - Runs API: /v1/threads/{thread_id}/runs")
     print("   - Chat API: /v1/chat/completions")
     print("   - Admin API: /v1/admin")
     print("   - Extended: /v1/threads/{thread_id}/files")
@@ -101,13 +79,10 @@ def main():
     http_thread = threading.Thread(target=start_http_server, daemon=True)
     http_thread.start()
 
-    # Start thread cleanup scheduler in background thread
-    cleanup_thread = threading.Thread(target=schedule_thread_cleanup, daemon=True)
-    cleanup_thread.start()
-    print(f"Thread cleanup scheduler started (runs every {CLEANUP_INTERVAL_MINUTES} minutes, 12-hour timeout)")
-
     # Create and start the FastAPI application
     app = create_app()
+
+    print("Starting API server...")
     uvicorn.run(app, host=API_HOST, port=API_PORT)
 
 

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from models import (
-    FileObject, AssistantObject, ThreadObject, MessageObject, RunObject
+    FileObject, ThreadObject, MessageObject
 )
 from utils import get_thread_workspace, uniquify_path
 
@@ -22,10 +22,8 @@ class Storage:
 
     def __init__(self):
         self.files: Dict[str, Dict[str, Any]] = {}
-        self.assistants: Dict[str, Dict[str, Any]] = {}
         self.threads: Dict[str, Dict[str, Any]] = {}
         self.messages: Dict[str, List[Dict[str, Any]]] = {}  # thread_id -> messages
-        self.runs: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
 
     def create_file(self, filename: str, filepath: str, purpose: str) -> FileObject:
@@ -71,54 +69,7 @@ class Storage:
                 files = [f for f in files if f.get("purpose") == purpose]
             return [FileObject(**f) for f in files]
 
-    def create_assistant(
-        self,
-        model: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        instructions: Optional[str] = None,
-        tools: Optional[List[Dict]] = None,
-        file_ids: Optional[List[str]] = None,
-        metadata: Optional[Dict] = None,
-    ) -> AssistantObject:
-        """Create an assistant record"""
-        with self._lock:
-            assistant_id = f"asst-{uuid.uuid4().hex[:24]}"
-            assistant = {
-                "id": assistant_id,
-                "object": "assistant",
-                "created_at": int(time.time()),
-                "name": name,
-                "description": description,
-                "model": model,
-                "instructions": instructions,
-                "tools": tools or [],
-                "file_ids": file_ids or [],
-                "metadata": metadata or {},
-            }
-            self.assistants[assistant_id] = assistant
-            return AssistantObject(**assistant)
-
-    def get_assistant(self, assistant_id: str) -> Optional[AssistantObject]:
-        """Get an assistant record"""
-        with self._lock:
-            if assistant_id in self.assistants:
-                return AssistantObject(**self.assistants[assistant_id])
-            return None
-
-    def delete_assistant(self, assistant_id: str) -> bool:
-        """Delete an assistant record"""
-        with self._lock:
-            if assistant_id in self.assistants:
-                del self.assistants[assistant_id]
-                return True
-            return False
-
-    def list_assistants(self) -> List[AssistantObject]:
-        """List all assistants"""
-        with self._lock:
-            return [AssistantObject(**a) for a in self.assistants.values()]
-
+  
     def create_thread(
         self,
         metadata: Optional[Dict] = None,
@@ -147,14 +98,7 @@ class Storage:
             os.makedirs(os.path.join(workspace_dir, "generated"), exist_ok=True)
 
             # Copy files to thread workspace
-            all_file_ids = set(file_ids or [])
-
-            # Add files from tool_resources analyze tool
-            if tool_resources and "analyze" in tool_resources:
-                analyze_file_ids = tool_resources["analyze"].get("file_ids", [])
-                all_file_ids.update(analyze_file_ids)
-
-            for fid in all_file_ids:
+            for fid in (file_ids or []):
                 if fid in self.files:
                     file_data = self.files[fid]
                     src_path = file_data.get("filepath")
@@ -223,70 +167,7 @@ class Storage:
                 return []
             return [MessageObject(**m) for m in self.messages[thread_id]]
 
-    def create_run(
-        self,
-        thread_id: str,
-        assistant_id: str,
-        model: str,
-        instructions: Optional[str] = None,
-        tools: Optional[List[Dict]] = None,
-        metadata: Optional[Dict] = None,
-    ) -> RunObject:
-        """Create a run record"""
-        with self._lock:
-            if thread_id not in self.threads:
-                raise ValueError(f"Thread {thread_id} not found")
-            if assistant_id not in self.assistants:
-                raise ValueError(f"Assistant {assistant_id} not found")
-
-            run_id = f"run-{uuid.uuid4().hex[:24]}"
-            now = int(time.time())
-            run = {
-                "id": run_id,
-                "object": "thread.run",
-                "created_at": now,
-                "thread_id": thread_id,
-                "assistant_id": assistant_id,
-                "status": "queued",
-                "required_action": None,
-                "last_error": None,
-                "expires_at": now + 600,  # 10 minutes
-                "started_at": None,
-                "cancelled_at": None,
-                "failed_at": None,
-                "completed_at": None,
-                "model": model,
-                "instructions": instructions,
-                "tools": tools or [],
-                "file_ids": [],
-                "metadata": metadata or {},
-            }
-            self.runs[run_id] = run
-            return RunObject(**run)
-
-    def get_run(self, thread_id: str, run_id: str) -> Optional[RunObject]:
-        """Get a run record"""
-        with self._lock:
-            if run_id in self.runs and self.runs[run_id]["thread_id"] == thread_id:
-                return RunObject(**self.runs[run_id])
-            return None
-
-    def update_run_status(
-        self,
-        run_id: str,
-        status: str,
-        **kwargs
-    ) -> Optional[RunObject]:
-        """Update run status"""
-        with self._lock:
-            if run_id in self.runs:
-                self.runs[run_id]["status"] = status
-                for key, value in kwargs.items():
-                    if key in self.runs[run_id]:
-                        self.runs[run_id][key] = value
-                return RunObject(**self.runs[run_id])
-            return None
-
+    
     def cleanup_expired_threads(self, timeout_hours: float = 12) -> int:
         """Clean up threads that haven't been accessed for more than timeout_hours"""
         with self._lock:

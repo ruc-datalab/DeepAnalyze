@@ -17,31 +17,6 @@ client = openai.OpenAI(
     api_key="dummy"  # DeepAnalyze doesn't require a real API key
 )
 
-
-def extract_files_from_content(content):
-    """从assistant回复内容中提取文件信息"""
-    files_dict = {}
-    file_patterns = [
-        r'<File>\s*-?\s*\[([^\]]+)\]\(([^)]+)\)\s*</File>',  # 单个文件
-        r'<File>(.*?)</File>',  # 整个File标签内容，然后提取其中的链接
-    ]
-
-    for pattern in file_patterns:
-        matches = re.findall(pattern, content, re.DOTALL)
-        for match in matches:
-            if pattern == file_patterns[1]:  # File标签内容的模式
-                # 从File标签内容中提取所有链接
-                link_pattern = r'-?\s*\[([^\]]+)\]\(([^)]+)\)'
-                link_matches = re.findall(link_pattern, match)
-                for filename, url in link_matches:
-                    files_dict[filename] = url.strip()
-            else:  # 单个文件模式
-                filename, url = match
-                files_dict[filename] = url.strip()
-
-    return files_dict
-
-
 def file_api_examples():
     """Demonstrate various file API operations"""
     try:
@@ -51,7 +26,7 @@ def file_api_examples():
 
         # Create files with different purposes
         file1 = client.files.create(file=test_file_path, purpose="file-extract")
-        file2 = client.files.create(file=test_file_path, purpose="assistants")
+        file2 = client.files.create(file=test_file_path, purpose="file-extract")
 
         print(f"Created files: {file1.id} (extract), {file2.id} (assistants)")
 
@@ -79,7 +54,7 @@ def chat_completion_with_message_file_ids():
     try:
         # Use existing Simpson.csv file
         with open("./Simpson.csv", "rb") as f:
-            file_obj = client.files.create(file=f, purpose="assistants")
+            file_obj = client.files.create(file=f, purpose="file-extract")
 
         # New format: file_ids in messages
         messages = [
@@ -93,14 +68,16 @@ def chat_completion_with_message_file_ids():
         response = client.chat.completions.create(model=MODEL, messages=messages)
         message = response.choices[0].message
 
-        print(f"Response: {message.content[:100]}...")
+        print(f"Response: {message.content}")
 
         # Show files from both formats
         if hasattr(message, 'files') and message.files:
             print(f"Files (message): {len(message.files)}")
         if hasattr(response, 'generated_files') and response.generated_files:
             print(f"Files (response): {len(response.generated_files)}")
-
+        for file in response.generated_files:
+            print(f"- {file['name']}: {file['url']}")
+        
 
     except Exception as e:
         print(f"❌ Error: {e}")
@@ -111,7 +88,7 @@ def streaming_chat_completion_with_files():
     try:
         # Use existing Simpson.csv file
         with open("./Simpson.csv", "rb") as f:
-            file_obj = client.files.create(file=f, purpose="assistants")
+            file_obj = client.files.create(file=f, purpose="file-extract")
 
         # Streaming with file_ids in messages
         messages = [
@@ -148,69 +125,10 @@ def streaming_chat_completion_with_files():
         for file in collected_files:
             print(f"- {file['name']}: {file['url']}")
 
-        client.files.delete(file_obj.id)
 
     except Exception as e:
         print(f"❌ Error: {e}")
 
-def assistant_with_analyze_tool():
-    """Assistant with analyze tool and file analysis"""
-    try:
-        # Upload file and create assistant
-        with open("./Simpson.csv", "rb") as f:
-            file_obj = client.files.create(file=f, purpose="assistants")
-
-        assistant = client.beta.assistants.create(
-            name="Data Analysis Assistant",
-            instructions="Analyze data and provide insights.",
-            model=MODEL,
-            tools=[{"type": "analyze"}],
-        )
-
-        # Create thread with file
-        thread = client.beta.threads.create(
-            tool_resources={"analyze": {"file_ids": [file_obj.id]}}
-        )
-
-        # Create message and run
-        client.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content="分析数据并确定哪种教学方法效果更好。",
-        )
-
-        run = client.beta.threads.runs.create(
-            thread_id=thread.id,
-            assistant_id=assistant.id,
-        )
-
-        # Wait for completion
-        while run.status in ["queued", "in_progress"]:
-            time.sleep(1)
-            run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-
-        if run.status == "completed":
-            messages = client.beta.threads.messages.list(thread_id=thread.id)
-            for msg in messages.data:
-                if msg.role == "assistant":
-                    content = msg.content[0].text.value
-                    print(f"Assistant: {content[:200]}...")
-
-                    files_from_message = extract_files_from_content(content)
-                    if files_from_message:
-                        print(f"Generated files: {len(files_from_message)}")
-                        return files_from_message
-
-        # Cleanup
-        client.files.delete(file_obj.id)
-        client.beta.assistants.delete(assistant.id)
-        client.beta.threads.delete(thread.id)
-
-        return {}
-
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        return {}
 
 
 
@@ -223,10 +141,9 @@ def main():
 
     examples = {
         "1": ("File API", file_api_examples),
-        "2": ("Assistant", assistant_with_analyze_tool),
-        "3": ("Chat Completion", chat_completion_with_message_file_ids),
-        "4": ("Streaming", streaming_chat_completion_with_files),
-        "5": ("All Examples", None)
+        "2": ("Chat Completion", chat_completion_with_message_file_ids),
+        "3": ("Streaming", streaming_chat_completion_with_files),
+        "4": ("All Examples", None)
     }
 
     while True:
@@ -235,7 +152,7 @@ def main():
             print(f"{num}. {name}")
         print("0. Exit")
 
-        choice = input("\nSelect (0-5): ").strip()
+        choice = input("\nSelect (0-4): ").strip()
 
         if choice == "0":
             print("👋 Goodbye!")
@@ -250,7 +167,7 @@ def main():
             models = client.models.list()
             print(f"✅ Connected: {[m.id for m in models.data]}")
 
-            if choice == "5":  # Run all examples
+            if choice == "4":  # Run all examples
                 for num, (name, func) in list(examples.items())[:-1]:
                     print(f"\n{name}:")
                     func()
@@ -265,7 +182,7 @@ def main():
         except Exception as e:
             print(f"❌ Error: {e}")
             print("Ensure API server (localhost:8200) and model server (localhost:8000) are running")
-            if choice in ["2", "5"]:
+            if choice in ["2", "4"]:
                 print("And Simpson.csv exists in current directory")
 
 

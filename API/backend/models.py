@@ -24,18 +24,6 @@ class FileDeleteResponse(BaseModel):
     deleted: bool
 
 
-class AssistantObject(BaseModel):
-    """OpenAI Assistant Object"""
-    id: str
-    object: Literal["assistant"] = "assistant"
-    created_at: int
-    name: Optional[str] = None
-    description: Optional[str] = None
-    model: str
-    instructions: Optional[str] = None
-    tools: List[Dict[str, Any]] = Field(default_factory=list)
-    file_ids: List[str] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ThreadObject(BaseModel):
@@ -60,37 +48,6 @@ class MessageObject(BaseModel):
     file_ids: List[str] = Field(default_factory=list)
     assistant_id: Optional[str] = None
     run_id: Optional[str] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-
-
-class RunObject(BaseModel):
-    """OpenAI Run Object"""
-    id: str
-    object: Literal["thread.run"] = "thread.run"
-    created_at: int
-    thread_id: str
-    assistant_id: str
-    status: Literal[
-        "queued",
-        "in_progress",
-        "requires_action",
-        "cancelling",
-        "cancelled",
-        "failed",
-        "completed",
-        "expired",
-    ]
-    required_action: Optional[Dict[str, Any]] = None
-    last_error: Optional[Dict[str, Any]] = None
-    expires_at: int
-    started_at: Optional[int] = None
-    cancelled_at: Optional[int] = None
-    failed_at: Optional[int] = None
-    completed_at: Optional[int] = None
-    model: str
-    instructions: Optional[str] = None
-    tools: List[Dict[str, Any]] = Field(default_factory=list)
-    file_ids: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 

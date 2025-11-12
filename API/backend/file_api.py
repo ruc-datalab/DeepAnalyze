@@ -21,7 +21,7 @@ router = APIRouter(prefix="/v1/files", tags=["files"])
 @router.post("", response_model=FileObject)
 async def create_file(
     file: UploadFile = File(...),
-    purpose: str = Form("assistants")
+    purpose: str = Form("file-extract")
 ):
     """Upload a file (OpenAI compatible)"""
     # Validate purpose

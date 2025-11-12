@@ -86,44 +86,16 @@ def collect_file_info(directory: str) -> str:
     return all_file_info_str
 
 
-def collect_all_associated_files(thread_id: str, assistant, storage) -> List[str]:
-    """
-    Collect all file IDs from assistant, thread, and messages.
-    Returns a list of unique file IDs.
-    """
-    all_file_ids = set()
-
-    # Add assistant files
-    all_file_ids.update(assistant.file_ids)
-
-    # Add thread files
-    thread = storage.get_thread(thread_id)
-    if thread:
-        all_file_ids.update(thread.file_ids)
-
-    # Add message files
-    messages = storage.list_messages(thread_id)
-    for message in messages:
-        all_file_ids.update(message.file_ids)
-
-    # Add files from tool_resources analyze tool
-    if thread and thread.tool_resources and "analyze" in thread.tool_resources:
-        analyze_file_ids = thread.tool_resources["analyze"].get("file_ids", [])
-        all_file_ids.update(analyze_file_ids)
-
-    return list(all_file_ids)
 
 
 def prepare_vllm_messages(
     messages: List[Dict[str, Any]],
     workspace_dir: str,
-    assistant_instructions: Optional[str] = None,
 ) -> List[Dict[str, str]]:
     """
     Convert incoming messages to vLLM format and inject DeepAnalyze template:
     - Always wrap user message with "# Instruction" heading
     - Optionally append workspace file info under "# Data"
-    - If no user message exists, inject one with assistant instructions
     """
     vllm_messages: List[Dict[str, str]] = []
     for msg in messages:
@@ -144,26 +116,13 @@ def prepare_vllm_messages(
 
     if last_user_idx is not None:
         user_content = str(vllm_messages[last_user_idx].get("content", "")).strip()
-        instruction_parts: List[str] = []
-        if assistant_instructions:
-            instruction_parts.append(assistant_instructions.strip())
-        if user_content:
-            instruction_parts.append(user_content)
-        instruction_body = "\n\n".join([p for p in instruction_parts if p])
+        instruction_body = user_content if user_content else "# Instruction"
         if workspace_file_info:
             vllm_messages[last_user_idx]["content"] = (
                 f"# Instruction\n{instruction_body}\n\n# Data\n{workspace_file_info}"
             )
         else:
-            vllm_messages[last_user_idx]["content"] = (
-                f"# Instruction\n{instruction_body}" if instruction_body else "# Instruction"
-            )
-    elif assistant_instructions:
-        # Inject initial instruction-only user message
-        body = f"# Instruction\n{assistant_instructions.strip()}"
-        if workspace_file_info:
-            body = f"{body}\n\n# Data\n{workspace_file_info}"
-        vllm_messages.insert(0, {"role": "user", "content": body})
+            vllm_messages[last_user_idx]["content"] = f"# Instruction\n{instruction_body}"
 
     return vllm_messages
 
@@ -337,31 +296,6 @@ def save_markdown_report(md_text: str, base_name: str, target_dir: Path) -> Path
     return md_path
 
 
-def generate_markdown_report(
-    thread_id: str,
-    history_messages,
-    final_reply: str,
-    workspace_dir: str,
-) -> Optional[Path]:
-    """Create markdown report from conversation history."""
-    history: List[Dict[str, str]] = []
-    for msg in history_messages:
-        history.append({
-            "role": msg.role,
-            "content": extract_text_from_content(msg.content),
-        })
-    history.append({"role": "assistant", "content": final_reply})
-
-    md_text = extract_sections_from_history(history)
-    if not md_text:
-        md_text = "(No <Analyze>/<Understand>/<Code>/<Execute>/<File>/<Answer> sections found.)"
-
-    export_dir = Path(workspace_dir) / "generated"
-    export_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    base_name = f"Report_{timestamp}"
-    md_path = save_markdown_report(md_text, base_name, export_dir)
-    return md_path
 
 
 class WorkspaceTracker:
@@ -424,42 +358,6 @@ class WorkspaceTracker:
 
         self.before_state = after_state
         return artifact_paths
-
-
-def render_file_block(
-    artifact_paths: List[Path],
-    workspace_dir: str,
-    thread_id: str,
-    generated_files_sink: Optional[List[Dict[str, str]]] = None,
-) -> str:
-    """Build the <File> markdown block and optionally collect generated file metadata."""
-    if not artifact_paths:
-        return ""
-
-    lines = ["<File>"]
-    for p in artifact_paths:
-        try:
-            rel = Path(p).resolve().relative_to(Path(workspace_dir).resolve()).as_posix()
-        except Exception:
-            rel = Path(p).name
-        url = build_download_url(thread_id, rel)
-        name = Path(p).name
-        lines.append(f"- [{name}]({url})")
-        #考虑去重
-        if generated_files_sink is not None :
-            if {"name": name, "url": url} not in generated_files_sink:
-                generated_files_sink.append({"name": name, "url": url})
-        if Path(p).suffix.lower() in [
-            ".png",
-            ".jpg",
-            ".jpeg",
-            ".gif",
-            ".webp",
-            ".svg",
-        ]:
-            lines.append(f"![{name}]({url})")
-    lines.append("</File>")
-    return "\n" + "\n".join(lines) + "\n"
 
 
 def generate_report_from_messages(
@@ -527,18 +425,14 @@ def generate_report_from_messages(
 
 def start_http_server():
     os.makedirs(WORKSPACE_BASE_DIR, exist_ok=True)
-    
+
     # 使用 ThreadingTCPServer 处理并发
     handler = partial(
-        http.server.SimpleHTTPRequestHandler, 
+        http.server.SimpleHTTPRequestHandler,
         directory=WORKSPACE_BASE_DIR
     )
-    
+
     with socketserver.ThreadingTCPServer(("", HTTP_SERVER_PORT), handler) as httpd:
         httpd.allow_reuse_address = True
         print(f"HTTP Server serving {WORKSPACE_BASE_DIR} at port {HTTP_SERVER_PORT}")
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            print("HTTP server shutting down...")
-            httpd.shutdown()
+        httpd.serve_forever()

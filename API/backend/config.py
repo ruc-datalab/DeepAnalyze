@@ -31,7 +31,7 @@ MAX_NEW_TOKENS = 32768
 
 # File handling configuration
 FILE_STORAGE_DIR = os.path.join(WORKSPACE_BASE_DIR, "_files")
-VALID_FILE_PURPOSES = ["assistants", "fine-tune", "answers", "file-extract"]
+VALID_FILE_PURPOSES = ["fine-tune", "answers", "file-extract", "assistants"]
 
 # Model configuration
 DEFAULT_TEMPERATURE = 0.4
@@ -41,4 +41,4 @@ DEFAULT_MODEL = "DeepAnalyze-8B"
 STOP_TOKEN_IDS = [151676, 151645]
 
 # Supported tools
-SUPPORTED_TOOLS = ["code_interpreter", "analyze"]
+SUPPORTED_TOOLS = ["code_interpreter"]
