@@ -25,6 +25,8 @@ python start_server.py
 - **File Server**: `http://localhost:8100` (File downloads)
 - **Health Check**: `http://localhost:8200/health`
 
+The API server will create a new `workspace` folder in the current directory as the working directory. For each conversation, it will generate a `thread` subdirectory under this workspace to perform data analysis and generate files.
+
 ### Quick Test
 
 ```bash
@@ -43,8 +45,7 @@ import requests
 
 with open('data.csv', 'rb') as f:
     files = {'file': ('data.csv', f, 'text/csv')}
-    data = {'purpose': 'assistants'}
-    response = requests.post('http://localhost:8200/v1/files', files=files, data=data)
+    response = requests.post('http://localhost:8200/v1/files', files=files)
 
 file_id = response.json()['id']
 print(f"File uploaded: {file_id}")
@@ -60,7 +61,7 @@ client = openai.OpenAI(
 )
 
 with open('data.csv', 'rb') as f:
-    file_obj = client.files.create(file=f, purpose="assistants")
+    file_obj = client.files.create(file=f)
 
 print(f"File uploaded: {file_obj.id}")
 ```
@@ -143,31 +144,10 @@ if hasattr(message, 'files') and message.files:
         print(f"Generated file: {file_info['name']} - {file_info['url']}")
 ```
 
-### 4. Chat with Files (file_ids in top level)
+### 4. Streaming Chat with Files
 
 **Requests Example:**
-```python
-response = requests.post('http://localhost:8200/v1/chat/completions', json={
-    "model": "DeepAnalyze-8B",
-    "messages": [
-        {"role": "user", "content": "分析这个数据文件"}
-    ],
-    "file_ids": [file_id],  # file_ids parameter (old format)
-    "temperature": 0.4
-})
 
-result = response.json()
-content = result['choices'][0]['message']['content']
-files = result.get('generated_files', [])  # old format
-
-print(f"Response: {content}")
-for file_info in files:
-    print(f"Generated file: {file_info['name']} - {file_info['url']}")
-```
-
-### 5. Streaming Chat with Files
-
-**Requests Example:**
 ```python
 response = requests.post('http://localhost:8200/v1/chat/completions', json={
     "model": "DeepAnalyze-8B",
@@ -216,94 +196,6 @@ for chunk in stream:
         collected_files.extend(chunk.generated_files)
 ```
 
-### 6. Complete Assistants Workflow
-
-**Requests Example:**
-```python
-# 1. Create assistant
-assistant = requests.post('http://localhost:8200/v1/assistants', json={
-    "model": "DeepAnalyze-8B",
-    "name": "Data Analyst",
-    "instructions": "分析数据并提供洞察。",
-    "tools": [{"type": "analyze"}]
-}).json()
-
-# 2. Create thread
-thread = requests.post('http://localhost:8200/v1/threads', json={
-    "metadata": {"project": "analysis"}
-}).json()
-
-# 3. Add message
-requests.post(f'http://localhost:8200/v1/threads/{thread["id"]}/messages', json={
-    "role": "user",
-    "content": "分析这个数据集并确定哪种教学方法效果更好。",
-    "file_ids": [file_id]
-})
-
-# 4. Create run
-run = requests.post(f'http://localhost:8200/v1/threads/{thread["id"]}/runs', json={
-    "assistant_id": assistant["id"]
-}).json()
-
-# 5. Monitor completion
-while run["status"] in ["queued", "in_progress"]:
-    run = requests.get(f'http://localhost:8200/v1/threads/{thread["id"]}/runs/{run["id"]}').json()
-    time.sleep(1)
-
-# 6. Get results
-messages = requests.get(f'http://localhost:8200/v1/threads/{thread["id"]}/messages').json()['data']
-for msg in messages:
-    if msg["role"] == "assistant":
-        content = msg["content"][0]["text"]["value"]
-        print(f"Analysis: {content}")
-        break
-```
-
-**OpenAI Library Example:**
-```python
-# 1. Create assistant
-assistant = client.beta.assistants.create(
-    name="Data Analyst",
-    instructions="分析数据并提供洞察。",
-    model="DeepAnalyze-8B",
-    tools=[{"type": "analyze"}]
-)
-
-# 2. Create thread
-thread = client.beta.threads.create(
-    tool_resources={
-        "analyze": {
-            "file_ids": [file_id]
-        }
-    }
-)
-
-# 3. Add message
-message = client.beta.threads.messages.create(
-    thread_id=thread.id,
-    role="user",
-    content="分析这个数据集并确定哪种教学方法效果更好。"
-)
-
-# 4. Create run
-run = client.beta.threads.runs.create(
-    thread_id=thread.id,
-    assistant_id=assistant.id
-)
-
-# 5. Monitor completion
-while run.status in ["queued", "in_progress"]:
-    run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-    time.sleep(1)
-
-# 6. Get results
-messages = client.beta.threads.messages.list(thread_id=thread.id)
-for msg in messages.data:
-    if msg.role == "assistant":
-        content = msg.content[0].text.value
-        print(f"Analysis: {content}")
-        break
-```
 
 ## 📋 API Reference
 
@@ -318,7 +210,6 @@ POST /v1/files
 Content-Type: multipart/form-data
 
 file: [binary file data]
-purpose: assistants
 ```
 
 **Response:**
@@ -328,8 +219,7 @@ purpose: assistants
   "object": "file",
   "bytes": 1024,
   "created_at": 1704067200,
-  "filename": "data.csv",
-  "purpose": "assistants"
+  "filename": "data.csv"
 }
 ```
 
@@ -351,8 +241,7 @@ GET /v1/files
       "object": "file",
       "bytes": 1024,
       "created_at": 1704067200,
-      "filename": "data.csv",
-      "purpose": "assistants"
+      "filename": "data.csv"
     }
   ]
 }
@@ -447,276 +336,10 @@ data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices":
 data: [DONE]
 ```
 
-### Assistants API
 
-#### POST /v1/assistants
-Create an assistant.
 
-**Request:**
-```json
-{
-  "model": "DeepAnalyze-8B",
-  "name": "Data Analyst",
-  "description": "Professional data analysis assistant",
-  "instructions": "You are a professional data analyst...",
-  "tools": [{"type": "analyze"}],
-  "file_ids": ["file-abc123..."],
-  "metadata": {"version": "1.0"}
-}
-```
 
-**Response:**
-```json
-{
-  "id": "asst-xyz789...",
-  "object": "assistant",
-  "created_at": 1704067200,
-  "name": "Data Analyst",
-  "description": "Professional data analysis assistant",
-  "model": "DeepAnalyze-8B",
-  "instructions": "You are a professional data analyst...",
-  "tools": [{"type": "analyze"}],
-  "file_ids": ["file-abc123..."],
-  "metadata": {"version": "1.0"}
-}
-```
 
-#### GET /v1/assistants
-List all assistants.
-
-**Request:**
-```http
-GET /v1/assistants
-```
-
-**Response:**
-```json
-{
-  "object": "list",
-  "data": [assistant objects]
-}
-```
-
-#### DELETE /v1/assistants/{assistant_id}
-Delete an assistant.
-
-**Request:**
-```http
-DELETE /v1/assistants/{assistant_id}
-```
-
-**Response:**
-```json
-{
-  "id": "asst-xyz789...",
-  "object": "assistant",
-  "deleted": true
-}
-```
-
-### Threads API
-
-#### POST /v1/threads
-Create a conversation thread.
-
-**Request:**
-```json
-{
-  "metadata": {"project": "analysis"},
-  "file_ids": ["file-abc123..."]
-}
-```
-
-**Response:**
-```json
-{
-  "id": "thread-123...",
-  "object": "thread",
-  "created_at": 1704067200,
-  "last_accessed_at": 1704067200,
-  "metadata": {"project": "analysis"},
-  "file_ids": ["file-abc123..."]
-}
-```
-
-#### GET /v1/threads/{thread_id}
-Retrieve a thread.
-
-**Request:**
-```http
-GET /v1/threads/{thread_id}
-```
-
-**Response:** Thread object
-
-#### DELETE /v1/threads/{thread_id}
-Delete a thread.
-
-**Request:**
-```http
-DELETE /v1/threads/{thread_id}
-```
-
-**Response:**
-```json
-{
-  "id": "thread-123...",
-  "object": "thread",
-  "deleted": true
-}
-```
-
-### Messages API
-
-#### POST /v1/threads/{thread_id}/messages
-Add a message to a thread.
-
-**Request:**
-```json
-{
-  "role": "user",
-  "content": "Analyze the uploaded data",
-  "file_ids": ["file-def456..."],
-  "metadata": {"source": "web"}
-}
-```
-
-**Response:**
-```json
-{
-  "id": "msg-456...",
-  "object": "thread.message",
-  "created_at": 1704067200,
-  "thread_id": "thread-123...",
-  "role": "user",
-  "content": [
-    {
-      "type": "text",
-      "text": {
-        "value": "Analyze the uploaded data",
-        "annotations": []
-      }
-    }
-  ],
-  "file_ids": ["file-def456..."],
-  "assistant_id": null,
-  "run_id": null,
-  "metadata": {"source": "web"}
-}
-```
-
-#### GET /v1/threads/{thread_id}/messages
-List messages in a thread.
-
-**Request:**
-```http
-GET /v1/threads/{thread_id}/messages
-```
-
-**Response:**
-```json
-{
-  "object": "list",
-  "data": [message objects]
-}
-```
-
-### Runs API
-
-#### POST /v1/threads/{thread_id}/runs
-Create and execute a run.
-
-**Request:**
-```json
-{
-  "assistant_id": "asst-xyz789...",
-  "model": "DeepAnalyze-8B",
-  "instructions": "Override instructions for this run"
-}
-```
-
-**Response:**
-```json
-{
-  "id": "run-789...",
-  "object": "thread.run",
-  "created_at": 1704067200,
-  "thread_id": "thread-123...",
-  "assistant_id": "asst-xyz789...",
-  "status": "queued",
-  "required_action": null,
-  "last_error": null,
-  "expires_at": 1704070800,
-  "started_at": null,
-  "cancelled_at": null,
-  "failed_at": null,
-  "completed_at": null,
-  "model": "DeepAnalyze-8B",
-  "instructions": "You are a professional data analyst...",
-  "tools": [{"type": "analyze"}],
-  "file_ids": [],
-  "metadata": {}
-}
-```
-
-#### GET /v1/threads/{thread_id}/runs/{run_id}
-Retrieve a run status.
-
-**Request:**
-```http
-GET /v1/threads/{thread_id}/runs/{run_id}
-```
-
-**Response:** Run object with updated status
-
-#### GET /v1/threads/{thread_id}/runs
-List runs for a thread.
-
-**Request:**
-```http
-GET /v1/threads/{thread_id}/runs
-```
-
-**Response:**
-```json
-{
-  "object": "list",
-  "data": [run objects]
-}
-```
-
-### Thread Files API
-
-#### GET /v1/threads/{thread_id}/files
-List files associated with a thread (including generated files).
-
-**Request:**
-```http
-GET /v1/threads/{thread_id}/files
-```
-
-**Response:**
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "file-abc123...",
-      "object": "file",
-      "filename": "uploaded_data.csv",
-      "url": "http://localhost:8100/thread-123/uploads/uploaded_data.csv",
-      "created_at": 1704067200
-    },
-    {
-      "id": "generated-chart-1",
-      "object": "file",
-      "filename": "analysis_chart.png",
-      "url": "http://localhost:8100/thread-123/generated/analysis_chart.png",
-      "created_at": 1704067260
-    }
-  ]
-}
-```
 
 ### Health Check API
 

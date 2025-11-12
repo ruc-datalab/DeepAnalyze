@@ -414,14 +414,33 @@ def generate_report_from_messages(
 
         if generated_files_sink is not None:
             generated_files_sink.append({"name": report_path.name, "url": url})
-
-        lines = ["<File>", f"- [{report_path.name}]({url})", "</File>"]
-        return "\n" + "\n".join(lines) + "\n"
+        return "\n"
 
     except Exception as report_error:
         print(f"Report generation error: {report_error}")
         return ""
+def render_file_block(
+    artifact_paths: List[Path],
+    workspace_dir: str,
+    thread_id: str,
+    generated_files_sink: Optional[List[Dict[str, str]]] = None,
+) -> str:
+    """Build the <File> markdown block and optionally collect generated file metadata."""
+    if not artifact_paths:
+        return ""
 
+
+    for p in artifact_paths:
+        try:
+            rel = Path(p).resolve().relative_to(Path(workspace_dir).resolve()).as_posix()
+        except Exception:
+            rel = Path(p).name
+        url = build_download_url(thread_id, rel)
+        name = Path(p).name
+        if generated_files_sink is not None :
+            if {"name": name, "url": url} not in generated_files_sink:
+                generated_files_sink.append({"name": name, "url": url})
+    return ""
 
 def start_http_server():
     os.makedirs(WORKSPACE_BASE_DIR, exist_ok=True)

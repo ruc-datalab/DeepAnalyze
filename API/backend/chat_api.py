@@ -22,7 +22,7 @@ from models import ChatCompletionRequest, ChatCompletionResponse, ChatCompletion
 from storage import storage
 from utils import (
     get_thread_workspace, prepare_vllm_messages, execute_code_safe,
-    execute_code_safe_async, WorkspaceTracker,
+    execute_code_safe_async, WorkspaceTracker,render_file_block,
     generate_report_from_messages, extract_code_from_segment
 )
 
@@ -158,8 +158,11 @@ async def chat_completions(
                             exe_output = execute_code_safe(code_str, workspace_dir)
                             artifacts = tracker.diff_and_collect()
                             exe_str = f"\n<Execute>\n```\n{exe_output}\n```\n</Execute>\n"
-                           
-                            assistant_reply += exe_str
+                            file_block = render_file_block(
+                                    artifacts, workspace_dir, temp_thread.id, generated_files
+                                )
+                            assistant_reply += exe_str + file_block
+                            
 
                             # Stream execution result
                             for char in exe_str:
@@ -279,7 +282,10 @@ async def chat_completions(
                         exe_output = await execute_code_safe_async(code_str, workspace_dir)
                         artifacts = tracker.diff_and_collect()
                         exe_str = f"\n<Execute>\n```\n{exe_output}\n```\n</Execute>\n"
-                        assistant_reply += exe_str
+                        file_block = render_file_block(
+                                    artifacts, workspace_dir, temp_thread.id, generated_files
+                                )
+                        assistant_reply += exe_str + file_block
                         vllm_messages.append({"role": "execute", "content": exe_output})
 
             # Generate report

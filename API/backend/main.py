@@ -68,12 +68,8 @@ def main():
     print("\n📖 API Endpoints:")
     print("   - Models API: /v1/models")
     print("   - Files API: /v1/files")
-    print("   - Threads API: /v1/threads")
-    print("   - Messages API: /v1/threads/{thread_id}/messages")
     print("   - Chat API: /v1/chat/completions")
     print("   - Admin API: /v1/admin")
-    print("   - Extended: /v1/threads/{thread_id}/files")
-    print("   - Extended: /v1/chat/completions (with file_ids)")
 
     # Start HTTP file server in a separate thread
     http_thread = threading.Thread(target=start_http_server, daemon=True)
