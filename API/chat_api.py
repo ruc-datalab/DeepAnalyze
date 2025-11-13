@@ -119,7 +119,9 @@ async def chat_completions(
                     )
 
                     cur_res = ""
+                    last_chunk = None
                     for chunk in response:
+                        last_chunk = chunk
                         if chunk.choices and chunk.choices[0].delta.content is not None:
                             delta = chunk.choices[0].delta.content
                             cur_res += delta
@@ -144,13 +146,25 @@ async def chat_completions(
                             finished = True
                             break
 
-                    if chunk.choices[0].finish_reason == "stop" and not finished:
-                        if not cur_res.endswith("</Code>"):
+                    finish_reason = (
+                        last_chunk.choices[0].finish_reason
+                        if last_chunk and last_chunk.choices
+                        else None
+                    )
+
+                    has_code_segment = "<Code>" in cur_res
+                    has_closed_code = "</Code>" in cur_res
+
+                    if finish_reason == "stop" and not finished:
+                        if has_code_segment and not has_closed_code:
                             cur_res += "</Code>"
                             assistant_reply += "</Code>"
+                            has_closed_code = True
+                        elif not has_code_segment:
+                            finished = True
 
                     # Handle code execution
-                    if "</Code>" in cur_res and not finished:
+                    if has_code_segment and has_closed_code and not finished:
                         vllm_messages.append({"role": "assistant", "content": cur_res})
 
                         code_str = extract_code_from_segment(cur_res)
@@ -162,7 +176,7 @@ async def chat_completions(
                                     artifacts, workspace_dir, temp_thread.id, generated_files
                                 )
                             assistant_reply += exe_str + file_block
-                            
+
 
                             # Stream execution result
                             for char in exe_str:
@@ -182,6 +196,8 @@ async def chat_completions(
                                 yield f"data: {json.dumps(chunk_data)}\n\n"
 
                             vllm_messages.append({"role": "execute", "content": exe_output})
+                        else:
+                            finished = True
 
                 # Generate and stream report
                 report_block = generate_report_from_messages(
@@ -266,15 +282,21 @@ async def chat_completions(
                         finished = True
                         break
 
+                has_code_segment = "<Code>" in cur_res
+                has_closed_code = "</Code>" in cur_res
+
                 if last_finish_reason == "stop" and not finished:
-                    if not cur_res.endswith("</Code>"):
+                    if has_code_segment and not has_closed_code:
                         cur_res += "</Code>"
                         assistant_reply += "</Code>"
+                        has_closed_code = True
+                    elif not has_code_segment:
+                        finished = True
 
                 if "</Answer>" in cur_res:
                     finished = True
 
-                if "</Code>" in cur_res and not finished:
+                if has_code_segment and has_closed_code and not finished:
                     vllm_messages.append({"role": "assistant", "content": cur_res})
                     code_str = extract_code_from_segment(cur_res)
                     if code_str:
@@ -287,6 +309,8 @@ async def chat_completions(
                                 )
                         assistant_reply += exe_str + file_block
                         vllm_messages.append({"role": "execute", "content": exe_output})
+                    else:
+                        finished = True
 
             # Generate report
             report_block = generate_report_from_messages(

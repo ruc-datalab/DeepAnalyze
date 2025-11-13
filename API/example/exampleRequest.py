@@ -57,14 +57,14 @@ def chat_with_file():
     if response.status_code == 200:
         result = response.json()
         content = result['choices'][0]['message']['content']
-        print(f"Response: {content[:100]}...")
+        print(f"Response: {content}...")
 
         files = result.get('generated_files', [])
         if files:
             print(f"Files: {len(files)} generated")
 
     # Cleanup
-    requests.delete(f"{API_BASE}/v1/files/{file_id}")
+    # requests.delete(f"{API_BASE}/v1/files/{file_id}")
 
 
 
@@ -107,7 +107,7 @@ def file_ids_in_messages():
             print(f"Generated files: {len(result['generated_files'])}")
 
     # Cleanup
-    requests.delete(f"{API_BASE}/v1/files/{file_id}")
+    # requests.delete(f"{API_BASE}/v1/files/{file_id}")
 
 
 def streaming_chat():
@@ -152,12 +152,13 @@ def streaming_chat():
                             delta = chunk['choices'][0].get('delta', {})
                             if 'content' in delta:
                                 print(delta['content'], end='', flush=True)
+                        if 'generated_files' in chunk:
+                            print(f"\n\n📁 New file generated: {chunk['generated_files']}")
                     except json.JSONDecodeError:
                         pass
         print("\n✅ Streaming complete")
 
-    # Cleanup
-    requests.delete(f"{API_BASE}/v1/files/{file_id}")
+    
 
 
 def check_server():
