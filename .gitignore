@@ -19,3 +19,8 @@ wheels/
 .cursor/
 .vscode/
 .trae/
+
+#other
+**/.claude/
+API/backend/workspace/
+**/CLAUDE.md

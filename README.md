@@ -68,6 +68,31 @@ Familiar with Jupyter Notebook? Try DeepAnalyze through the **JupyterUI**!
 - Go to [demo/jupyter](./demo/jupyter) to see more and try!
 - 👏Thanks a lot to the contributor [@ChengJiale150](https://github.com/ChengJiale150).
 
+### CLI
+
+https://github.com/user-attachments/assets/018acae5-b979-4143-ae1e-5b74da453c1d
+<p align="center" width="100%">
+Try DeepAnalyze through the command-line interface
+</p>
+
+- Deploy DeepAnalyze-8B via vllm: `vllm serve DeepAnalyze-8B`
+
+- Start the API server and launch the CLI interface:
+    ```bash
+    cd API
+    python start_server.py  # In one terminal
+
+    cd demo/cli
+    python api_cli.py       # In another terminal (English)
+    # or
+    python api_cli_ZH.py    # In another terminal (Chinese)
+    ```
+    
+- The CLI provides a Rich-based beautiful interface with file upload support and real-time streaming responses.
+
+- Supports both English and Chinese interfaces .
+
+    
 
 > [!TIP]
 >
@@ -190,6 +215,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
     ```
 
 - Download training data [DataScience-Instruct-500K](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K).
+  
   - unzip `DataScience-Instruct-500K/RL/data.zip`
 
 
