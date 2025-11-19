@@ -138,7 +138,7 @@ async def chat_completions(
 
                     cur_res = ""
                     last_chunk = None
-                    
+
                     # 使用异步迭代
                     async for chunk in response:
                         last_chunk = chunk

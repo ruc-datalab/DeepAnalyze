@@ -29,6 +29,7 @@
 
 
 ## 🔥 News
+- **[2025.11.13]**: DeepAnalyze now supports OpenAI-style API endpointsis and is accessible through the Command Line Terminal UI. Thanks to the contributor [@LIUyizheSDU](https://github.com/LIUyizheSDU/)
 - **[2025.11.08]**: DeepAnalyze is now accessible through the JupyterUI, building based on [jupyter-mcp-server](https://github.com/datalayer/jupyter-mcp-server). Thanks to the contributor [@ChengJiale150](https://github.com/ChengJiale150).
 - **[2025.10.28]**: We welcome all contributions, including improving the DeepAnalyze and sharing use cases (see [`CONTRIBUTION.md`](CONTRIBUTION.md)). All merged PRs will be listed as contributors.
 - **[2025.10.27]**: DeepAnalyze has attracted widespread attention, gaining **1K+** GitHub stars and **200K+** Twitter views within a week.
@@ -51,7 +52,7 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
     npm install
     cd ..
     bash start.sh
-
+    
     # stop the api and interface
     bash stop.sh
     ```
@@ -81,7 +82,7 @@ Try DeepAnalyze through the command-line interface
     ```bash
     cd API
     python start_server.py  # In one terminal
-
+    
     cd demo/cli
     python api_cli.py       # In another terminal (English)
     # or
@@ -145,7 +146,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
   File 8: {"name": "no_payment_due.xlsx", "size": "15.6KB"}
   File 9: {"name": "unemployed.xlsx", "size": "5.6KB"}
   File 10: {"name": "enrolled.csv", "size": "20.4KB"}"""
-
+  
   workspace = "/home/u2023000922/zhangshaolei/deepanalyze_public/DeepAnalyze/example/analysis_on_student_loan/"
   
   deepanalyze = DeepAnalyzeVLLM(
@@ -174,29 +175,39 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
   > For more examples and task completion details, please refer to [DeepAnalyze's homepage](https://ruc-deepanalyze.github.io/).
 
 ### API
-- You can build an OpenAI-Style API, using this script (note to change `MODEL_PATH = "DeepAnalyze-8B"` in [demo/backend.py](demo/backend.py) to your vllm model name):
+- You can build an OpenAI-Style API, using this script (note to change `MODEL_PATH = "DeepAnalyze-8B"` in [API/config.py](API/config.py) to your vllm model name):
 
   ```
-  python demo/backend.py
+  python API/start_server.py
   ```
 
-- API usage (streaming response):
+- API usage :
 
   ```
-  curl -X POST http://localhost:8200/chat/completions \
-       -H "Content-Type: application/json" \
-       -d '{
-             "messages": [
-               {
-                 "role": "user",
-                 "content": "Generate a data science report."
-               }
-             ],
-             "workspace": "example/student_loan/"
-           }'
-  ```
-
+  FILE_RESPONSE=$(curl -s -X POST "http://localhost:8200/v1/files" \
+      -F "file=@data.csv" \
+      -F "purpose=file-extract")
   
+  FILE_ID=$(echo $FILE_RESPONSE | jq -r '.id')
+  
+  curl -X POST http://localhost:8200/v1/chat/completions \
+       -H "Content-Type: application/json" \
+       -d "{
+          \"model\": \"DeepAnalyze-8B\",
+          \"messages\": [
+            {
+              \"role\": \"user\",
+              \"content\": \"Generate a data science report.\",
+              \"file_ids\": [\"$FILE_ID\"]
+            }
+          ]
+        }"
+  # wait for a while
+  ```
+  
+
+- Refer to API/README.md for details.
+
 ## 🎈 Develop Your Own DeepAnalyze
 
 ### 1. Download Model and Training Data
