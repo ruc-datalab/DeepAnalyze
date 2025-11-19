@@ -140,7 +140,88 @@ if hasattr(message, 'files') and message.files:
         print(f"Generated file: {file_info['name']} - {file_info['url']}")
 ```
 
-### 4. 流式聊天与文件
+### 4. 多轮对话的线程ID支持
+
+在消息中使用 `thread_id` 来在多个请求之间维护工作区上下文。这允许文件和生成的内容在对话之间持久化。
+
+**重要提示：** 您必须在每个请求中维护完整的对话历史记录 - 只在最新的消息中添加 `thread_id`。
+
+**请求示例:**
+```python
+conversation_history = []
+
+# 第一次请求 - 创建新线程并获取thread_id
+conversation_history.append({"role": "user", "content": "创建一个计算斐波那契数列的Python脚本"})
+response = requests.post('http://localhost:8200/v1/chat/completions', json={
+    "model": "DeepAnalyze-8B",
+    "messages": conversation_history
+})
+
+result = response.json()
+thread_id = result['choices'][0]['message']['thread_id']
+assistant_response = result['choices'][0]['message']['content']
+conversation_history.append({"role": "assistant", "content": assistant_response})
+
+print(f"Thread ID: {thread_id}")
+
+# 第二次请求 - 包含完整历史记录 + 最新消息中的thread_id
+conversation_history.append({"role": "user", "content": "现在运行脚本来计算前10个数字", "thread_id": thread_id})
+response = requests.post('http://localhost:8200/v1/chat/completions', json={
+    "model": "DeepAnalyze-8B",
+    "messages": conversation_history
+})
+
+assistant_response = response.json()['choices'][0]['message']['content']
+conversation_history.append({"role": "assistant", "content": assistant_response})
+
+# 第三次请求 - 继续相同的线程，维护完整历史记录
+conversation_history.append({"role": "user", "content": "列出当前工作区中的所有文件", "thread_id": thread_id})
+response = requests.post('http://localhost:8200/v1/chat/completions', json={
+    "model": "DeepAnalyze-8B",
+    "messages": conversation_history
+})
+```
+
+**OpenAI 库示例:**
+```python
+messages = []
+
+# 第一次请求
+messages.append({"role": "user", "content": "创建一个数据分析脚本"})
+response = client.chat.completions.create(
+    model="DeepAnalyze-8B",
+    messages=messages
+)
+
+# 使用hasattr()检查thread_id
+thread_id = None
+if hasattr(response.choices[0].message, 'thread_id'):
+    thread_id = response.choices[0].message.thread_id
+
+messages.append({"role": "assistant", "content": response.choices[0].message.content})
+
+# 继续对话 - 包含完整历史记录 + 最新消息中的thread_id
+messages.append({"role": "user", "content": "运行分析脚本", "thread_id": thread_id})
+response = client.chat.completions.create(
+    model="DeepAnalyze-8B",
+    messages=messages
+)
+
+if hasattr(response.choices[0].message, 'thread_id'):
+    print(f"Thread ID: {response.choices[0].message.thread_id}")
+
+messages.append({"role": "assistant", "content": response.choices[0].message.content})
+```
+
+**关键要点:**
+- `thread_id` 在响应消息中返回
+- 使用 `hasattr(message, 'thread_id')` 来检查OpenAI库中的thread_id
+- 只在对话历史记录的**最新**用户消息中包含 `thread_id`
+- 您必须在每个请求中发送**完整的对话历史记录**
+- 之前请求中创建的文件在线程工作区中仍然可用
+- 工作区在具有相同 `thread_id` 的请求之间持久化
+
+### 5. 流式聊天与文件
 
 **请求示例:**
 
@@ -169,6 +250,8 @@ for line in response.iter_lines():
                 delta = chunk['choices'][0].get('delta', {})
                 if 'content' in delta:
                     print(delta['content'], end='', flush=True)
+                if 'thread_id' in delta:
+                    print(f"\nThread ID: {delta['thread_id']}")
 ```
 
 **OpenAI 库示例:**
@@ -190,6 +273,8 @@ for chunk in stream:
         print(chunk.choices[0].delta.content, end='', flush=True)
     if hasattr(chunk, 'generated_files') and chunk.generated_files:
         collected_files.extend(chunk.generated_files)
+    if hasattr(chunk.choices[0].delta, 'thread_id'):
+        print(f"\nThread ID: {chunk.choices[0].delta.thread_id}")
 ```
 
 
@@ -285,10 +370,11 @@ DELETE /v1/files/{file_id}
     {
       "role": "user",
       "content": "分析这个数据文件",
-      "file_ids": ["file-abc123"]  // OpenAI 兼容：消息中的 file_ids
+      "file_ids": ["file-abc123"],     // OpenAI 兼容：消息中的 file_ids
+      "thread_id": "thread-xyz789..."  // 可选：最新消息中的 thread_id 用于工作区持久化
     }
   ],
-  "file_ids": ["file-def456"],     // 可选：file_ids 参数
+  "file_ids": ["file-def456"],         // 可选：file_ids 参数
   "temperature": 0.4,
   "stream": false
 }
@@ -307,7 +393,8 @@ DELETE /v1/files/{file_id}
       "message": {
         "role": "assistant",
         "content": "分析结果...",
-        "files": [                    //消息中的文件
+        "thread_id": "thread-abc123...", // 工作区持久化的线程ID
+        "files": [                      //消息中的文件
           {
             "name": "chart.png",
             "url": "http://localhost:8100/thread-123/generated/chart.png"
@@ -317,20 +404,20 @@ DELETE /v1/files/{file_id}
       "finish_reason": "stop"
     }
   ],
-  "generated_files": [              // generated_files 字段
+  "generated_files": [                // generated_files 字段
     {
       "name": "chart.png",
       "url": "http://localhost:8100/thread-123/generated/chart.png"
     }
   ],
-  "attached_files": ["file-abc123"] // 输入文件
+  "attached_files": ["file-abc123"]   // 输入文件
 }
 ```
 
 **响应（流式）:**
 ```
 data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"content": "分析"}}]}
-data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"files": [{"name":"chart.png","url":"..."}]}, "finish_reason": "stop"}]}
+data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"files": [{"name":"chart.png","url":"..."}], "thread_id": "thread-abc123..."}, "finish_reason": "stop"}]}
 data: [DONE]
 ```
 
@@ -386,5 +473,5 @@ STOP_TOKEN_IDS = [32000, 32007]      # 特殊令牌 ID
 
 `example/` 目录包含全面的示例：
 
-- `example.py` - 简单请求示例
+- `exampleRequest.py` - 简单请求示例
 - `exampleOpenAI.py` - OpenAI 库示例

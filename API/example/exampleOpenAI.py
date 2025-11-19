@@ -1,6 +1,6 @@
 """
 Example usage of DeepAnalyze OpenAI-Compatible API with OpenAI library
-Demonstrates assistant workflow with analyze tool
+Demonstrates 2-turn data analysis workflow with file attachments and streaming
 """
 
 import openai
@@ -70,6 +70,10 @@ def chat_completion_with_message_file_ids():
 
         print(f"Response: {message.content}")
 
+        # Check for thread_id using hasattr()
+        if hasattr(message, 'thread_id'):
+            print(f"Thread ID: {message.thread_id}")
+
         # Show files from both formats
         if hasattr(message, 'files') and message.files:
             print(f"Files (message): {len(message.files)}")
@@ -77,7 +81,112 @@ def chat_completion_with_message_file_ids():
             print(f"Files (response): {len(response.generated_files)}")
         for file in response.generated_files:
             print(f"- {file['name']}: {file['url']}")
-        
+
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+
+def multi_turn_example():
+    """Demonstrate 2-turn thread_id workflow with OpenAI library using streaming and file attachments"""
+    try:
+        messages = []
+
+        # Upload data file
+        print("📁 Uploading Simpson.csv data file...")
+        with open("./Simpson.csv", "rb") as f:
+            file_obj = client.files.create(file=f, purpose="file-extract")
+        print(f"✅ File uploaded successfully: {file_obj.id[:12]}...")
+
+        # First request - creates new thread, examine data structure
+        print("1️⃣ First request - examining data structure...")
+        messages.append({
+            "role": "user",
+            "content": "请查看这个数据文件的结构，告诉我有哪些字段、数据类型和基本统计信息。",
+            "file_ids": [file_obj.id]
+        })
+
+        print("Streaming response...")
+        stream = client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            stream=True
+        )
+
+        full_response = ""
+        received_thread_id = None
+        collected_files = []
+
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                content = chunk.choices[0].delta.content
+                print(content, end='', flush=True)
+                full_response += content
+
+            # Check for thread_id in streaming chunks
+            if hasattr(chunk.choices[0].delta, 'thread_id') and chunk.choices[0].delta.thread_id:
+                received_thread_id = chunk.choices[0].delta.thread_id
+
+            # Collect files from chunks
+            if hasattr(chunk, 'generated_files') and chunk.generated_files:
+                collected_files.extend(chunk.generated_files)
+
+        print()  # New line after streaming
+        thread_id = received_thread_id
+        print(f"📝 Response received with thread_id: {thread_id}")
+
+        if collected_files:
+            print(f"📁 Files generated: {len(collected_files)}")
+
+        messages.append({"role": "assistant", "content": full_response})
+
+        # Second request with thread_id - generate analysis report
+        print(f"\n2️⃣ Second request - generating analysis report (with thread_id: {thread_id[:12] if thread_id else 'None'}...)...")
+        messages.append({
+            "role": "user",
+            "content": "基于刚才的数据结构分析，请生成一个详细的数据分析报告，包括：\n1. 数据质量评估\n2. 各字段的数据分布\n3. 相关性分析\n4. 主要发现和洞察",
+            "file_ids": [file_obj.id]
+        })
+        if thread_id:
+            messages[-1]["thread_id"] = thread_id
+
+        print("Streaming response...")
+        stream = client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            stream=True
+        )
+
+        full_response2 = ""
+        returned_thread_id = None
+        collected_files2 = []
+
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                content = chunk.choices[0].delta.content
+                print(content, end='', flush=True)
+                full_response2 += content
+
+            # Check for thread_id in streaming chunks
+            if hasattr(chunk.choices[0].delta, 'thread_id') and chunk.choices[0].delta.thread_id:
+                returned_thread_id = chunk.choices[0].delta.thread_id
+
+            # Collect files from chunks
+            if hasattr(chunk, 'generated_files') and chunk.generated_files:
+                collected_files2.extend(chunk.generated_files)
+
+        print()  # New line after streaming
+        print(f"📝 Response thread_id: {returned_thread_id[:12] if returned_thread_id else 'None'}...")
+        print(f"✅ Thread ID match: {thread_id == returned_thread_id}")
+
+        if collected_files2:
+            print(f"📁 Files generated: {len(collected_files2)}")
+
+        # Cleanup uploaded file
+        client.files.delete(file_obj.id)
+        print("🗑️  Uploaded file cleaned up")
+
+        print("\n✅ 2-turn data analysis workflow completed!")
 
     except Exception as e:
         print(f"❌ Error: {e}")
@@ -108,6 +217,7 @@ def streaming_chat_completion_with_files():
 
         full_response = ""
         collected_files = []
+        received_thread_id = None
 
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
@@ -115,16 +225,20 @@ def streaming_chat_completion_with_files():
                 print(content, end='', flush=True)
                 full_response += content
 
+            # Check for thread_id in streaming chunks
+            if hasattr(chunk.choices[0].delta, 'thread_id') and chunk.choices[0].delta.thread_id:
+                received_thread_id = chunk.choices[0].delta.thread_id
+
             # Collect files from chunks
             if hasattr(chunk, 'generated_files') and chunk.generated_files:
                 collected_files.extend(chunk.generated_files)
 
-
+        if received_thread_id:
+            print(f"\nThread ID: {received_thread_id}")
 
         print(f"\n✅ Streaming complete ({len(full_response)} chars, {len(collected_files)} files)")
         for file in collected_files:
             print(f"- {file['name']}: {file['url']}")
-
 
     except Exception as e:
         print(f"❌ Error: {e}")
@@ -142,8 +256,9 @@ def main():
     examples = {
         "1": ("File API", file_api_examples),
         "2": ("Chat Completion", chat_completion_with_message_file_ids),
-        "3": ("Streaming", streaming_chat_completion_with_files),
-        "4": ("All Examples", None)
+        "3": ("2-Turn Data Analysis", multi_turn_example),
+        "4": ("Streaming", streaming_chat_completion_with_files),
+        "5": ("All Examples", None)
     }
 
     while True:
@@ -152,7 +267,7 @@ def main():
             print(f"{num}. {name}")
         print("0. Exit")
 
-        choice = input("\nSelect (0-4): ").strip()
+        choice = input("\nSelect (0-5): ").strip()
 
         if choice == "0":
             print("👋 Goodbye!")
@@ -167,7 +282,7 @@ def main():
             models = client.models.list()
             print(f"✅ Connected: {[m.id for m in models.data]}")
 
-            if choice == "4":  # Run all examples
+            if choice == "5":  # Run all examples
                 for num, (name, func) in list(examples.items())[:-1]:
                     print(f"\n{name}:")
                     func()
@@ -182,7 +297,7 @@ def main():
         except Exception as e:
             print(f"❌ Error: {e}")
             print("Ensure API server (localhost:8200) and model server (localhost:8000) are running")
-            if choice in ["2", "4"]:
+            if choice in ["2", "3", "4", "5"]:
                 print("And Simpson.csv exists in current directory")
 
 

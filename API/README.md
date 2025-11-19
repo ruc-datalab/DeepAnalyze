@@ -141,7 +141,87 @@ if hasattr(message, 'files') and message.files:
         print(f"Generated file: {file_info['name']} - {file_info['url']}")
 ```
 
-### 4. Streaming Chat with Files
+### 4. Multi-turn Conversations with Thread ID
+
+Use `thread_id` in the latest message to maintain workspace context across multiple requests. This allows files and generated content to be persisted between conversations.
+
+**Important:** You must maintain the complete conversation history in each request - only add `thread_id` to the latest message.
+
+**Requests Example:**
+```python
+conversation_history = []
+
+# First request - creates new thread and gets thread_id
+conversation_history.append({"role": "user", "content": "Create a Python script that calculates Fibonacci numbers"})
+response = requests.post('http://localhost:8200/v1/chat/completions', json={
+    "model": "DeepAnalyze-8B",
+    "messages": conversation_history
+})
+
+result = response.json()
+thread_id = result['choices'][0]['message']['thread_id']
+assistant_response = result['choices'][0]['message']['content']
+conversation_history.append({"role": "assistant", "content": assistant_response})
+
+print(f"Thread ID: {thread_id}")
+
+# Second request - includes full history + thread_id in latest message
+conversation_history.append({"role": "user", "content": "Now run the script to calculate the first 10 numbers", "thread_id": thread_id})
+response = requests.post('http://localhost:8200/v1/chat/completions', json={
+    "model": "DeepAnalyze-8B",
+    "messages": conversation_history
+})
+
+assistant_response = response.json()['choices'][0]['message']['content']
+conversation_history.append({"role": "assistant", "content": assistant_response})
+
+# Third request - continue with same thread, full history maintained
+conversation_history.append({"role": "user", "content": "List all files in the current workspace", "thread_id": thread_id})
+response = requests.post('http://localhost:8200/v1/chat/completions', json={
+    "model": "DeepAnalyze-8B",
+    "messages": conversation_history
+})
+```
+
+**OpenAI Library Example:**
+```python
+messages = []
+
+# First request
+messages.append({"role": "user", "content": "Create a data analysis script"})
+response = client.chat.completions.create(
+    model="DeepAnalyze-8B",
+    messages=messages
+)
+
+# Check for thread_id using hasattr()
+thread_id = None
+if hasattr(response.choices[0].message, 'thread_id'):
+    thread_id = response.choices[0].message.thread_id
+
+messages.append({"role": "assistant", "content": response.choices[0].message.content})
+
+# Continue conversation - include full history + thread_id in latest message
+messages.append({"role": "user", "content": "Run the analysis script", "thread_id": thread_id})
+response = client.chat.completions.create(
+    model="DeepAnalyze-8B",
+    messages=messages
+)
+
+if hasattr(response.choices[0].message, 'thread_id'):
+    print(f"Thread ID: {response.choices[0].message.thread_id}")
+
+messages.append({"role": "assistant", "content": response.choices[0].message.content})
+```
+
+**Key Points:**
+- `thread_id` is returned in the response message
+- Include `thread_id` in the **latest** user message of your conversation history
+- You should send the **complete conversation history** in each request
+- Files created in previous requests remain available in the thread workspace
+- The workspace persists across requests with the same `thread_id`
+
+### 5. Streaming Chat with Files
 
 **Requests Example:**
 
@@ -170,6 +250,8 @@ for line in response.iter_lines():
                 delta = chunk['choices'][0].get('delta', {})
                 if 'content' in delta:
                     print(delta['content'], end='', flush=True)
+                if 'thread_id' in delta:
+                    print(f"\nThread ID: {delta['thread_id']}")
 ```
 
 **OpenAI Library Example:**
@@ -191,6 +273,8 @@ for chunk in stream:
         print(chunk.choices[0].delta.content, end='', flush=True)
     if hasattr(chunk, 'generated_files') and chunk.generated_files:
         collected_files.extend(chunk.generated_files)
+    if hasattr(chunk.choices[0].delta, 'thread_id'):
+        print(f"\nThread ID: {chunk.choices[0].delta.thread_id}")
 ```
 
 
@@ -284,10 +368,11 @@ Extended chat completion with file support.
     {
       "role": "user",
       "content": "分析这个数据文件",
-      "file_ids": ["file-abc123"]  // OpenAI compatible: file_ids in messages
+      "file_ids": ["file-abc123"],     // OpenAI compatible: file_ids in messages
+      "thread_id": "thread-xyz789..."  // Optional: thread_id in latest message for workspace persistence
     }
   ],
-  "file_ids": ["file-def456"],     // Optional: file_ids parameter (backward compatibility)
+  "file_ids": ["file-def456"],         // Optional: file_ids parameter (backward compatibility)
   "temperature": 0.4,
   "stream": false
 }
@@ -306,7 +391,8 @@ Extended chat completion with file support.
       "message": {
         "role": "assistant",
         "content": "分析结果...",
-        "files": [                    // New format: files in message
+        "thread_id": "thread-abc123...", // Thread ID for workspace persistence
+        "files": [                      // New format: files in message
           {
             "name": "chart.png",
             "url": "http://localhost:8100/thread-123/generated/chart.png"
@@ -316,20 +402,20 @@ Extended chat completion with file support.
       "finish_reason": "stop"
     }
   ],
-  "generated_files": [              // Backward compatibility: generated_files field
+  "generated_files": [                // Backward compatibility: generated_files field
     {
       "name": "chart.png",
       "url": "http://localhost:8100/thread-123/generated/chart.png"
     }
   ],
-  "attached_files": ["file-abc123"] // Input files
+  "attached_files": ["file-abc123"]   // Input files
 }
 ```
 
 **Response (Streaming):**
 ```
 data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"content": "分析"}}]}
-data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"files": [{"name":"chart.png","url":"..."}]}, "finish_reason": "stop"}]}
+data: {"id": "chatcmpl-xyz789...", "object": "chat.completion.chunk", "choices": [{"delta": {"files": [{"name":"chart.png","url":"..."}], "thread_id": "thread-abc123..."}, "finish_reason": "stop"}]}
 data: [DONE]
 ```
 
@@ -384,5 +470,5 @@ STOP_TOKEN_IDS = [32000, 32007]      # Special token IDs
 
 The `example/` directory contains comprehensive examples:
 
-- `example.py` - Simple requests example
+- `exampleRequest.py` - Simple requests example
 - `exampleOpenAI.py` - OpenAI library example

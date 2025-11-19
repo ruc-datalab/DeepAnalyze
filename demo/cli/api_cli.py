@@ -39,7 +39,6 @@ class DeepAnalyzeCLI:
         self.current_thread_id = None
         self.chat_history = []  # Chat history
         self.generated_files = []  # Generated files (including reports, images, etc.)
-        self.intermediate_files = []  # Intermediate files (uploaded generated files for conversation)
         self.setup_command_history()
 
     def setup_command_history(self):
@@ -164,12 +163,12 @@ class DeepAnalyzeCLI:
             return None
 
     def list_uploaded_files(self):
-        """Display all files list (user uploaded files, intermediate files and output files)"""
-        # Get output files (images and MD reports)
-        output_files = [f for f in self.generated_files if f.get('type') == 'output']
+        """Display all files list (user uploaded files and AI generated files in workspace)"""
+        # Get AI generated files from workspace (all generated files)
+        workspace_files = self.generated_files
 
         # Check if there are any files
-        if not self.uploaded_files and not self.intermediate_files and not output_files:
+        if not self.uploaded_files and not workspace_files:
             console.print("[yellow]📝 No files[/yellow]")
             return
 
@@ -193,55 +192,19 @@ class DeepAnalyzeCLI:
 
             console.print(table)
 
-        # Display intermediate files
-        if self.intermediate_files:
+        # Display AI generated files in workspace
+        if workspace_files:
             if self.uploaded_files:
                 console.print()  # Add empty line separator
 
-            intermediate_table = Table(title="Generated Intermediate Files", show_header=True, header_style="bold cyan")
-            intermediate_table.add_column("Filename", style="cyan", no_wrap=True)
-            intermediate_table.add_column("File ID", style="green")
-            intermediate_table.add_column("URL", style="blue")
-            intermediate_table.add_column("Source", style="yellow")
-            intermediate_table.add_column("Purpose", style="blue")
-            intermediate_table.add_column("Status", style="orange3")
+            workspace_table = Table(title="AI Generated Files in Workspace", show_header=True, header_style="bold green")
+            workspace_table.add_column("Filename", style="cyan", no_wrap=True)
+            workspace_table.add_column("URL", style="blue")
+            workspace_table.add_column("File Type", style="yellow")
+            workspace_table.add_column("Size", style="magenta")
+            workspace_table.add_column("Status", style="bright_blue")
 
-            for file_info in self.intermediate_files:
-                file_name = file_info['name']
-                original_url = file_info.get('original_url', '')
-
-                # Create hyperlink URL display for intermediate files
-                if original_url:
-                    display_url = original_url[:60] + "..." if len(original_url) > 60 else original_url
-                    url_text = Text(display_url, style="blue")
-                    url_text.stylize(f"link {original_url}")
-                else:
-                    url_text = Text("No URL", style="blue")
-
-                intermediate_table.add_row(
-                    file_name,
-                    file_info['id'][:8] + "...",
-                    url_text,
-                    "AI Generated",
-                    file_info.get('purpose', 'assistants'),
-                    "🔄 Intermediate File"
-                )
-
-            console.print(intermediate_table)
-
-        # Display output files (images and MD reports)
-        if output_files:
-            if self.uploaded_files or self.intermediate_files:
-                console.print()  # Add empty line separator
-
-            output_table = Table(title="Generated Output Files", show_header=True, header_style="bold green")
-            output_table.add_column("Filename", style="cyan", no_wrap=True)
-            output_table.add_column("URL", style="blue")
-            output_table.add_column("Source", style="yellow")
-            output_table.add_column("Size", style="magenta")
-            output_table.add_column("Status", style="bright_blue")
-
-            for file_info in output_files:
+            for file_info in workspace_files:
                 file_name = file_info.get('name', 'Unknown file')
                 file_url = file_info.get('url', 'No URL')
                 file_size = file_info.get('size', 'Unknown')
@@ -252,7 +215,7 @@ class DeepAnalyzeCLI:
                 elif file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp')):
                     file_type = "Image"
                 else:
-                    file_type = "Output"
+                    file_type = "Generated File"
 
                 # Create hyperlink URL display (show truncated text, but link to full URL)
                 if file_url != 'No URL':
@@ -265,7 +228,7 @@ class DeepAnalyzeCLI:
                 # Determine file size display
                 size_display = str(file_size) if file_size != 'Unknown' else "Unknown"
 
-                output_table.add_row(
+                workspace_table.add_row(
                     file_name,
                     url_text,
                     file_type,
@@ -273,101 +236,15 @@ class DeepAnalyzeCLI:
                     "📋 Generated"
                 )
 
-            console.print(output_table)
+            console.print(workspace_table)
 
         # Display explanation information
-        if self.intermediate_files or output_files:
+        if workspace_files:
             console.print()
-            explanations = []
-            if self.intermediate_files:
-                explanations.append("🔄 Intermediate files: AI-generated data files, automatically uploaded for subsequent conversation context")
-            if output_files:
-                explanations.append("📋 Output files: AI-generated reports and images, directly accessible via URL")
+            console.print("[dim]📋 Generated files: AI-created reports, images, and data files, automatically accessible via thread workspace[/dim]")
 
-            for explanation in explanations:
-                console.print(f"[dim]{explanation}[/dim]")
-
-    def is_intermediate_file(self, file_info: Dict[str, Any]) -> bool:
-        """Determine if file should be uploaded as intermediate file (exclude reports and images)"""
-        file_name = file_info.get('name', '').lower()
-
-        # Exclude report files and image files
-        intermediate_extensions = ['.md', '.markdown', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp']
-
-        # Check file extension
-        for ext in intermediate_extensions:
-            if file_name.endswith(ext):
-                return False
-
-        # Other files are treated as intermediate files
-        return True
-
-    def upload_intermediate_file(self, file_info: Dict[str, Any]) -> Optional[str]:
-        """Upload intermediate file and return file_id"""
-        try:
-            if not self.client:
-                if not self.initialize_client():
-                    return None
-
-            file_name = file_info.get('name', 'unknown_file')
-            file_url = file_info.get('url', '')
-
-            # Safely handle filename
-            safe_file_name = file_name
-            try:
-                safe_file_name.encode('utf-8')
-            except UnicodeEncodeError:
-                # If filename contains invalid characters, use safe filename
-                import time
-                file_ext = os.path.splitext(file_name)[1]
-                safe_file_name = f"intermediate_file_{int(time.time())}{file_ext}"
-
-            console.print(f"[dim]📤 Uploading intermediate file: {safe_file_name}[/dim]")
-
-            # Try to download file content from URL and upload
-            import requests
-            import tempfile
-            import os
-
-            # Download file
-            response = requests.get(file_url)
-            if response.status_code == 200:
-                # Create temporary file
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(safe_file_name)[1]) as temp_file:
-                    temp_file.write(response.content)
-                    temp_file_path = temp_file.name
-
-                try:
-                    # Upload to API
-                    with open(temp_file_path, 'rb') as f:
-                        file_obj = self.client.files.create(
-                            file=f,
-                            purpose="assistants"
-                        )
-
-                    # Save to intermediate file list
-                    self.intermediate_files.append({
-                        'id': file_obj.id,
-                        'name': safe_file_name,
-                        'original_url': file_url,
-                        'purpose': file_obj.purpose
-                    })
-
-                    console.print(f"[dim]✅ Intermediate file uploaded successfully: {safe_file_name} -> {file_obj.id}[/dim]")
-                    return file_obj.id
-
-                finally:
-                    # Delete temporary file
-                    os.unlink(temp_file_path)
-            else:
-                console.print(f"[red]❌ Failed to download intermediate file: {safe_file_name}[/red]")
-                return None
-
-        except Exception as e:
-            console.print(f"[red]❌ Failed to upload intermediate file {safe_file_name}: {e}[/red]")
-            return None
-
-    def chat_with_file(self, message: str, file_ids: List[str] = None, stream: bool = True):
+  
+  def chat_with_file(self, message: str, file_ids: List[str] = None, stream: bool = True):
         """Chat with AI for analysis"""
         try:
             if not self.client:
@@ -389,34 +266,28 @@ class DeepAnalyzeCLI:
                 elif msg["role"] == "assistant":
                     messages.append({"role": "assistant", "content": msg["content"]})
 
-            # Get all file IDs: uploaded files + intermediate files
-            all_file_ids = []
+            # Only use user uploaded file IDs
+            all_file_ids = [f['id'] for f in self.uploaded_files]
 
-            # Add uploaded file IDs
-            uploaded_file_ids = [f['id'] for f in self.uploaded_files]
-            all_file_ids.extend(uploaded_file_ids)
-
-            # Add intermediate file IDs (uploaded generated files)
-            intermediate_file_ids = [f['id'] for f in self.intermediate_files]
-            all_file_ids.extend(intermediate_file_ids)
-
-            # Remove duplicates
-            all_file_ids = list(set(all_file_ids))
-
-            # Add current user message (only this message contains file_ids)
+            # Add current user message with thread_id and file_ids
             current_message = {"role": "user", "content": message}
             if all_file_ids:
                 current_message["file_ids"] = all_file_ids
+            if self.current_thread_id:
+                current_message["thread_id"] = self.current_thread_id
             messages.append(current_message)
 
             console.print("[cyan]💭 Analyzing...[/cyan]")
             if all_file_ids:
-                console.print(f"[dim]Using files: {len(uploaded_file_ids)} uploaded files, {len(intermediate_file_ids)} intermediate files[/dim]")
+                console.print(f"[dim]Using {len(all_file_ids)} uploaded files[/dim]")
+            if self.current_thread_id:
+                console.print(f"[dim]Using thread: {self.current_thread_id}[/dim]")
 
             # Default to streaming response
             console.print("[dim]📡 Streaming response...[/dim]")
             response_text = ""
             collected_files = []
+            response_thread_id = None
 
             console.print("\n[bold yellow]🤖 AI Response:[/bold yellow]")
 
@@ -435,11 +306,19 @@ class DeepAnalyzeCLI:
                         response_text += content
                         console.print(content, end='')
 
-                    # Collect generated files (in stream)
-                    if hasattr(chunk, 'generated_files') and chunk.generated_files:
-                        collected_files.extend(chunk.generated_files)
+                    # Extract thread_id and collect generated files
+                    if hasattr(chunk.choices[0].delta, 'thread_id') and chunk.choices[0].delta.thread_id:
+                        response_thread_id = chunk.choices[0].delta.thread_id
+
+                if hasattr(chunk, 'generated_files') and chunk.generated_files:
+                    collected_files.extend(chunk.generated_files)
 
             console.print()  # Newline
+
+            # Update thread_id from response
+            if response_thread_id and response_thread_id != self.current_thread_id:
+                self.current_thread_id = response_thread_id
+                console.print(f"[dim]🧵 Thread updated: {self.current_thread_id}[/dim]")
 
             # Add AI response to history
             self.chat_history.append({"role": "assistant", "content": response_text})
@@ -448,54 +327,35 @@ class DeepAnalyzeCLI:
             if collected_files:
                 console.print(f"\n[green]📁 Generated {len(collected_files)} files[/green]")
 
-                intermediate_count = 0
                 for file_info in collected_files:
                     file_name = file_info.get('name', 'Unknown file')
                     file_url = file_info.get('url', '')
-                    file_id = file_info.get('id', '')
 
-                    # Determine if it's an intermediate file
-                    if self.is_intermediate_file(file_info):
-                        # Upload intermediate file
-                        uploaded_id = self.upload_intermediate_file(file_info)
-                        if uploaded_id:
-                            intermediate_count += 1
-                        # Still save to generated_files for statistics
-                        self.generated_files.append({
-                            **file_info,
-                            'uploaded_id': uploaded_id,
-                            'type': 'intermediate'
-                        })
-                    else:
-                        # Report and image files, save directly
-                        # Try to get file size from URL
-                        file_size = file_info.get('size', 'Unknown')
-                        if file_size == 'Unknown' and file_url:
-                            try:
-                                import requests
-                                response = requests.head(file_url, timeout=5)
-                                if response.status_code == 200 and 'content-length' in response.headers:
-                                    size_bytes = int(response.headers['content-length'])
+                    # Try to get file size from URL
+                    file_size = file_info.get('size', 'Unknown')
+                    if file_size == 'Unknown' and file_url:
+                        try:
+                            import requests
+                            response = requests.head(file_url, timeout=5)
+                            if response.status_code == 200 and 'content-length' in response.headers:
+                                size_bytes = int(response.headers['content-length'])
+                                file_size = decimal(size_bytes)
+                            else:
+                                # If HEAD request fails, try full download
+                                response = requests.get(file_url, timeout=10)
+                                if response.status_code == 200:
+                                    size_bytes = len(response.content)
                                     file_size = decimal(size_bytes)
-                                else:
-                                    # If HEAD request fails, try full download
-                                    response = requests.get(file_url, timeout=10)
-                                    if response.status_code == 200:
-                                        size_bytes = len(response.content)
-                                        file_size = decimal(size_bytes)
-                            except Exception:
-                                # If retrieval fails, keep as 'Unknown'
-                                pass
+                        except Exception:
+                            # If retrieval fails, keep as 'Unknown'
+                            pass
 
-                        self.generated_files.append({
-                            **file_info,
-                            'type': 'output',
-                            'size': file_size
-                        })
-                        console.print(f"[dim]• {file_name}: {file_url or file_id}[/dim]")
-
-                if intermediate_count > 0:
-                    console.print(f"[dim]✅ {intermediate_count} files uploaded as intermediate files, available for subsequent conversations[/dim]")
+                    # Save to generated_files list
+                    self.generated_files.append({
+                        **file_info,
+                        'size': file_size
+                    })
+                    console.print(f"[dim]• {file_name}: {file_url}[/dim]")
 
             return response_text
 
@@ -563,15 +423,14 @@ class DeepAnalyzeCLI:
             console.print("[yellow]📝 No conversation history[/yellow]")
             return
 
-        output_files = [f for f in self.generated_files if f.get('type') != 'intermediate']
-        intermediate_files = [f for f in self.generated_files if f.get('type') == 'intermediate']
+        generated_files_count = len(self.generated_files)
 
         console.print(Panel(
             f"[bold]Conversation rounds:[/bold] {len(self.chat_history) // 2}\n"
             f"[bold]User messages:[/bold] {len([m for m in self.chat_history if m['role'] == 'user'])}\n"
             f"[bold]AI responses:[/bold] {len([m for m in self.chat_history if m['role'] == 'assistant'])}\n"
-            f"[bold]Output files:[/bold] {len(output_files)}\n"
-            f"[bold]Intermediate files:[/bold] {len(intermediate_files)}",
+            f"[bold]Generated files:[/bold] {generated_files_count}\n"
+            f"[bold]Thread ID:[/bold] {self.current_thread_id or 'None'}",
             title="Conversation History Statistics",
             border_style="blue"
         ))
@@ -591,30 +450,20 @@ class DeepAnalyzeCLI:
                 console.print()
 
     def clear_chat_history(self):
-        """Clear conversation history and generated intermediate files"""
-        # Delete intermediate files
-        if self.intermediate_files:
-            console.print("[yellow]🗑️  Deleting intermediate files...[/yellow]")
-            for file_info in self.intermediate_files:
-                try:
-                    self.client.files.delete(file_info['id'])
-                    console.print(f"[green]✅ Deleted intermediate file: {file_info['name']}[/green]")
-                except Exception as e:
-                    console.print(f"[red]❌ Failed to delete intermediate file {file_info['name']}: {e}[/red]")
-
+        """Clear conversation history and reset thread"""
         # Clear local lists
         self.chat_history.clear()
         self.generated_files.clear()
-        self.intermediate_files.clear()
+        self.current_thread_id = None
 
         console.print("[green]✅ Conversation history cleared[/green]")
         console.print("[green]✅ Generated file records cleared[/green]")
-        console.print("[green]✅ Intermediate files deleted[/green]")
+        console.print("[green]✅ Thread reset[/green]")
 
     def clear_all(self):
         """Clear all content (including uploaded files)"""
         try:
-            # Delete server files - including uploaded files and intermediate files
+            # Delete server files - uploaded files
             if self.uploaded_files:
                 for file_info in self.uploaded_files:
                     try:
@@ -623,22 +472,15 @@ class DeepAnalyzeCLI:
                     except Exception as e:
                         console.print(f"[red]❌ Failed to delete uploaded file {file_info['name']}: {e}[/red]")
 
-            if self.intermediate_files:
-                for file_info in self.intermediate_files:
-                    try:
-                        self.client.files.delete(file_info['id'])
-                        console.print(f"[green]✅ Deleted intermediate file: {file_info['name']}[/green]")
-                    except Exception as e:
-                        console.print(f"[red]❌ Failed to delete intermediate file {file_info['name']}: {e}[/red]")
-
             # Clear local lists
             self.chat_history.clear()
             self.generated_files.clear()
-            self.intermediate_files.clear()
             self.uploaded_files.clear()
+            self.current_thread_id = None
 
             console.print("[green]✅ All content cleared[/green]")
-            console.print("[green]✅ Conversation history, generated files, uploaded files, intermediate files all cleared[/green]")
+            console.print("[green]✅ Conversation history, generated files, uploaded files all cleared[/green]")
+            console.print("[green]✅ Thread reset[/green]")
 
         except Exception as e:
             console.print(f"[red]❌ Error clearing all content: {e}[/red]")
@@ -652,14 +494,14 @@ class DeepAnalyzeCLI:
             server_status = "✅ Online" if self.check_server() else "❌ Offline"
 
             # Statistics
-            output_files = [f for f in self.generated_files if f.get('type') == 'output']
+            generated_files_count = len(self.generated_files)
             status_panel = Panel(
                 f"[bold]API Server:[/bold] {server_status}\n"
                 f"[bold]API Endpoint:[/bold] {self.api_base}\n"
                 f"[bold]Current Model:[/bold] {self.model}\n"
+                f"[bold]Thread ID:[/bold] {self.current_thread_id or 'None'}\n"
                 f"[bold]Uploaded Files:[/bold] {len(self.uploaded_files)}\n"
-                f"[bold]Intermediate Files:[/bold] {len(self.intermediate_files)}\n"
-                f"[bold]Output Files:[/bold] {len(output_files)}\n"
+                f"[bold]Generated Files:[/bold] {generated_files_count}\n"
                 f"[bold]Conversation Rounds:[/bold] {len([m for m in self.chat_history if m['role'] == 'user'])}",
                 title="System Status",
                 border_style="cyan"
@@ -719,21 +561,21 @@ class DeepAnalyzeCLI:
 [basic commands]
 • [yellow]help[/yellow] - Display this help information
 • [yellow]quit/exit[/yellow] - Exit the program
-• [yellow]clear[/yellow] - Clear conversation history and generated intermediate files
+• [yellow]clear[/yellow] - Clear conversation history and reset thread
 • [yellow]clear-all[/yellow] - Clear all content (including uploaded files)
 
 [file management]
-• [yellow]files[/yellow] - View uploaded files
+• [yellow]files[/yellow] - View uploaded files and generated workspace files
 • [yellow]upload <file_path>[/yellow] - Upload new file
-• [yellow]delete <file_id>[/yellow] - Delete specified file
-• [yellow]download <file_id> [save_path][/yellow] - Download file
+• [yellow]delete <file_id>[/yellow] - Delete specified uploaded file
+• [yellow]download <file_id> [save_path][/yellow] - Download uploaded file
 
 [system & history]
-• [yellow]status[/yellow] - Display system status
+• [yellow]status[/yellow] - Display system status and thread information
 • [yellow]history[/yellow] - Display conversation history
-• [yellow]fid[/yellow] - Display all file names and complete IDs
+• [yellow]fid[/yellow] - Display uploaded file names and complete IDs
 
-[dim]Directly input text to start conversation, system will automatically use uploaded and generated files[/dim]
+[dim]Files are automatically managed via thread workspace. Generated files persist across conversations.[/dim]
 """
         console.print(Panel(help_text, title="Command Help", border_style="blue"))
 
@@ -802,46 +644,34 @@ class DeepAnalyzeCLI:
         return False
 
     def show_file_ids(self):
-        """Display all file names and complete IDs (including uploaded files and intermediate files)"""
-        # Check if there are any files
-        if not self.uploaded_files and not self.intermediate_files:
-            console.print("[yellow]📝 No files[/yellow]")
+        """Display user uploaded file names and complete IDs"""
+        # Check if there are any uploaded files
+        if not self.uploaded_files:
+            console.print("[yellow]📝 No uploaded files[/yellow]")
             return
 
-        # Create comprehensive table
-        table = Table(title="All Files and IDs", show_header=True, header_style="bold magenta")
+        # Create table for uploaded files
+        table = Table(title="User Uploaded Files and IDs", show_header=True, header_style="bold magenta")
         table.add_column("File Name", style="cyan", no_wrap=True)
         table.add_column("Complete File ID", style="green")
-        table.add_column("Type", style="yellow")
+        table.add_column("File Size", style="yellow")
         table.add_column("Status", style="blue")
 
         # Display uploaded files
-        if self.uploaded_files:
-            for file_info in self.uploaded_files:
-                table.add_row(
-                    file_info['name'],
-                    file_info['id'],  # Complete ID
-                    "📁 User Uploaded",
-                    "✅ Uploaded"
-                )
-
-        # Display intermediate files
-        if self.intermediate_files:
-            for file_info in self.intermediate_files:
-                table.add_row(
-                    file_info['name'],
-                    file_info['id'],  # Complete ID
-                    "🔄 Intermediate File",
-                    "🔄 AI Generated"
-                )
+        for file_info in self.uploaded_files:
+            table.add_row(
+                file_info['name'],
+                file_info['id'],  # Complete ID
+                decimal(file_info['size']),
+                "✅ Uploaded"
+            )
 
         console.print(table)
 
         # Display summary
         console.print()
-        console.print(f"[dim]Total files: {len(self.uploaded_files) + len(self.intermediate_files)}[/dim]")
-        console.print(f"[dim]User uploaded: {len(self.uploaded_files)}[/dim]")
-        console.print(f"[dim]Intermediate files: {len(self.intermediate_files)}[/dim]")
+        console.print(f"[dim]Total uploaded files: {len(self.uploaded_files)}[/dim]")
+        console.print(f"[dim]Generated files are accessible via workspace (thread_id: {self.current_thread_id or 'None'})[/dim]")
 
     def cleanup_files(self):
         """Clean up uploaded files"""
