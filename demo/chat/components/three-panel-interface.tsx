@@ -2141,7 +2141,7 @@ export function ThreePanelInterface() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "grok-beta",
+          model: "deepanalyze-8b", // 修正模型名
           messages: [
             ...messages
               .filter((m) => !m.localOnly)
@@ -2154,7 +2154,7 @@ export function ThreePanelInterface() {
               content: inputValue,
             },
           ],
-          stream: false,
+          stream: true, // [修改] 明确开启流式模式
           session_id: sessionId,
         }),
       });
@@ -2166,9 +2166,7 @@ export function ThreePanelInterface() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // 分两种返回：
-      // 1) application/json → 一次性JSON
-      // 2) 其他（如 text/plain 流式）→ 多段JSON对象拼接
+      // 情况1: 非流式 JSON (兜底)
       if (contentType.includes("application/json")) {
         const data = await response.json();
         const content = data?.choices?.[0]?.message?.content || "";
@@ -2182,25 +2180,23 @@ export function ThreePanelInterface() {
           },
         ]);
         autoCollapseForContent(content);
-        // 若包含 <File> 标签，立即刷新工作区
         if (content.includes("<File>")) {
           await loadWorkspaceTree();
           await loadWorkspaceFiles();
         }
-        setIsTyping(false); // 设置为 false 会自动触发滚动
-        return;
-      }
-
-      // 流式读取（后端返回 text/plain 且逐条输出 JSON 对象）
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) {
-        // 没有可读流，直接结束加载动画
         setIsTyping(false);
         return;
       }
 
-      // 先插入一个空的 AI 消息，后续流式更新它的 content
+      // 情况2: 流式响应 (NDJSON / SSE)
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) {
+        setIsTyping(false);
+        return;
+      }
+
+      // 预先插入 AI 消息占位
       const aiMsgId = `${Date.now()}-${Math.random()}`;
       setMessages((prev) => [
         ...prev,
@@ -2212,19 +2208,24 @@ export function ThreePanelInterface() {
         },
       ]);
 
-      const updateAiMessage = (text: string) => {
+      // [修改] 用于在本地累积完整的消息内容
+      let accumulatedMessage = "";
+
+      // 更新 UI 的辅助函数
+      const updateAiMessage = (fullText: string) => {
         setMessages((prev) => {
           const next = [...prev];
           const idx = next.findIndex((m) => m.id === aiMsgId);
           if (idx >= 0) {
-            next[idx] = { ...next[idx], content: text };
+            next[idx] = { ...next[idx], content: fullText };
           }
           return next;
         });
-        // 在流式过程中也做自动折叠：只保留最后一个展开
-        autoCollapseForContent(text);
-        // 若检测到 <File> 标签，节流触发一次工作区刷新
-        if (text.includes("<File>")) {
+
+        // 实时处理折叠和文件刷新逻辑
+        autoCollapseForContent(fullText);
+
+        if (fullText.includes("<File>")) {
           if (fileRefreshTimerRef.current) {
             window.clearTimeout(fileRefreshTimerRef.current);
           }
@@ -2234,102 +2235,67 @@ export function ThreePanelInterface() {
             fileRefreshTimerRef.current = null;
           }, 300);
         }
-        // 不需要在这里滚动，isTyping 期间的 interval 会持续滚动
       };
 
       let buffer = "";
-      let lastRendered = "";
-
-      // 从缓冲区提取完整 JSON 对象（按花括号配对，忽略字符串中的括号）
-      const extractJsonObjects = (
-        text: string
-      ): { objects: any[]; rest: string } => {
-        const objects: any[] = [];
-        let i = 0;
-        while (i < text.length) {
-          while (i < text.length && text[i] !== "{") i++;
-          if (i >= text.length) break;
-          let depth = 0,
-            inStr = false,
-            esc = false;
-          let j = i;
-          for (; j < text.length; j++) {
-            const ch = text[j];
-            if (inStr) {
-              if (esc) {
-                esc = false;
-                continue;
-              }
-              if (ch === "\\") {
-                esc = true;
-                continue;
-              }
-              if (ch === '"') {
-                inStr = false;
-              }
-              continue;
-            }
-            if (ch === '"') {
-              inStr = true;
-              continue;
-            }
-            if (ch === "{") {
-              depth++;
-              continue;
-            }
-            if (ch === "}") {
-              depth--;
-              if (depth === 0) {
-                j++;
-                break;
-              }
-            }
-          }
-          if (depth === 0 && j <= text.length) {
-            const seg = text.slice(i, j);
-            try {
-              const obj = JSON.parse(seg);
-              objects.push(obj);
-              i = j;
-              continue;
-            } catch {
-              break;
-            }
-          } else {
-            break;
-          }
-        }
-        return { objects, rest: text.slice(i) };
-      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+
         buffer += decoder.decode(value, { stream: true });
-        const { objects, rest } = extractJsonObjects(buffer);
-        buffer = rest;
-        for (const obj of objects) {
-          const extracted = obj?.choices?.[0]?.message?.content as
-            | string
-            | undefined;
-          if (typeof extracted === "string" && extracted !== lastRendered) {
-            lastRendered = extracted;
-            updateAiMessage(extracted);
-            if (extracted.includes("</Answer>")) {
-              setIsTyping(false);
-              autoCollapseForContent(extracted);
+
+        // [修改] 核心解析逻辑：按换行符分割 (NDJSON)
+        const lines = buffer.split("\n");
+        // 保留最后一个可能不完整的片段在 buffer 中
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          if (trimmed === "data: [DONE]") continue; // 兼容 OpenAI 标准结束符
+
+          try {
+            const json = JSON.parse(trimmed);
+
+            // [修改] 解析 Delta 而不是 Message
+            const deltaContent = json.choices?.[0]?.delta?.content;
+
+            if (deltaContent) {
+              accumulatedMessage += deltaContent;
+              updateAiMessage(accumulatedMessage);
+
+              // 检查是否包含结束标签（用于辅助逻辑，实际流结束由 done 决定）
+              if (accumulatedMessage.includes("</Answer>")) {
+                // 不在这里 setIsTyping(false)，等待流彻底结束
+              }
             }
+          } catch (e) {
+            console.warn("JSON parse error for line:", trimmed, e);
           }
         }
       }
 
-      // 流结束后忽略残余不完整 JSON
+      // 处理 buffer 中剩余的内容 (极少情况)
+      if (buffer.trim()) {
+        try {
+            const json = JSON.parse(buffer.trim());
+            const deltaContent = json.choices?.[0]?.delta?.content;
+            if (deltaContent) {
+              accumulatedMessage += deltaContent;
+              updateAiMessage(accumulatedMessage);
+            }
+        } catch (e) {}
+      }
 
+      // 结束后刷新一次文件列表确保无遗漏
       await loadWorkspaceFiles();
-      setIsTyping(false); // 设置为 false 会自动触发平滑滚动
+      await loadWorkspaceTree();
+      setIsTyping(false); // 结束加载状态
+
     } catch (error) {
       console.error("Error sending message:", error);
-      setIsTyping(false); // 设置为 false 会自动触发平滑滚动
+      setIsTyping(false);
     }
   };
 
