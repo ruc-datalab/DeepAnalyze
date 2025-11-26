@@ -62,7 +62,7 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
 
 https://github.com/user-attachments/assets/a2335f45-be0e-4787-a4c1-e93192891c5f
 <p align="center" width="100%">
-Familiar with Jupyter Notebook? Try DeepAnalyze through the **JupyterUI**!
+Familiar with Jupyter Notebook? Try DeepAnalyze through the JupyterUI!
 </p>
 
 - This Demo runs Jupyter Lab as frontend, creating a new notebook, converting `<Analyze|Understand|Answer>` to Markdown cells, converting `<Code>` to Code cells and executing them as `<Execute>`.
@@ -259,7 +259,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
 - Training framework: [ms-swift](https://github.com/modelscope/ms-swift), [SkyRL](https://github.com/NovaSky-AI/SkyRL)
 - Source of Training Data: [Reasoning-Table](https://github.com/MJinXiang/Reasoning-Table), [Spider](https://yale-lily.github.io/spider), [BIRD](https://bird-bench.github.io/), [DABStep](https://huggingface.co/blog/dabstep)
 
-## 🖋Citation
+## 🖋 Citation
 
 If this repository is useful for you, please cite as:
 
@@ -282,7 +282,7 @@ If you have any questions, please feel free to submit an issue or contact `zhang
 Welcome to join the [DeepAnalyze WeChat group](./assets/wechat.jpg), chat and share ideas with others!
 
 <p align="left" width="100%">
-<img src="./assets/wechat.jpg" alt="DeepAnalyze" style="width: 30%; min-width: 300px; display: block; margin: auto;">
+<img src="./assets/wechat2.jpg" alt="DeepAnalyze" style="width: 35%; min-width: 300px; display: block; margin: auto;">
 </p>
 
 If you like DeepAnalyze, give it a GitHub Star ⭐. 
