@@ -687,15 +687,16 @@ def bot_stream(messages, workspace, session_id="default"):
                 delta = chunk.choices[0].delta.content
                 cur_res += delta
                 assistant_reply += delta
-                yield assistant_reply
+                yield delta
             if "</Answer>" in cur_res:
                 finished = True
                 break
         if chunk.choices[0].finish_reason == "stop" and not finished:
             if not cur_res.endswith("</Code>"):
-                cur_res += "</Code>"
-                assistant_reply += "</Code>"
-            yield assistant_reply
+                missing_tag = "</Code>"
+                cur_res += missing_tag
+                assistant_reply += missing_tag
+                yield missing_tag
         if "</Code>" in cur_res and not finished:
             messages.append({"role": "assistant", "content": cur_res})
             code_match = re.search(r"<Code>(.*?)</Code>", cur_res, re.DOTALL)
@@ -787,8 +788,9 @@ def bot_stream(messages, workspace, session_id="default"):
                             lines.append(f"![{name}]({url})")
                     lines.append("</File>")
                     file_block = "\n" + "\n".join(lines) + "\n"
-                assistant_reply += exe_str + file_block
-                yield assistant_reply
+                full_execution_block = exe_str + file_block
+                assistant_reply += full_execution_block
+                yield full_execution_block
                 messages.append({"role": "execute", "content": f"{exe_output}"})
                 # 刷新工作区快照（路径集合）
                 current_files = set(
@@ -812,27 +814,35 @@ async def chat(body: dict = Body(...)):
     session_id = body.get("session_id", "default")
 
     def generate():
-        for reply in bot_stream(messages, workspace, session_id):
-            # result=reply + "\n"
-            print(reply)
-            result = {
-                "id": "chatcmpl-123",
-                "object": "chat.completion",
+        for delta_content in bot_stream(messages, workspace, session_id):
+            # print(delta_content)
+            chunk = {
+                "id": "chatcmpl-stream",
+                "object": "chat.completion.chunk",  # 标识为流式块
                 "created": 1677652288,
-                "model": "deepanalyze-8b",
+                "model": MODEL_PATH,
                 "choices": [
                     {
                         "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": fix_tags_and_codeblock(reply),
+                        # 3. 使用 delta 字段而非 message 字段
+                        "delta": {
+                            "content": delta_content  # 直接填入原始内容，不要调用 fix_tags
                         },
-                        "finish_reason": "stop",
+                        "finish_reason": None,  # 传输中为 None
                     }
                 ],
             }
 
-            yield json.dumps(result)
+            yield json.dumps(chunk) + "\n"
+            # 5. 循环结束后，发送一个结束标记 (Optional, 但推荐)
+        end_chunk = {
+            "id": "chatcmpl-stream",
+            "object": "chat.completion.chunk",
+            "created": 1677652288,
+            "model": MODEL_PATH,
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]
+        }
+        yield json.dumps(end_chunk) + "\n"
 
     return StreamingResponse(generate(), media_type="text/plain")
 
