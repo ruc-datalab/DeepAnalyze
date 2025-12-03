@@ -9,10 +9,21 @@ mkdir -p logs
 # Function to check and free ports
 check_port() {
     local port=$1
-    if lsof -i:$port > /dev/null 2>&1; then
-        echo "Port $port is already in use, terminating process..."
-        lsof -ti:$port | xargs kill -9 2>/dev/null || true
+    # Only target TCP LISTENers to avoid killing incidental connections
+    local pids
+    pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        echo "Port $port in use by PIDs: $pids. Terminating..."
+        kill $pids 2>/dev/null || true
         sleep 1
+        # Force kill if still present
+        local pids2
+        pids2=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+        if [ -n "$pids2" ]; then
+            echo "Force terminating remaining PIDs on $port: $pids2"
+            kill -9 $pids2 2>/dev/null || true
+            sleep 1
+        fi
     fi
 }
 
@@ -20,15 +31,18 @@ check_port() {
 echo "Cleaning old processes..."
 pkill -f "python.*backend.py" 2>/dev/null || true
 pkill -f "npm.*dev" 2>/dev/null || true
+# Extra cleanup for child processes that may outlive npm
+pkill -f "vite.*serve" 2>/dev/null || true
+pkill -f "node.*vite" 2>/dev/null || true
+pkill -f "react-scripts.*start" 2>/dev/null || true
 
 # Frontend port (default 4000, can override via FRONTEND_PORT)
 FRONTEND_PORT=${FRONTEND_PORT:-4000}
 
-# Check and clean ports
-check_port 8000
+# Check and clean ports (only LISTENers)
 check_port 8100
 check_port 8200
-check_port $FRONTEND_PORT
+check_port "$FRONTEND_PORT"
 
 echo "Cleanup completed."
 echo ""
@@ -47,8 +61,8 @@ sleep 3
 # Start frontend (React, default port: $FRONTEND_PORT)
 echo ""
 echo "Starting React frontend..."
-cd chat || exit
-nohup npm run dev -- -p $FRONTEND_PORT > ../logs/frontend.log 2>&1 &
+cd frontend || exit
+nohup npm run dev -- -p "$FRONTEND_PORT" > ../logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
 cd ..
 echo "Frontend PID: $FRONTEND_PID"
@@ -62,7 +76,6 @@ echo ""
 echo "All services started successfully."
 echo ""
 echo "Service URLs:"
-echo "  Mock API:     http://localhost:8000"
 echo "  Backend API:  http://localhost:8200"
 echo "  Frontend:     http://localhost:$FRONTEND_PORT"
 echo "  File Service: http://localhost:8100"

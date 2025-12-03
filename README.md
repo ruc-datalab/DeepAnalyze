@@ -48,15 +48,17 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
 - Deploy DeepAnalyze-8B via vllm: `vllm serve DeepAnalyze-8B`
 - Run these scripts to launch the API and interface, and then interact through the browser (http://localhost:4000):
     ```bash
-    cd demo/chat
+    cd demo/chat/frontend
     npm install
     cd ..
     bash start.sh
     
     # stop the api and interface
     bash stop.sh
+    
+    # stop vllm if needed
     ```
-- If you want to deploy under a specific IP, please replace localhost with your IP address in [./demo/backend.py](./demo/backend.py) and [./demo/chat/lib/config.ts](./demo/chat/lib/config.ts)
+- If you want to deploy under a specific IP, please replace localhost with your IP address in [./demo/chat/backend.py](./demo/chat/backend.py) and [./demo/chat/frontend/lib/config.ts](./demo/chat/frontend/lib/config.ts)
 
 ### JupyterUI
 
@@ -205,7 +207,6 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
   # wait for a while
   ```
   
-
 - Refer to API/README.md for details.
 
 ## 🎈 Develop Your Own DeepAnalyze

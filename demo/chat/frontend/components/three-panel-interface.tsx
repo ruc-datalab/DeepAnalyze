@@ -8,6 +8,7 @@ import {
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import Editor from "@monaco-editor/react";
 import { useState, useRef, useEffect, useCallback } from "react";
+import { configureMonaco } from "@/lib/monaco-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -136,6 +137,9 @@ export function ThreePanelInterface() {
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined") {
+      // 配置 Monaco Editor
+      configureMonaco();
+
       // 初始化或获取 sessionId
       let sid = localStorage.getItem("sessionId");
       if (!sid) {
@@ -165,7 +169,7 @@ export function ThreePanelInterface() {
       if (cs) setCollapsedSections(JSON.parse(cs));
       const ml = localStorage.getItem(`manualLocks:${sessionId}`);
       if (ml) setManualLocks(JSON.parse(ml));
-    } catch {}
+    } catch { }
   }, [sessionId]);
 
   useEffect(() => {
@@ -179,7 +183,7 @@ export function ThreePanelInterface() {
         `manualLocks:${sessionId}`,
         JSON.stringify(manualLocks)
       );
-    } catch {}
+    } catch { }
   }, [sessionId, collapsedSections, manualLocks]);
 
   // 当 activeSection 变化时自动滚动到对应步骤
@@ -498,7 +502,7 @@ export function ThreePanelInterface() {
       if (typeof window !== "undefined") {
         localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify([welcome]));
       }
-    } catch {}
+    } catch { }
     toast({ description: "已清空聊天" });
   };
 
@@ -632,13 +636,12 @@ export function ThreePanelInterface() {
   // 移动：将工作区内的文件/文件夹移动到指定目录（空字符串表示根目录）
   const moveToDir = async (srcPath: string, dstDir: string) => {
     try {
-      const url = `${
-        API_CONFIG.BACKEND_BASE_URL
-      }/workspace/move?src=${encodeURIComponent(
-        srcPath
-      )}&dst_dir=${encodeURIComponent(dstDir)}&session_id=${encodeURIComponent(
-        sessionId
-      )}`;
+      const url = `${API_CONFIG.BACKEND_BASE_URL
+        }/workspace/move?src=${encodeURIComponent(
+          srcPath
+        )}&dst_dir=${encodeURIComponent(dstDir)}&session_id=${encodeURIComponent(
+          sessionId
+        )}`;
       const res = await fetch(url, { method: "POST" });
       if (res.ok) {
         await loadWorkspaceTree();
@@ -770,9 +773,8 @@ export function ThreePanelInterface() {
           </div>
         )}
         <div
-          className={`flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900 rounded px-2 py-1 ${
-            isGenerated ? "bg-purple-50 dark:bg-purple-950/20" : ""
-          }`}
+          className={`flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900 rounded px-2 py-1 ${isGenerated ? "bg-purple-50 dark:bg-purple-950/20" : ""
+            }`}
           onClick={(e) => {
             if (isDir) {
               node.toggle();
@@ -885,11 +887,10 @@ export function ThreePanelInterface() {
               </div>
             )}
             <span
-              className={`truncate ${
-                isGenerated
-                  ? "text-purple-700 dark:text-purple-300 font-medium"
-                  : ""
-              }`}
+              className={`truncate ${isGenerated
+                ? "text-purple-700 dark:text-purple-300 font-medium"
+                : ""
+                }`}
             >
               {data.name}
             </span>
@@ -925,9 +926,8 @@ export function ThreePanelInterface() {
           </div>
         )}
         <div
-          className={`flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900 rounded px-2 py-1 cursor-default ${
-            isGenerated ? "bg-purple-50 dark:bg-purple-950/20" : ""
-          }`}
+          className={`flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900 rounded px-2 py-1 cursor-default ${isGenerated ? "bg-purple-50 dark:bg-purple-950/20" : ""
+            }`}
           style={pad}
           onClick={(e) => {
             if (isDir) return toggleExpand(node.path);
@@ -970,13 +970,12 @@ export function ThreePanelInterface() {
             const srcPath = dt.getData("text/x-workspace-path");
             if (srcPath) {
               try {
-                const url = `${
-                  API_CONFIG.BACKEND_BASE_URL
-                }/workspace/move?src=${encodeURIComponent(
-                  srcPath
-                )}&dst_dir=${encodeURIComponent(
-                  node.path
-                )}&session_id=${encodeURIComponent(sessionId)}`;
+                const url = `${API_CONFIG.BACKEND_BASE_URL
+                  }/workspace/move?src=${encodeURIComponent(
+                    srcPath
+                  )}&dst_dir=${encodeURIComponent(
+                    node.path
+                  )}&session_id=${encodeURIComponent(sessionId)}`;
                 const res = await fetch(url, { method: "POST" });
                 if (res.ok) {
                   await loadWorkspaceTree();
@@ -1002,11 +1001,10 @@ export function ThreePanelInterface() {
                 </span>
                 {isGenerated ? (
                   <Code2
-                    className={`h-3.5 w-3.5 ${
-                      isGenerated
-                        ? "text-purple-600 dark:text-purple-400"
-                        : "text-gray-500"
-                    }`}
+                    className={`h-3.5 w-3.5 ${isGenerated
+                      ? "text-purple-600 dark:text-purple-400"
+                      : "text-gray-500"
+                      }`}
                   />
                 ) : (
                   <FolderOpen className="h-3.5 w-3.5 text-gray-500" />
@@ -1020,11 +1018,10 @@ export function ThreePanelInterface() {
               </span>
             )}
             <span
-              className={`truncate ${
-                isGenerated
-                  ? "text-purple-700 dark:text-purple-300 font-medium"
-                  : ""
-              }`}
+              className={`truncate ${isGenerated
+                ? "text-purple-700 dark:text-purple-300 font-medium"
+                : ""
+                }`}
             >
               {node.icon && !isGenerated ? `${node.icon} ` : ""}
               {node.name || "workspace"}
@@ -1154,9 +1151,8 @@ export function ThreePanelInterface() {
           u.port === "8100";
         if (needRewrite) {
           const b = new URL(safeBase + "/");
-          return `${b.origin}${b.pathname.replace(/\/$/, "")}${u.pathname}${
-            u.search
-          }${u.hash}`;
+          return `${b.origin}${b.pathname.replace(/\/$/, "")}${u.pathname}${u.search
+            }${u.hash}`;
         }
         return trimmed;
       } catch {
@@ -1519,9 +1515,8 @@ export function ThreePanelInterface() {
                       String(href || "")
                     );
                     const corrected = ensureGeneratedInUrl(normalized);
-                    const proxied = `${
-                      API_CONFIG.BACKEND_BASE_URL
-                    }/proxy?url=${encodeURIComponent(corrected)}`;
+                    const proxied = `${API_CONFIG.BACKEND_BASE_URL
+                      }/proxy?url=${encodeURIComponent(corrected)}`;
                     return (
                       <a
                         href={proxied}
@@ -1536,9 +1531,8 @@ export function ThreePanelInterface() {
                   img: ({ src, alt }: any) => {
                     const normalizedSrc = normalizeToLocalFileUrl(src || "");
                     const correctedSrc = ensureGeneratedInUrl(normalizedSrc);
-                    const proxiedSrc = `${
-                      API_CONFIG.BACKEND_BASE_URL
-                    }/proxy?url=${encodeURIComponent(correctedSrc)}`;
+                    const proxiedSrc = `${API_CONFIG.BACKEND_BASE_URL
+                      }/proxy?url=${encodeURIComponent(correctedSrc)}`;
                     return (
                       <img
                         src={proxiedSrc}
@@ -1884,9 +1878,8 @@ export function ThreePanelInterface() {
                 {files.map((f, i) => {
                   // 通过代理访问图片，并自动修正缺少 generated 的 URL
                   const correctedUrl = ensureGeneratedInUrl(f.url);
-                  const proxiedUrl = `${
-                    API_CONFIG.BACKEND_BASE_URL
-                  }/proxy?url=${encodeURIComponent(correctedUrl)}`;
+                  const proxiedUrl = `${API_CONFIG.BACKEND_BASE_URL
+                    }/proxy?url=${encodeURIComponent(correctedUrl)}`;
                   return (
                     <div
                       key={i}
@@ -1981,42 +1974,42 @@ export function ThreePanelInterface() {
               {(match.type === "Code" ||
                 match.type === "Analyze" ||
                 match.type === "Understand") && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={async () => {
-                      const text =
-                        match.type === "Code"
-                          ? extractCode(match.content)
-                          : match.content;
-                      const ok = await copyToClipboard(text.trim());
-                      toast({
-                        description: ok ? "已复制" : "复制失败",
-                        variant: ok ? undefined : "destructive",
-                      });
-                    }}
-                    className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                  {match.type === "Code" && (
+                  <>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        const code = extractCode(match.content);
-                        setCodeEditorContent(code);
-                        setSelectedCodeSection(match.content);
-                        setShowCodeEditor(true);
+                      onClick={async () => {
+                        const text =
+                          match.type === "Code"
+                            ? extractCode(match.content)
+                            : match.content;
+                        const ok = await copyToClipboard(text.trim());
+                        toast({
+                          description: ok ? "已复制" : "复制失败",
+                          variant: ok ? undefined : "destructive",
+                        });
                       }}
                       className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                     >
-                      <Edit className="h-3 w-3" />
+                      <Copy className="h-3 w-3" />
                     </Button>
-                  )}
-                </>
-              )}
+                    {match.type === "Code" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const code = extractCode(match.content);
+                          setCodeEditorContent(code);
+                          setSelectedCodeSection(match.content);
+                          setShowCodeEditor(true);
+                        }}
+                        className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </>
+                )}
               {match.type === "Execute" && (
                 <>
                   <Button
@@ -2141,7 +2134,7 @@ export function ThreePanelInterface() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "deepanalyze-8b", // 修正模型名
+          model: "DeepAnalyze-8B", // 修正模型名
           messages: [
             ...messages
               .filter((m) => !m.localOnly)
@@ -2279,13 +2272,13 @@ export function ThreePanelInterface() {
       // 处理 buffer 中剩余的内容 (极少情况)
       if (buffer.trim()) {
         try {
-            const json = JSON.parse(buffer.trim());
-            const deltaContent = json.choices?.[0]?.delta?.content;
-            if (deltaContent) {
-              accumulatedMessage += deltaContent;
-              updateAiMessage(accumulatedMessage);
-            }
-        } catch (e) {}
+          const json = JSON.parse(buffer.trim());
+          const deltaContent = json.choices?.[0]?.delta?.content;
+          if (deltaContent) {
+            accumulatedMessage += deltaContent;
+            updateAiMessage(accumulatedMessage);
+          }
+        } catch (e) { }
       }
 
       // 结束后刷新一次文件列表确保无遗漏
@@ -2345,11 +2338,10 @@ export function ThreePanelInterface() {
                     items.forEach((f) => form.append("files", f));
                     const dir = contextTarget?.is_dir ? contextTarget.path : "";
                     try {
-                      const url = `${
-                        API_URLS.WORKSPACE_UPLOAD_TO
-                      }?dir=${encodeURIComponent(
-                        dir
-                      )}&session_id=${encodeURIComponent(sessionId)}`;
+                      const url = `${API_URLS.WORKSPACE_UPLOAD_TO
+                        }?dir=${encodeURIComponent(
+                          dir
+                        )}&session_id=${encodeURIComponent(sessionId)}`;
                       await fetch(url, { method: "POST", body: form });
                       await loadWorkspaceTree();
                       await loadWorkspaceFiles();
@@ -2412,11 +2404,10 @@ export function ThreePanelInterface() {
                 className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pl-3 pr-1 py-2"
               >
                 <div
-                  className={`mb-2 rounded border border-dashed flex items-center justify-center h-20 text-xs select-none ${
-                    dropActive
-                      ? "bg-blue-50 border-blue-300 text-blue-600"
-                      : "bg-gray-50 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700 text-gray-500"
-                  }`}
+                  className={`mb-2 rounded border border-dashed flex items-center justify-center h-20 text-xs select-none ${dropActive
+                    ? "bg-blue-50 border-blue-300 text-blue-600"
+                    : "bg-gray-50 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700 text-gray-500"
+                    }`}
                   onDragOver={(e) => {
                     e.preventDefault();
                     setDropActive(true);
@@ -2638,11 +2629,10 @@ export function ThreePanelInterface() {
                               onClick={() =>
                                 scrollToSection(section.sectionKey)
                               }
-                              className={`group relative flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all duration-300 ${
-                                isActive
-                                  ? "scale-105"
-                                  : "hover:scale-102 hover:bg-gray-50 dark:hover:bg-gray-900/50"
-                              }`}
+                              className={`group relative flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all duration-300 ${isActive
+                                ? "scale-105"
+                                : "hover:scale-102 hover:bg-gray-50 dark:hover:bg-gray-900/50"
+                                }`}
                             >
                               {/* 圆圈容器 */}
                               <div className="relative">
@@ -2655,33 +2645,29 @@ export function ThreePanelInterface() {
 
                                 {/* 主圆圈 */}
                                 <div
-                                  className={`relative w-9 h-9 rounded-full flex items-center justify-center font-semibold text-base transition-all duration-500 ${
-                                    isActive
-                                      ? `${colors.bg} text-white shadow-lg ${
-                                          colors.glow
-                                        } ring-2 ring-offset-1 ${colors.border.replace(
-                                          "border-",
-                                          "ring-"
-                                        )} ring-opacity-30 dark:ring-offset-gray-950`
-                                      : isCompleted
+                                  className={`relative w-9 h-9 rounded-full flex items-center justify-center font-semibold text-base transition-all duration-500 ${isActive
+                                    ? `${colors.bg} text-white shadow-lg ${colors.glow
+                                    } ring-2 ring-offset-1 ${colors.border.replace(
+                                      "border-",
+                                      "ring-"
+                                    )} ring-opacity-30 dark:ring-offset-gray-950`
+                                    : isCompleted
                                       ? "bg-gradient-to-br from-green-400 to-green-600 text-white shadow-md shadow-green-500/30"
                                       : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 border-2 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500"
-                                  } ${
-                                    !isActive &&
+                                    } ${!isActive &&
                                     !isCompleted &&
                                     "group-hover:border-gray-400 dark:group-hover:border-gray-500 group-hover:shadow-md"
-                                  }`}
+                                    }`}
                                 >
                                   {/* 内容 */}
                                   {isCompleted ? (
                                     <Check className="w-4 h-4 animate-in zoom-in duration-300" />
                                   ) : (
                                     <span
-                                      className={`text-base transition-transform duration-300 ${
-                                        isActive
-                                          ? "scale-110"
-                                          : "group-hover:scale-105"
-                                      }`}
+                                      className={`text-base transition-transform duration-300 ${isActive
+                                        ? "scale-110"
+                                        : "group-hover:scale-105"
+                                        }`}
                                     >
                                       {section.config.icon}
                                     </span>
@@ -2698,26 +2684,24 @@ export function ThreePanelInterface() {
 
                               {/* 标签 */}
                               <div
-                                className={`text-[11px] font-semibold whitespace-nowrap transition-all duration-300 ${
-                                  isActive
-                                    ? `${colors.text} dark:text-white scale-105`
-                                    : isCompleted
+                                className={`text-[11px] font-semibold whitespace-nowrap transition-all duration-300 ${isActive
+                                  ? `${colors.text} dark:text-white scale-105`
+                                  : isCompleted
                                     ? "text-green-600 dark:text-green-400"
                                     : "text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300"
-                                }`}
+                                  }`}
                               >
                                 {section.type}
                               </div>
 
                               {/* 序号 */}
                               <div
-                                className={`absolute top-0 left-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-all duration-300 ${
-                                  isActive
-                                    ? `${colors.bg} text-white shadow-sm`
-                                    : isCompleted
+                                className={`absolute top-0 left-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-all duration-300 ${isActive
+                                  ? `${colors.bg} text-white shadow-sm`
+                                  : isCompleted
                                     ? "bg-green-500 text-white"
                                     : "bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300"
-                                }`}
+                                  }`}
                               >
                                 {idx + 1}
                               </div>
@@ -2731,11 +2715,10 @@ export function ThreePanelInterface() {
 
                                 {/* 进度条 */}
                                 <div
-                                  className={`absolute inset-0 rounded-full transition-all duration-700 ${
-                                    isCompleted || isActive
-                                      ? "bg-gradient-to-r from-green-400 to-green-500 shadow-sm shadow-green-500/30"
-                                      : "bg-transparent"
-                                  }`}
+                                  className={`absolute inset-0 rounded-full transition-all duration-700 ${isCompleted || isActive
+                                    ? "bg-gradient-to-r from-green-400 to-green-500 shadow-sm shadow-green-500/30"
+                                    : "bg-transparent"
+                                    }`}
                                   style={{
                                     transform: isActive
                                       ? "scaleX(0.5)"
@@ -2761,9 +2744,8 @@ export function ThreePanelInterface() {
               {/* Chat Messages */}
               <div
                 ref={messagesContainerRef}
-                className={`flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 pr-5 space-y-6 ${
-                  isTyping ? "scrollbar-hide" : "scrollbar-auto"
-                }`}
+                className={`flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 pr-5 space-y-6 ${isTyping ? "scrollbar-hide" : "scrollbar-auto"
+                  }`}
               >
                 {messages.map((message, msgIdx) => (
                   <div key={message.id} className="space-y-2">
