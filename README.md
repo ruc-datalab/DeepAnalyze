@@ -55,6 +55,8 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
     
     # stop the api and interface
     bash stop.sh
+    
+    # stop vllm if needed
     ```
 - If you want to deploy under a specific IP, please replace localhost with your IP address in [./demo/chat/backend.py](./demo/chat/backend.py) and [./demo/chat/frontend/lib/config.ts](./demo/chat/frontend/lib/config.ts)
 
