@@ -104,6 +104,87 @@ Try DeepAnalyze through the command-line interface
 
 ## 🚀 Quick Start
 
+### Model Download
+
+Download model in  [RUC-DataLab/DeepAnalyze-8B · Hugging Face](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)  or  [DeepAnalyze-8B · 模型库](https://www.modelscope.cn/models/RUC-DataLab/DeepAnalyze-8B/summary)
+
+#### 📊 Memory Configuration Recommended Parameters Table
+
+| GPU Memory | Model Type | Recommended max-model-len | Use FP8 KV Cache |
+|------------|------------|--------------------------|-----------------------|
+| **16GB** | 8-bit Quantized | 8192 | ✓ |
+| **16GB** | 4-bit Quantized | 49152 | ✓ |
+| **24GB** | Original Model | 16384 | ✓ |
+| **24GB** | 8-bit Quantized | 98304 | ✓ |
+| **24GB** | 4-bit Quantized | 131072 | ✓ |
+| **40GB** | Original Model | 131072 | ✓ |
+| **40GB** | 8-bit Quantized | 131072 |  |
+| **80GB** | Original Model | 131072 |  |
+
+To obtain the quantized model, you can use `./quantize.py` .
+
+#### 🚀 vLLM Launch Command Template
+
+##### General Command Template
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model <model_path> \
+  --served-model-name DeepAnalyze-8B \
+  --max-model-len <select_from_table_above> \
+  --gpu-memory-utilization 0.95 \
+  --port 8000 \
+  <add_fp8_if_required> \
+  --trust-remote-code
+```
+
+##### Command Examples by Scenario
+
+**Scenario 1: 16GB GPU Memory Users (Recommended: 4-bit Quantized Version)**
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model /path/to/deepanalyze/4bit \
+  --served-model-name DeepAnalyze-8B \
+  --max-model-len 49152 \
+  --gpu-memory-utilization 0.95 \
+  --port 8000 \
+  --kv-cache-dtype fp8 \
+  --trust-remote-code
+```
+
+**Scenario 2: 24GB GPU Memory Users (For Maximum Context Length)**
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model /path/to/deepanalyze/4bit \
+  --served-model-name DeepAnalyze-8B \
+  --max-model-len 131072 \
+  --gpu-memory-utilization 0.95 \
+  --port 8000 \
+  --kv-cache-dtype fp8 \
+  --trust-remote-code
+```
+
+**Scenario 3: 80GB GPU Memory Users (Best Performance)**
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model /path/to/original/model \
+  --served-model-name DeepAnalyze-8B \
+  --max-model-len 131072 \
+  --gpu-memory-utilization 0.95 \
+  --port 8000 \
+  --trust-remote-code
+```
+
+#### Quick Selection Guide
+
+- **Limited Memory (<24GB)**: Use 4-bit Quantized Version + FP8 KV Cache
+- **Balanced Configuration (24-40GB)**: Choose model type based on requirements
+- **Sufficient Memory (≥40GB)**: Use Original Model for best precision
+
+After launching, the API service can be accessed via `http://localhost:8000/v1/completions`.
+
 ### Requirements
 
 - Install packages: `torch`, `transformers`, `vllm>=0.8.5`
@@ -205,7 +286,6 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
   # wait for a while
   ```
   
-
 - Refer to API/README.md for details.
 
 ## 🎈 Develop Your Own DeepAnalyze
