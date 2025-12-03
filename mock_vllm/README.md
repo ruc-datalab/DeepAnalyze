@@ -34,7 +34,7 @@ Startup Method:
 	cd mock_vllm
 	python start_mock_vllmserver.py
 ```
-	Then open two additional terminals, start the API service and the frontend service (e.g., CLI) respectively, and you can 	proceed with normal testing.
+Then open two additional terminals, start the API service and the frontend service (e.g., CLI) respectively, and you can 	proceed with normal testing.
 
 
 
