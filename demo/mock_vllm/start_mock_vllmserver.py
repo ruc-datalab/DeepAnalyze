@@ -173,4 +173,5 @@ def run_server(host: str = "0.0.0.0", port: int = 8000) -> None:
         print("✅ 服务器已停止")
 
 if __name__ == "__main__":
+
     run_server(host="0.0.0.0", port=8000)
