@@ -11,11 +11,11 @@
 启动方法：
 	打开Windows PowerShell 或者 Ubuntu 终端
 	进入项目目录后：
-
+```bash
 	cd mock_vllm
 	python start_mock_vllmserver.py
-
-	然后另开两个终端，分别启动 API服务 和 前端服务（如cli），即可正常测试。
+```
+然后另开两个终端，分别启动 API服务 和 前端服务（如cli），即可正常测试。
 
 Intro:
 	Code for simulating vLLM's streaming response.
@@ -30,10 +30,10 @@ Tested Environments:
 Startup Method:
 	Open Windows PowerShell or the Ubuntu terminal.
 	After navigating to the project directory:
-
+```bash
 	cd mock_vllm
 	python start_mock_vllmserver.py
-
+```
 	Then open two additional terminals, start the API service and the frontend service (e.g., CLI) respectively, and you can 	proceed with normal testing.
 
 
