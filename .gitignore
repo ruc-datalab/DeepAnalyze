@@ -22,5 +22,5 @@ wheels/
 
 #other
 **/.claude/
-API/backend/workspace/
+**/workspace/
 **/CLAUDE.md

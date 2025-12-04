@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Example usage of DeepAnalyze OpenAI-Compatible API
-Demonstrates common use cases
+Demonstrates common use cases including 2-turn data analysis with file attachments
 """
 
 import requests
@@ -170,6 +170,152 @@ def check_server():
         return False
 
 
+def multi_turn_example():
+    """Demonstrate thread_id workflow for 2-turn data analysis conversation with streaming and file attachments"""
+    print("🧵 Testing Thread ID Workflow with Streaming for Data Analysis...")
+
+    conversation_history = []
+
+    # Upload data file
+    with open("./Simpson.csv", 'rb') as f:
+        files = {'file': ('Simpson.csv', f, 'text/csv')}
+        data = {'purpose': 'file-extract'}
+        response = requests.post(f"{API_BASE}/v1/files", files=files, data=data)
+
+    if response.status_code != 200:
+        print(f"❌ File upload failed: {response.text}")
+        return
+
+    file_id = response.json()['id']
+
+    # First request - creates new thread, examine data structure
+    print("\n1️⃣ First request - examining data structure...")
+    conversation_history.append({
+        "role": "user",
+        "content": "请查看这个数据文件的结构，告诉我有哪些字段、数据类型和基本统计信息。"
+    })
+
+    print("Streaming response...")
+    response = requests.post(
+        f"{API_BASE}/v1/chat/completions",
+        json={
+            "model": MODEL,
+            "messages": conversation_history,
+            "file_ids": [file_id],
+            "temperature": 0.3,
+            "stream": True
+        },
+        stream=True
+    )
+
+    if response.status_code != 200:
+        print(f"❌ First request failed: {response.text}")
+        return
+
+    full_response = ""
+    received_thread_id = None
+    generated_files = []
+
+    for line in response.iter_lines():
+        if line:
+            line_str = line.decode('utf-8')
+            if line_str.startswith('data: '):
+                data_str = line_str[6:]
+                if data_str == '[DONE]':
+                    break
+                try:
+                    chunk = json.loads(data_str)
+                    if 'choices' in chunk and chunk['choices']:
+                        delta = chunk['choices'][0].get('delta', {})
+                        if 'content' in delta:
+                            content = delta['content']
+                            print(content, end='', flush=True)
+                            full_response += content
+                    if 'thread_id' in chunk:
+                        received_thread_id = chunk['thread_id']
+                    if 'generated_files' in chunk:
+                        generated_files.extend(chunk['generated_files'])
+                except json.JSONDecodeError:
+                    pass
+
+    print()  # New line after streaming
+    thread_id = received_thread_id
+    print(f"📝 Response received with thread_id: {thread_id}")
+
+    # Add assistant response to history
+    conversation_history.append({"role": "assistant", "content": full_response})
+
+    # Check for generated files
+    if generated_files:
+        print(f"📁 Files generated: {len(generated_files)}")
+
+    # Second request with thread_id - generate analysis report
+    print(f"\n2️⃣ Second request - generating analysis report (with thread_id: {thread_id[:12] if thread_id else 'None'}...)...")
+    conversation_history.append({
+        "role": "user",
+        "content": "基于刚才的数据结构分析，请生成一个详细的数据分析报告，包括：\n1. 数据质量评估\n2. 各字段的数据分布\n3. 相关性分析\n4. 主要发现和洞察"
+    })
+    if thread_id:
+        conversation_history[-1]["thread_id"] = thread_id
+
+    print("Streaming response...")
+    response = requests.post(
+        f"{API_BASE}/v1/chat/completions",
+        json={
+            "model": MODEL,
+            "messages": conversation_history,
+            "file_ids": [file_id],
+            "temperature": 0.3,
+            "stream": True
+        },
+        stream=True
+    )
+
+    if response.status_code != 200:
+        print(f"❌ Second request failed: {response.text}")
+        return
+
+    full_response2 = ""
+    returned_thread_id = None
+    generated_files2 = []
+
+    for line in response.iter_lines():
+        if line:
+            line_str = line.decode('utf-8')
+            if line_str.startswith('data: '):
+                data_str = line_str[6:]
+                if data_str == '[DONE]':
+                    break
+                try:
+                    chunk = json.loads(data_str)
+                    if 'choices' in chunk and chunk['choices']:
+                        delta = chunk['choices'][0].get('delta', {})
+                        if 'content' in delta:
+                            content = delta['content']
+                            print(content, end='', flush=True)
+                            full_response2 += content
+                    if 'thread_id' in chunk:
+                        returned_thread_id = chunk['thread_id']
+                    if 'generated_files' in chunk:
+                        generated_files2.extend(chunk['generated_files'])
+                except json.JSONDecodeError:
+                    pass
+
+    print()  # New line after streaming
+    print(f"📝 Response thread_id: {returned_thread_id[:12] if returned_thread_id else 'None'}...")
+    print(f"✅ Thread ID match: {thread_id == returned_thread_id}")
+
+    if generated_files2:
+        print(f"📁 Files generated: {len(generated_files2)}")
+
+    # Cleanup uploaded file
+    requests.delete(f"{API_BASE}/v1/files/{file_id}")
+    print("🗑️  Uploaded file cleaned up")
+
+    print("\n✅ 2-turn data analysis workflow completed successfully!")
+
+
+
 def main():
     """Run examples"""
     print("🚀 DeepAnalyze API Examples")
@@ -180,7 +326,8 @@ def main():
         "2": ("Chat with File", chat_with_file),
         "3": ("File IDs in Messages", file_ids_in_messages),
         "4": ("Streaming Chat", streaming_chat),
-        "5": ("All Examples", None)
+        "5": ("2-Turn Data Analysis", multi_turn_example),
+        "6": ("All Examples", None)
     }
 
     while True:
@@ -189,7 +336,7 @@ def main():
             print(f"{num}. {name}")
         print("0. Exit")
 
-        choice = input("\nSelect (0-5): ").strip()
+        choice = input("\nSelect (0-6): ").strip()
 
         if choice == "0":
             print("👋 Goodbye!")
@@ -200,7 +347,7 @@ def main():
             continue
 
         try:
-            if choice == "5":  # Run all examples
+            if choice == "6":  # Run all examples
                 for num, (name, func) in list(examples.items())[:-1]:
                     print(f"\n{name}:")
                     func()

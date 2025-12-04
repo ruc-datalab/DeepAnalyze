@@ -58,11 +58,27 @@ async def chat_completions(
     - Standard OpenAI chat completion response
     - Additional field 'generated_files' with list of generated file URLs
     """
-    # Create temporary thread
-    temp_thread = storage.create_thread(metadata={"temporary": True})
-    workspace_dir = get_thread_workspace(temp_thread.id)
-    generated_dir = os.path.join(workspace_dir, "generated")
-    os.makedirs(generated_dir, exist_ok=True)
+    # Check if any message contains thread_id
+    existing_thread_id = None
+    if isinstance(messages[-1], dict) and "thread_id" in messages[-1]:
+        existing_thread_id = messages[-1].get("thread_id")
+
+    if existing_thread_id:
+        # Use existing thread
+        thread = storage.get_thread(existing_thread_id)
+        if not thread:
+            raise HTTPException(status_code=400, detail=f"Thread {existing_thread_id} not found")
+        workspace_dir = get_thread_workspace(existing_thread_id)
+        generated_dir = os.path.join(workspace_dir, "generated")
+        os.makedirs(generated_dir, exist_ok=True)
+        current_thread_id = existing_thread_id
+    else:
+        # Create temporary thread
+        temp_thread = storage.create_thread(metadata={"temporary": True})
+        workspace_dir = get_thread_workspace(temp_thread.id)
+        generated_dir = os.path.join(workspace_dir, "generated")
+        os.makedirs(generated_dir, exist_ok=True)
+        current_thread_id = temp_thread.id
 
     try:
         # Collect all file IDs from both parameter and messages
@@ -88,7 +104,8 @@ async def chat_completions(
             if src_path and os.path.exists(src_path):
                 from utils import uniquify_path
                 dst_path = uniquify_path(Path(workspace_dir) / file_obj.filename)
-                shutil.copy2(src_path, dst_path)
+                if not os.path.exists(dst_path):
+                    shutil.copy2(src_path, dst_path)
 
         # Build messages with DeepAnalyze prompt template
         vllm_messages: List[Dict[str, Any]] = prepare_vllm_messages(
@@ -100,13 +117,14 @@ async def chat_completions(
 
         # Stream response with code execution (always enabled)
         if stream:
-            def generate_stream_with_execution():
+            async def generate_stream_with_execution():
                 assistant_reply = ""
                 finished = False
                 tracker = WorkspaceTracker(workspace_dir, generated_dir)
 
                 while not finished:
-                    response = vllm_client.chat.completions.create(
+                    # 使用异步客户端
+                    response = await vllm_client_async.chat.completions.create(
                         model=model,
                         messages=vllm_messages,
                         temperature=temperature,
@@ -120,7 +138,9 @@ async def chat_completions(
 
                     cur_res = ""
                     last_chunk = None
-                    for chunk in response:
+
+                    # 使用异步迭代
+                    async for chunk in response:
                         last_chunk = chunk
                         if chunk.choices and chunk.choices[0].delta.content is not None:
                             delta = chunk.choices[0].delta.content
@@ -169,14 +189,13 @@ async def chat_completions(
 
                         code_str = extract_code_from_segment(cur_res)
                         if code_str:
-                            exe_output = execute_code_safe(code_str, workspace_dir)
+                            exe_output = await execute_code_safe_async(code_str, workspace_dir)
                             artifacts = tracker.diff_and_collect()
                             exe_str = f"\n<Execute>\n```\n{exe_output}\n```\n</Execute>\n"
                             file_block = render_file_block(
-                                    artifacts, workspace_dir, temp_thread.id, generated_files
+                                    artifacts, workspace_dir, current_thread_id, generated_files
                                 )
                             assistant_reply += exe_str + file_block
-
 
                             # Stream execution result
                             for char in exe_str:
@@ -201,7 +220,7 @@ async def chat_completions(
 
                 # Generate and stream report
                 report_block = generate_report_from_messages(
-                    messages, assistant_reply, workspace_dir, temp_thread.id, generated_files
+                    messages, assistant_reply, workspace_dir, current_thread_id, generated_files
                 )
                 if report_block:
                     for char in report_block:
@@ -220,10 +239,13 @@ async def chat_completions(
                         }
                         yield f"data: {json.dumps(chunk_data)}\n\n"
 
-                # Send final chunk with generated files
+                # Send final chunk with generated files and thread_id
                 final_chunk_data = {}
                 if generated_files:
                     final_chunk_data["files"] = generated_files
+
+                # Add thread_id to final chunk
+                final_chunk_data["thread_id"] = current_thread_id
 
                 final_chunk = {
                     "id": f"chatcmpl-{uuid.uuid4().hex[:24]}",
@@ -305,7 +327,7 @@ async def chat_completions(
                         artifacts = tracker.diff_and_collect()
                         exe_str = f"\n<Execute>\n```\n{exe_output}\n```\n</Execute>\n"
                         file_block = render_file_block(
-                                    artifacts, workspace_dir, temp_thread.id, generated_files
+                                    artifacts, workspace_dir, current_thread_id, generated_files
                                 )
                         assistant_reply += exe_str + file_block
                         vllm_messages.append({"role": "execute", "content": exe_output})
@@ -314,7 +336,7 @@ async def chat_completions(
 
             # Generate report
             report_block = generate_report_from_messages(
-                messages, assistant_reply, workspace_dir, temp_thread.id, generated_files
+                messages, assistant_reply, workspace_dir, current_thread_id, generated_files
             )
             assistant_reply += report_block
 
@@ -325,6 +347,9 @@ async def chat_completions(
                 "role": "assistant",
                 "content": result_content,
             }
+
+            # Add thread_id to message object
+            message_data["thread_id"] = current_thread_id
 
             # Add files to message object (new OpenAI compatibility)
             if generated_files:

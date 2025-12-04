@@ -39,7 +39,6 @@ class DeepAnalyzeCLI:
         self.current_thread_id = None
         self.chat_history = []  # 聊天历史
         self.generated_files = []  # 生成的文件（包括报告、图片等）
-        self.intermediate_files = []  # 中间文件（上传的生成文件用于对话）
         self.setup_command_history()
 
     def setup_command_history(self):
@@ -164,12 +163,12 @@ class DeepAnalyzeCLI:
             return None
 
     def list_uploaded_files(self):
-        """显示所有文件列表（用户上传文件、中间文件和输出文件）"""
-        # 获取输出文件（图片和MD报告）
-        output_files = [f for f in self.generated_files if f.get('type') == 'output']
+        """显示所有文件列表（用户上传文件和AI生成的工作区文件）"""
+        # 获取AI生成的工作区文件
+        workspace_files = self.generated_files
 
         # 检查是否有任何文件
-        if not self.uploaded_files and not self.intermediate_files and not output_files:
+        if not self.uploaded_files and not workspace_files:
             console.print("[yellow]📝 暂无文件[/yellow]")
             return
 
@@ -193,55 +192,19 @@ class DeepAnalyzeCLI:
 
             console.print(table)
 
-        # 显示中间文件
-        if self.intermediate_files:
+        # 显示AI生成的工作区文件
+        if workspace_files:
             if self.uploaded_files:
                 console.print()  # 添加空行分隔符
 
-            intermediate_table = Table(title="生成中间文件", show_header=True, header_style="bold cyan")
-            intermediate_table.add_column("文件名", style="cyan", no_wrap=True)
-            intermediate_table.add_column("文件ID", style="green")
-            intermediate_table.add_column("URL", style="blue")
-            intermediate_table.add_column("来源", style="yellow")
-            intermediate_table.add_column("用途", style="blue")
-            intermediate_table.add_column("状态", style="orange3")
+            workspace_table = Table(title="AI生成的工作区文件", show_header=True, header_style="bold green")
+            workspace_table.add_column("文件名", style="cyan", no_wrap=True)
+            workspace_table.add_column("URL", style="blue")
+            workspace_table.add_column("文件类型", style="yellow")
+            workspace_table.add_column("大小", style="magenta")
+            workspace_table.add_column("状态", style="bright_blue")
 
-            for file_info in self.intermediate_files:
-                file_name = file_info['name']
-                original_url = file_info.get('original_url', '')
-
-                # 为中间文件创建超链接URL显示
-                if original_url:
-                    display_url = original_url[:60] + "..." if len(original_url) > 60 else original_url
-                    url_text = Text(display_url, style="blue")
-                    url_text.stylize(f"link {original_url}")
-                else:
-                    url_text = Text("无URL", style="blue")
-
-                intermediate_table.add_row(
-                    file_name,
-                    file_info['id'][:8] + "...",
-                    url_text,
-                    "AI生成",
-                    file_info.get('purpose', 'assistants'),
-                    "🔄 中间文件"
-                )
-
-            console.print(intermediate_table)
-
-        # 显示输出文件（图片和MD报告）
-        if output_files:
-            if self.uploaded_files or self.intermediate_files:
-                console.print()  # 添加空行分隔符
-
-            output_table = Table(title="生成输出文件", show_header=True, header_style="bold green")
-            output_table.add_column("文件名", style="cyan", no_wrap=True)
-            output_table.add_column("URL", style="blue")
-            output_table.add_column("来源", style="yellow")
-            output_table.add_column("大小", style="magenta")
-            output_table.add_column("状态", style="bright_blue")
-
-            for file_info in output_files:
+            for file_info in workspace_files:
                 file_name = file_info.get('name', '未知文件')
                 file_url = file_info.get('url', '无URL')
                 file_size = file_info.get('size', '未知')
@@ -252,7 +215,8 @@ class DeepAnalyzeCLI:
                 elif file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp')):
                     file_type = "图片"
                 else:
-                    file_type = "输出"
+                    file_type = "生成文件"
+
                 # 创建超链接URL显示（显示截断文本，但链接到完整URL）
                 if file_url != '无URL':
                     display_url = file_url[:60] + "..." if len(file_url) > 60 else file_url
@@ -264,7 +228,7 @@ class DeepAnalyzeCLI:
                 # 确定文件大小显示
                 size_display = str(file_size) if file_size != '未知' else "未知"
 
-                output_table.add_row(
+                workspace_table.add_row(
                     file_name,
                     url_text,
                     file_type,
@@ -272,100 +236,14 @@ class DeepAnalyzeCLI:
                     "📋 已生成"
                 )
 
-            console.print(output_table)
+            console.print(workspace_table)
 
         # 显示说明信息
-        if self.intermediate_files or output_files:
+        if workspace_files:
             console.print()
-            explanations = []
-            if self.intermediate_files:
-                explanations.append("🔄 中间文件: AI生成的数据文件，自动上传用于后续对话上下文")
-            if output_files:
-                explanations.append("📋 输出文件: AI生成的报告和图片，可通过URL直接访问")
+            console.print("[dim]📋 生成文件: AI创建的报告、图片和数据文件，通过线程工作区自动访问[/dim]")
 
-            for explanation in explanations:
-                console.print(f"[dim]{explanation}[/dim]")
-
-    def is_intermediate_file(self, file_info: Dict[str, Any]) -> bool:
-        """判断文件是否应该作为中间文件上传（排除报告和图片）"""
-        file_name = file_info.get('name', '').lower()
-
-        # 排除报告文件和图片文件
-        intermediate_extensions = ['.md', '.markdown', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.webp']
-
-        # 检查文件扩展名
-        for ext in intermediate_extensions:
-            if file_name.endswith(ext):
-                return False
-
-        # 其他文件作为中间文件处理
-        return True
-
-    def upload_intermediate_file(self, file_info: Dict[str, Any]) -> Optional[str]:
-        """上传中间文件并返回file_id"""
-        try:
-            if not self.client:
-                if not self.initialize_client():
-                    return None
-
-            file_name = file_info.get('name', 'unknown_file')
-            file_url = file_info.get('url', '')
-
-            # 安全处理文件名
-            safe_file_name = file_name
-            try:
-                safe_file_name.encode('utf-8')
-            except UnicodeEncodeError:
-                # 如果文件名包含无效字符，使用安全文件名
-                import time
-                file_ext = os.path.splitext(file_name)[1]
-                safe_file_name = f"intermediate_file_{int(time.time())}{file_ext}"
-
-            console.print(f"[dim]📤 正在上传中间文件: {safe_file_name}[/dim]")
-
-            # 尝试从URL下载文件内容并上传
-            import requests
-            import tempfile
-            import os
-
-            # 下载文件
-            response = requests.get(file_url)
-            if response.status_code == 200:
-                # 创建临时文件
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(safe_file_name)[1]) as temp_file:
-                    temp_file.write(response.content)
-                    temp_file_path = temp_file.name
-
-                try:
-                    # 上传到API
-                    with open(temp_file_path, 'rb') as f:
-                        file_obj = self.client.files.create(
-                            file=f,
-                            purpose="assistants"
-                        )
-
-                    # 保存到中间文件列表
-                    self.intermediate_files.append({
-                        'id': file_obj.id,
-                        'name': safe_file_name,
-                        'original_url': file_url,
-                        'purpose': file_obj.purpose
-                    })
-
-                    console.print(f"[dim]✅ 中间文件上传成功: {safe_file_name} -> {file_obj.id}[/dim]")
-                    return file_obj.id
-
-                finally:
-                    # 删除临时文件
-                    os.unlink(temp_file_path)
-            else:
-                console.print(f"[red]❌ 下载中间文件失败: {safe_file_name}[/red]")
-                return None
-
-        except Exception as e:
-            console.print(f"[red]❌ 上传中间文件失败 {safe_file_name}: {e}[/red]")
-            return None
-
+    
     def chat_with_file(self, message: str, file_ids: List[str] = None, stream: bool = True):
         """与AI聊天进行分析"""
         try:
@@ -388,34 +266,28 @@ class DeepAnalyzeCLI:
                 elif msg["role"] == "assistant":
                     messages.append({"role": "assistant", "content": msg["content"]})
 
-            # 获取所有文件ID：上传文件 + 中间文件
-            all_file_ids = []
+            # 只使用用户上传的文件ID
+            all_file_ids = [f['id'] for f in self.uploaded_files]
 
-            # 添加上传文件ID
-            uploaded_file_ids = [f['id'] for f in self.uploaded_files]
-            all_file_ids.extend(uploaded_file_ids)
-
-            # 添加中间文件ID（上传的生成文件）
-            intermediate_file_ids = [f['id'] for f in self.intermediate_files]
-            all_file_ids.extend(intermediate_file_ids)
-
-            # 去重
-            all_file_ids = list(set(all_file_ids))
-
-            # 添加当前用户消息（只有此消息包含file_ids）
+            # 添加当前用户消息，包含thread_id和file_ids
             current_message = {"role": "user", "content": message}
             if all_file_ids:
                 current_message["file_ids"] = all_file_ids
+            if self.current_thread_id:
+                current_message["thread_id"] = self.current_thread_id
             messages.append(current_message)
 
             console.print("[cyan]💭 正在分析...[/cyan]")
             if all_file_ids:
-                console.print(f"[dim]使用文件: {len(uploaded_file_ids)}个上传文件, {len(intermediate_file_ids)}个中间文件[/dim]")
+                console.print(f"[dim]使用 {len(all_file_ids)} 个上传文件[/dim]")
+            if self.current_thread_id:
+                console.print(f"[dim]使用线程: {self.current_thread_id}[/dim]")
 
             # 默认流式响应
             console.print("[dim]📡 流式响应中...[/dim]")
             response_text = ""
             collected_files = []
+            response_thread_id = None
 
             console.print("\n[bold yellow]🤖 AI回复:[/bold yellow]")
 
@@ -434,11 +306,19 @@ class DeepAnalyzeCLI:
                         response_text += content
                         console.print(content, end='')
 
-                    # 收集生成的文件（在流中）
-                    if hasattr(chunk, 'generated_files') and chunk.generated_files:
-                        collected_files.extend(chunk.generated_files)
+                    # 提取thread_id并收集生成的文件
+                    if hasattr(chunk.choices[0].delta, 'thread_id') and chunk.choices[0].delta.thread_id:
+                        response_thread_id = chunk.choices[0].delta.thread_id
+
+                if hasattr(chunk, 'generated_files') and chunk.generated_files:
+                    collected_files.extend(chunk.generated_files)
 
             console.print()  # 换行
+
+            # 从响应更新thread_id
+            if response_thread_id and response_thread_id != self.current_thread_id:
+                self.current_thread_id = response_thread_id
+                console.print(f"[dim]🧵 线程已更新: {self.current_thread_id}[/dim]")
 
             # 添加AI回复到历史
             self.chat_history.append({"role": "assistant", "content": response_text})
@@ -447,54 +327,35 @@ class DeepAnalyzeCLI:
             if collected_files:
                 console.print(f"\n[green]📁 生成了 {len(collected_files)} 个文件[/green]")
 
-                intermediate_count = 0
                 for file_info in collected_files:
                     file_name = file_info.get('name', '未知文件')
                     file_url = file_info.get('url', '')
-                    file_id = file_info.get('id', '')
 
-                    # 判断是否为中间文件
-                    if self.is_intermediate_file(file_info):
-                        # 上传中间文件
-                        uploaded_id = self.upload_intermediate_file(file_info)
-                        if uploaded_id:
-                            intermediate_count += 1
-                        # 仍保存到generated_files用于统计
-                        self.generated_files.append({
-                            **file_info,
-                            'uploaded_id': uploaded_id,
-                            'type': 'intermediate'
-                        })
-                    else:
-                        # 报告和图片文件，直接保存
-                        # 尝试从URL获取文件大小
-                        file_size = file_info.get('size', '未知')
-                        if file_size == '未知' and file_url:
-                            try:
-                                import requests
-                                response = requests.head(file_url, timeout=5)
-                                if response.status_code == 200 and 'content-length' in response.headers:
-                                    size_bytes = int(response.headers['content-length'])
+                    # 尝试从URL获取文件大小
+                    file_size = file_info.get('size', '未知')
+                    if file_size == '未知' and file_url:
+                        try:
+                            import requests
+                            response = requests.head(file_url, timeout=5)
+                            if response.status_code == 200 and 'content-length' in response.headers:
+                                size_bytes = int(response.headers['content-length'])
+                                file_size = decimal(size_bytes)
+                            else:
+                                # 如果HEAD请求失败，尝试完整下载
+                                response = requests.get(file_url, timeout=10)
+                                if response.status_code == 200:
+                                    size_bytes = len(response.content)
                                     file_size = decimal(size_bytes)
-                                else:
-                                    # 如果HEAD请求失败，尝试完整下载
-                                    response = requests.get(file_url, timeout=10)
-                                    if response.status_code == 200:
-                                        size_bytes = len(response.content)
-                                        file_size = decimal(size_bytes)
-                            except Exception:
-                                # 如果获取失败，保持为'未知'
-                                pass
+                        except Exception:
+                            # 如果获取失败，保持为'未知'
+                            pass
 
-                        self.generated_files.append({
-                            **file_info,
-                            'type': 'output',
-                            'size': file_size
-                        })
-                        console.print(f"[dim]• {file_name}: {file_url or file_id}[/dim]")
-
-                if intermediate_count > 0:
-                    console.print(f"[dim]✅ {intermediate_count}个文件已作为中间文件上传，可供后续对话使用[/dim]")
+                    # 保存到generated_files列表
+                    self.generated_files.append({
+                        **file_info,
+                        'size': file_size
+                    })
+                    console.print(f"[dim]• {file_name}: {file_url}[/dim]")
 
             return response_text
 
@@ -562,15 +423,14 @@ class DeepAnalyzeCLI:
             console.print("[yellow]📝 暂无对话历史[/yellow]")
             return
 
-        output_files = [f for f in self.generated_files if f.get('type') != 'intermediate']
-        intermediate_files = [f for f in self.generated_files if f.get('type') == 'intermediate']
+        generated_files_count = len(self.generated_files)
 
         console.print(Panel(
             f"[bold]对话轮数:[/bold] {len(self.chat_history) // 2}\n"
             f"[bold]用户消息:[/bold] {len([m for m in self.chat_history if m['role'] == 'user'])}\n"
             f"[bold]AI回复:[/bold] {len([m for m in self.chat_history if m['role'] == 'assistant'])}\n"
-            f"[bold]输出文件:[/bold] {len(output_files)}\n"
-            f"[bold]中间文件:[/bold] {len(intermediate_files)}",
+            f"[bold]生成文件:[/bold] {generated_files_count}\n"
+            f"[bold]线程ID:[/bold] {self.current_thread_id or '无'}",
             title="对话历史统计",
             border_style="blue"
         ))
@@ -591,30 +451,20 @@ class DeepAnalyzeCLI:
 
 
     def clear_chat_history(self):
-        """清除对话历史和生成的中间文件"""
-        # 删除中间文件
-        if self.intermediate_files:
-            console.print("[yellow]🗑️  正在删除中间文件...[/yellow]")
-            for file_info in self.intermediate_files:
-                try:
-                    self.client.files.delete(file_info['id'])
-                    console.print(f"[green]✅ 已删除中间文件: {file_info['name']}[/green]")
-                except Exception as e:
-                    console.print(f"[red]❌ 删除中间文件失败 {file_info['name']}: {e}[/red]")
-
+        """清除对话历史并重置线程"""
         # 清空本地列表
         self.chat_history.clear()
         self.generated_files.clear()
-        self.intermediate_files.clear()
+        self.current_thread_id = None
 
         console.print("[green]✅ 对话历史已清除[/green]")
         console.print("[green]✅ 生成文件记录已清除[/green]")
-        console.print("[green]✅ 中间文件已删除[/green]")
+        console.print("[green]✅ 线程已重置[/green]")
 
     def clear_all(self):
         """清除所有内容（包括上传文件）"""
         try:
-            # 删除服务器文件 - 包括上传文件和中间文件
+            # 删除服务器文件 - 上传文件
             if self.uploaded_files:
                 for file_info in self.uploaded_files:
                     try:
@@ -623,22 +473,15 @@ class DeepAnalyzeCLI:
                     except Exception as e:
                         console.print(f"[red]❌ 删除上传文件失败 {file_info['name']}: {e}[/red]")
 
-            if self.intermediate_files:
-                for file_info in self.intermediate_files:
-                    try:
-                        self.client.files.delete(file_info['id'])
-                        console.print(f"[green]✅ 已删除中间文件: {file_info['name']}[/green]")
-                    except Exception as e:
-                        console.print(f"[red]❌ 删除中间文件失败 {file_info['name']}: {e}[/red]")
-
             # 清空本地列表
             self.chat_history.clear()
             self.generated_files.clear()
-            self.intermediate_files.clear()
             self.uploaded_files.clear()
+            self.current_thread_id = None
 
             console.print("[green]✅ 所有内容已清除[/green]")
-            console.print("[green]✅ 对话历史、生成文件、上传文件、中间文件全部清除[/green]")
+            console.print("[green]✅ 对话历史、生成文件、上传文件全部清除[/green]")
+            console.print("[green]✅ 线程已重置[/green]")
 
         except Exception as e:
             console.print(f"[red]❌ 清除所有内容时出错: {e}[/red]")
@@ -652,14 +495,14 @@ class DeepAnalyzeCLI:
             server_status = "✅ 在线" if self.check_server() else "❌ 离线"
 
             # 统计
-            output_files = [f for f in self.generated_files if f.get('type') == 'output']
+            generated_files_count = len(self.generated_files)
             status_panel = Panel(
                 f"[bold]API服务器:[/bold] {server_status}\n"
                 f"[bold]API端点:[/bold] {self.api_base}\n"
                 f"[bold]当前模型:[/bold] {self.model}\n"
+                f"[bold]线程ID:[/bold] {self.current_thread_id or '无'}\n"
                 f"[bold]上传文件:[/bold] {len(self.uploaded_files)}\n"
-                f"[bold]中间文件:[/bold] {len(self.intermediate_files)}\n"
-                f"[bold]输出文件:[/bold] {len(output_files)}\n"
+                f"[bold]生成文件:[/bold] {generated_files_count}\n"
                 f"[bold]对话轮数:[/bold] {len([m for m in self.chat_history if m['role'] == 'user'])}",
                 title="系统状态",
                 border_style="cyan"
@@ -719,21 +562,21 @@ class DeepAnalyzeCLI:
 [基本命令]
 • [yellow]help[/yellow] - 显示此帮助信息
 • [yellow]quit/exit/退出[/yellow] - 退出程序
-• [yellow]clear[/yellow] - 清除对话历史和生成的中间文件
+• [yellow]clear[/yellow] - 清除对话历史并重置线程
 • [yellow]clear-all[/yellow] - 清除所有内容（包括上传文件）
 
 [文件管理]
-• [yellow]files[/yellow] - 查看上传文件
+• [yellow]files[/yellow] - 查看上传文件和生成的工作区文件
 • [yellow]upload <file_path>[/yellow] - 上传新文件
-• [yellow]delete <file_id>[/yellow] - 删除指定文件
-• [yellow]download <file_id> [save_path][/yellow] - 下载文件
+• [yellow]delete <file_id>[/yellow] - 删除指定的上传文件
+• [yellow]download <file_id> [save_path][/yellow] - 下载上传文件
 
 [系统 & 历史]
-• [yellow]status[/yellow] - 显示系统状态
+• [yellow]status[/yellow] - 显示系统状态和线程信息
 • [yellow]history[/yellow] - 显示对话历史
-• [yellow]fid[/yellow] - 显示所有文件名和完整ID
+• [yellow]fid[/yellow] - 显示上传文件名和完整ID
 
-[dim]直接输入文本即可开始对话，系统会自动使用上传和生成的文件[/dim]
+[dim]文件通过线程工作区自动管理。生成文件在对话间持久保存。[/dim]
 """
         console.print(Panel(help_text, title="命令帮助", border_style="blue"))
 
@@ -802,46 +645,34 @@ class DeepAnalyzeCLI:
         return False
 
     def show_file_ids(self):
-        """显示所有文件名和完整ID（包括上传文件和中间文件）"""
-        # 检查是否有任何文件
-        if not self.uploaded_files and not self.intermediate_files:
-            console.print("[yellow]📝 暂无文件[/yellow]")
+        """显示用户上传的文件名和完整ID"""
+        # 检查是否有上传文件
+        if not self.uploaded_files:
+            console.print("[yellow]📝 暂无上传文件[/yellow]")
             return
 
-        # 创建综合表格
-        table = Table(title="所有文件和ID", show_header=True, header_style="bold magenta")
+        # 创建上传文件表格
+        table = Table(title="用户上传文件和ID", show_header=True, header_style="bold magenta")
         table.add_column("文件名", style="cyan", no_wrap=True)
         table.add_column("完整文件ID", style="green")
-        table.add_column("类型", style="yellow")
+        table.add_column("文件大小", style="yellow")
         table.add_column("状态", style="blue")
 
         # 显示上传文件
-        if self.uploaded_files:
-            for file_info in self.uploaded_files:
-                table.add_row(
-                    file_info['name'],
-                    file_info['id'],  # 完整ID
-                    "📁 用户上传",
-                    "✅ 已上传"
-                )
-
-        # 显示中间文件
-        if self.intermediate_files:
-            for file_info in self.intermediate_files:
-                table.add_row(
-                    file_info['name'],
-                    file_info['id'],  # 完整ID
-                    "🔄 中间文件",
-                    "🔄 AI生成"
-                )
+        for file_info in self.uploaded_files:
+            table.add_row(
+                file_info['name'],
+                file_info['id'],  # 完整ID
+                decimal(file_info['size']),
+                "✅ 已上传"
+            )
 
         console.print(table)
 
         # 显示摘要
         console.print()
-        console.print(f"[dim]总文件数: {len(self.uploaded_files) + len(self.intermediate_files)}[/dim]")
-        console.print(f"[dim]用户上传: {len(self.uploaded_files)}[/dim]")
-        console.print(f"[dim]中间文件: {len(self.intermediate_files)}[/dim]")
+        console.print(f"[dim]上传文件总数: {len(self.uploaded_files)}[/dim]")
+        console.print(f"[dim]生成文件通过工作区访问 (线程ID: {self.current_thread_id or '无'})[/dim]")
 
     def cleanup_files(self):
         """清理上传文件"""

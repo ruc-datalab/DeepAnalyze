@@ -260,27 +260,76 @@ def extract_sections_from_history(messages: List[Dict[str, str]]) -> str:
     appendix: List[str] = []
     tag_pattern = re.compile(r"<(Analyze|Understand|Code|Execute|File|Answer)>([\s\S]*?)</\1>")
 
+    # 收集所有用户和助手消息对，用于构建完整的对话历史
+    conversation_pairs: List[Dict[str, Any]] = []
+    user_message = None
+
+    # 第一轮遍历：收集用户-助手消息对
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = (msg.get("role") or "").lower()
+        content = str(msg.get("content", ""))
+
+        if role == "user":
+            user_message = content
+        elif role == "assistant" and user_message is not None:
+            conversation_pairs.append({
+                "user": user_message,
+                "assistant": content
+            })
+            user_message = None
+
+    # 第二轮遍历：处理助手响应的标签内容
+    # 找到最后一轮对话的Answer内容作为报告主体
+    last_answer_content = ""
     for msg in messages:
         if not isinstance(msg, dict):
             continue
         if (msg.get("role") or "").lower() != "assistant":
             continue
         content = str(msg.get("content", ""))
+
+        # 提取所有Answer标签内容，保留最后一次的
+        answer_matches = tag_pattern.finditer(content)
+        for match in answer_matches:
+            tag, segment = match.groups()
+            if tag == "Answer":
+                segment = (segment or "").strip()
+                if segment:
+                    last_answer_content = segment
+
+    # 将最后一轮的Answer内容添加到报告主体
+    if last_answer_content:
+        parts.append(f"{last_answer_content}\n")
+
+    # 构建报告附件：包含所有对话轮次，每轮对话前加上用户指令
+    conversation_round = 1
+    for pair in conversation_pairs:
+        user_content = pair["user"].strip()
+        assistant_content = pair["assistant"]
+
+        # 添加用户指令
+        appendix.append(f"\n## 对话轮次 {conversation_round}\n\n")
+        appendix.append(f"### 用户指令\n\n{user_content}\n\n")
+        appendix.append(f"### 助手响应\n\n")
+
+        # 处理助手响应中的标签
         step = 1
-        for match in tag_pattern.finditer(content):
+        for match in tag_pattern.finditer(assistant_content):
             tag, segment = match.groups()
             segment = (segment or "").strip()
             if not segment:
                 continue
-            if tag == "Answer":
-                parts.append(f"{segment}\n")
-            appendix.append(f"\n### Step {step}: {tag}\n\n{segment}\n")
+            appendix.append(f"#### 步骤 {step}: {tag}\n\n{segment}\n")
             step += 1
+
+        conversation_round += 1
 
     final_text = "".join(parts).strip()
     if appendix:
         final_text += (
-            "\n\n\\newpage\n\n# Appendix: Detailed Process\n"
+            "\n\n\\newpage\n\n# 附录：完整对话过程\n"
             + "".join(appendix).strip()
         )
 
@@ -454,4 +503,8 @@ def start_http_server():
     with socketserver.ThreadingTCPServer(("", HTTP_SERVER_PORT), handler) as httpd:
         httpd.allow_reuse_address = True
         print(f"HTTP Server serving {WORKSPACE_BASE_DIR} at port {HTTP_SERVER_PORT}")
-        httpd.serve_forever()
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("HTTP server shutting down...")
+            httpd.shutdown()
