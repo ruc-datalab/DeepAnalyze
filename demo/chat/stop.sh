@@ -39,31 +39,44 @@ echo "Cleaning up remaining processes..."
 # Kill by process name (just in case)
 pkill -f "python.*backend.py" 2>/dev/null && echo "   Cleaned up backend.py process." || true
 pkill -f "npm.*dev" 2>/dev/null && echo "   Cleaned up npm dev process." || true
+pkill -f "next.*dev" 2>/dev/null && echo "   Cleaned up next dev process." || true
+pkill -f "next-server" 2>/dev/null && echo "   Cleaned up next-server process." || true
+pkill -f "vite.*serve" 2>/dev/null && echo "   Cleaned up vite serve process." || true
+pkill -f "node.*vite" 2>/dev/null && echo "   Cleaned up node-vite process." || true
+pkill -f "react-scripts.*start" 2>/dev/null && echo "   Cleaned up react-scripts start process." || true
 
 echo ""
 echo "Releasing ports..."
 
-# Release ports (sync with launch.sh)
+# Release ports (sync with start.sh)
 FRONTEND_PORT=${FRONTEND_PORT:-4000}
-for port in 8000 8100 8200 $FRONTEND_PORT; do
-    if lsof -i:$port > /dev/null 2>&1; then
-        echo "   Releasing port $port..."
-        lsof -ti:$port | xargs kill -9 2>/dev/null || true
+for port in 8100 8200 "$FRONTEND_PORT"; do
+    # Only kill TCP LISTENers
+    pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        echo "   Releasing port $port (PIDs: $pids)..."
+        kill $pids 2>/dev/null || true
+        sleep 1
+        pids2=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+        if [ -n "$pids2" ]; then
+            echo "   Force releasing port $port (PIDs: $pids2)..."
+            kill -9 $pids2 2>/dev/null || true
+        fi
     fi
 done
 
 echo ""
 echo "Checking for remaining processes..."
-remaining=$(ps aux | grep -E "(api\.py|backend\.py|npm.*dev)" | grep -v grep | wc -l)
+remaining=$(ps aux | grep -E "(api\.py|backend\.py|npm.*dev|next.*dev|next-server|vite.*serve|react-scripts.*start|node.*vite)" | grep -v grep | wc -l)
 if [ "$remaining" -eq 0 ]; then
     echo "   All processes have been stopped."
 else
     echo "   Warning: $remaining related processes are still running:"
-    ps aux | grep -E "(api\.py|backend\.py|npm.*dev)" | grep -v grep
+    ps aux | grep -E "(api\.py|backend\.py|npm.*dev|next.*dev|next-server|vite.*serve|react-scripts.*start|node.*vite)" | grep -v grep
 fi
 
 echo ""
 echo "System stopped successfully."
 echo ""
 echo "Log files are kept in the logs/ directory."
-echo "To restart the system: ./launch.sh"
+echo "To restart the system: ./start.sh"
