@@ -29,18 +29,73 @@
 
 
 ## 🔥 News
+- **[2025.11.13]**: DeepAnalyze now supports OpenAI-style API endpointsis and is accessible through the Command Line Terminal UI. Thanks to the contributor [@LIUyizheSDU](https://github.com/LIUyizheSDU/)
+- **[2025.11.08]**: DeepAnalyze is now accessible through the JupyterUI, building based on [jupyter-mcp-server](https://github.com/datalayer/jupyter-mcp-server). Thanks to the contributor [@ChengJiale150](https://github.com/ChengJiale150).
 - **[2025.10.28]**: We welcome all contributions, including improving the DeepAnalyze and sharing use cases (see [`CONTRIBUTION.md`](CONTRIBUTION.md)). All merged PRs will be listed as contributors.
 - **[2025.10.27]**: DeepAnalyze has attracted widespread attention, gaining **1K+** GitHub stars and **200K+** Twitter views within a week.
 - **[2025.10.21]**: DeepAnalyze's [paper](https://arxiv.org/abs/2510.16872), [code](https://github.com/ruc-datalab/DeepAnalyze), [model](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B), [training data](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K) are released!
 
 ## 🖥 Demo
 
+### WebUI
 
+https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 <p align="center" width="100%">
 Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 🛠
 </p>
 
-https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
+- Clone this repo and download [DeepAnalyze-8B](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B).
+- Deploy DeepAnalyze-8B via vllm: `vllm serve DeepAnalyze-8B`
+- Run these scripts to launch the API and interface, and then interact through the browser (http://localhost:4000):
+    ```bash
+    cd demo/chat/frontend
+    npm install
+    cd ..
+    bash start.sh
+    
+    # stop the api and interface
+    bash stop.sh
+    
+    # stop vllm if needed
+    ```
+- If you want to deploy under a specific IP, please replace localhost with your IP address in [./demo/chat/backend.py](./demo/chat/backend.py) and [./demo/chat/frontend/lib/config.ts](./demo/chat/frontend/lib/config.ts)
+
+### JupyterUI
+
+https://github.com/user-attachments/assets/a2335f45-be0e-4787-a4c1-e93192891c5f
+<p align="center" width="100%">
+Familiar with Jupyter Notebook? Try DeepAnalyze through the JupyterUI!
+</p>
+
+- This Demo runs Jupyter Lab as frontend, creating a new notebook, converting `<Analyze|Understand|Answer>` to Markdown cells, converting `<Code>` to Code cells and executing them as `<Execute>`.
+- Go to [demo/jupyter](./demo/jupyter) to see more and try!
+- 👏Thanks a lot to the contributor [@ChengJiale150](https://github.com/ChengJiale150).
+
+### CLI
+
+https://github.com/user-attachments/assets/018acae5-b979-4143-ae1e-5b74da453c1d
+<p align="center" width="100%">
+Try DeepAnalyze through the command-line interface
+</p>
+
+- Deploy DeepAnalyze-8B via vllm: `vllm serve DeepAnalyze-8B`
+
+- Start the API server and launch the CLI interface:
+    ```bash
+    cd API
+    python start_server.py  # In one terminal
+    
+    cd demo/cli
+    python api_cli.py       # In another terminal (English)
+    # or
+    python api_cli_ZH.py    # In another terminal (Chinese)
+    ```
+    
+- The CLI provides a Rich-based beautiful interface with file upload support and real-time streaming responses.
+
+- Supports both English and Chinese interfaces .
+
+    
 
 > [!TIP]
 >
@@ -49,24 +104,92 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 > 🔥 The UI of the demo is an initial version. Welcome to further develop it, and we will include you as a contributor.
 
 
-- Clone this repo and download [DeepAnalyze-8B](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B).
-- Run these scripts to launch the API and interface, and then interact through the browser (http://localhost:4000):
-    ```bash
-    cd demo/chat
-    npm install
-    cd ..
-    bash start.sh
-
-    # stop the api and interface
-    bash stop.sh
-    ```
-- If you want to deploy under a specific IP, please replace localhost with your IP address in [./demo/backend.py](./demo/backend.py) and [./demo/chat/lib/config.ts](./demo/chat/lib/config.ts)
-
 ## 🚀 Quick Start
+
+### Model Download
+
+Download model in  [RUC-DataLab/DeepAnalyze-8B · Hugging Face](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)  or  [DeepAnalyze-8B · 模型库](https://www.modelscope.cn/models/RUC-DataLab/DeepAnalyze-8B/summary)
+
+#### 📊 Memory Configuration Recommended Parameters Table
+
+| GPU Memory | Model Type | Recommended max-model-len | Use FP8 KV Cache |
+|------------|------------|--------------------------|-----------------------|
+| **16GB** | 8-bit Quantized | 8192 | ✓ |
+| **16GB** | 4-bit Quantized | 49152 | ✓ |
+| **24GB** | Original Model | 16384 | ✓ |
+| **24GB** | 8-bit Quantized | 98304 | ✓ |
+| **24GB** | 4-bit Quantized | 131072 | ✓ |
+| **40GB** | Original Model | 131072 | ✓ |
+| **40GB** | 8-bit Quantized | 131072 |  |
+| **80GB** | Original Model | 131072 |  |
+
+To obtain the quantized model, you can use `./quantize.py` .
+
+#### 🚀 vLLM Launch Command Template
+
+##### General Command Template
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model <model_path> \
+  --served-model-name DeepAnalyze-8B \
+  --max-model-len <select_from_table_above> \
+  --gpu-memory-utilization 0.95 \
+  --port 8000 \
+  <add_fp8_if_required> \
+  --trust-remote-code
+```
+
+##### Command Examples by Scenario
+
+**Scenario 1: 16GB GPU Memory Users (Recommended: 4-bit Quantized Version)**
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model /path/to/deepanalyze/4bit \
+  --served-model-name DeepAnalyze-8B \
+  --max-model-len 49152 \
+  --gpu-memory-utilization 0.95 \
+  --port 8000 \
+  --kv-cache-dtype fp8 \
+  --trust-remote-code
+```
+
+**Scenario 2: 24GB GPU Memory Users (For Maximum Context Length)**
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model /path/to/deepanalyze/4bit \
+  --served-model-name DeepAnalyze-8B \
+  --max-model-len 131072 \
+  --gpu-memory-utilization 0.95 \
+  --port 8000 \
+  --kv-cache-dtype fp8 \
+  --trust-remote-code
+```
+
+**Scenario 3: 80GB GPU Memory Users (Best Performance)**
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model /path/to/original/model \
+  --served-model-name DeepAnalyze-8B \
+  --max-model-len 131072 \
+  --gpu-memory-utilization 0.95 \
+  --port 8000 \
+  --trust-remote-code
+```
+
+#### Quick Selection Guide
+
+- **Limited Memory (<24GB)**: Use 4-bit Quantized Version + FP8 KV Cache
+- **Balanced Configuration (24-40GB)**: Choose model type based on requirements
+- **Sufficient Memory (≥40GB)**: Use Original Model for best precision
+
+After launching, the API service can be accessed via `http://localhost:8000/v1/completions`.
 
 ### Requirements
 
-- Install packages: `torch==2.6.0`, `transformers==4.53.2`, `vllm==0.8.5`
+- Install packages: `torch`, `transformers`, `vllm>=0.8.5`
     ```bash
     conda create -n deepanalyze python=3.12 -y
     conda activate deepanalyze
@@ -76,6 +199,9 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
     (cd ./deepanalyze/ms-swift/ && pip install -e .)
     (cd ./deepanalyze/SkyRL/ && pip install -e .)
     ```
+- [`requirements.txt`](requirements.txt) lists the minimal dependencies required for DeepAnalyze inference.
+For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deepanalyze/ms-swift/requirements.txt) and [`./deepanalyze/SkyRL/pyproject.toml`](./deepanalyze/SkyRL/pyproject.toml)
+- We recommend separating the inference and training environments to avoid dependency conflicts.
 
 ### Command Interaction
 
@@ -103,7 +229,7 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
   File 8: {"name": "no_payment_due.xlsx", "size": "15.6KB"}
   File 9: {"name": "unemployed.xlsx", "size": "5.6KB"}
   File 10: {"name": "enrolled.csv", "size": "20.4KB"}"""
-
+  
   workspace = "/home/u2023000922/zhangshaolei/deepanalyze_public/DeepAnalyze/example/analysis_on_student_loan/"
   
   deepanalyze = DeepAnalyzeVLLM(
@@ -132,29 +258,38 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
   > For more examples and task completion details, please refer to [DeepAnalyze's homepage](https://ruc-deepanalyze.github.io/).
 
 ### API
-- You can build an OpenAI-Style API, using this script (note to change `MODEL_PATH = "DeepAnalyze-8B"` in [demo/backend.py](demo/backend.py) to your vllm model name):
+- You can build an OpenAI-Style API, using this script (note to change `MODEL_PATH = "DeepAnalyze-8B"` in [API/config.py](API/config.py) to your vllm model name):
 
   ```
-  python demo/backend.py
+  python API/start_server.py
   ```
 
-- API usage (streaming response):
+- API usage :
 
   ```
-  curl -X POST http://localhost:8200/chat/completions \
-       -H "Content-Type: application/json" \
-       -d '{
-             "messages": [
-               {
-                 "role": "user",
-                 "content": "Generate a data science report."
-               }
-             ],
-             "workspace": "example/student_loan/"
-           }'
-  ```
-
+  FILE_RESPONSE=$(curl -s -X POST "http://localhost:8200/v1/files" \
+      -F "file=@data.csv" \
+      -F "purpose=file-extract")
   
+  FILE_ID=$(echo $FILE_RESPONSE | jq -r '.id')
+  
+  curl -X POST http://localhost:8200/v1/chat/completions \
+       -H "Content-Type: application/json" \
+       -d "{
+          \"model\": \"DeepAnalyze-8B\",
+          \"messages\": [
+            {
+              \"role\": \"user\",
+              \"content\": \"Generate a data science report.\",
+              \"file_ids\": [\"$FILE_ID\"]
+            }
+          ]
+        }"
+  # wait for a while
+  ```
+  
+- Refer to API/README.md for details.
+
 ## 🎈 Develop Your Own DeepAnalyze
 
 ### 1. Download Model and Training Data
@@ -173,6 +308,7 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
     ```
 
 - Download training data [DataScience-Instruct-500K](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K).
+  
   - unzip `DataScience-Instruct-500K/RL/data.zip`
 
 
@@ -205,7 +341,7 @@ https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 - Training framework: [ms-swift](https://github.com/modelscope/ms-swift), [SkyRL](https://github.com/NovaSky-AI/SkyRL)
 - Source of Training Data: [Reasoning-Table](https://github.com/MJinXiang/Reasoning-Table), [Spider](https://yale-lily.github.io/spider), [BIRD](https://bird-bench.github.io/), [DABStep](https://huggingface.co/blog/dabstep)
 
-## 🖋Citation
+## 🖋 Citation
 
 If this repository is useful for you, please cite as:
 
@@ -228,7 +364,7 @@ If you have any questions, please feel free to submit an issue or contact `zhang
 Welcome to join the [DeepAnalyze WeChat group](./assets/wechat.jpg), chat and share ideas with others!
 
 <p align="left" width="100%">
-<img src="./assets/wechat.jpg" alt="DeepAnalyze" style="width: 30%; min-width: 300px; display: block; margin: auto;">
+<img src="./assets/wechat2.jpg" alt="DeepAnalyze" style="width: 35%; min-width: 300px; display: block; margin: auto;">
 </p>
 
 If you like DeepAnalyze, give it a GitHub Star ⭐. 
