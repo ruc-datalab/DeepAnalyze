@@ -188,7 +188,7 @@ def llm_as_judgement_accuracy1(completion, reference, client, model):
 
 ACC_PROMPT = """You are a data science evaluation assistant. Your task is to carefully evaluate the accuracy of the model's response using the provided data science question [QUESTION], the corresponding ground-truth solution [REFERENCE SOLUTION], and the model's response [PREDICTED SOLUTION]. After the evaluation, assign a single score for accuracy on a scale from 0 to 5.
 
-### [REFERENCE SOLUTION]:
+### [QUESTION]:
 {question} 
 
 ### [REFERENCE SOLUTION]:
