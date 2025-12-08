@@ -26,6 +26,12 @@ from utils import (
     generate_report_from_messages, extract_code_from_segment
 )
 
+Chinese_matplot_str = """
+import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei'] 
+plt.rcParams['axes.unicode_minus'] = False    
+"""
+
 
 # Initialize OpenAI clients for vllm
 vllm_client = openai.OpenAI(base_url=API_BASE, api_key="dummy")
@@ -189,6 +195,7 @@ async def chat_completions(
 
                         code_str = extract_code_from_segment(cur_res)
                         if code_str:
+                            code_str = Chinese_matplot_str + "\n" + code_str
                             exe_output = await execute_code_safe_async(code_str, workspace_dir)
                             artifacts = tracker.diff_and_collect()
                             exe_str = f"\n<Execute>\n```\n{exe_output}\n```\n</Execute>\n"
@@ -322,6 +329,7 @@ async def chat_completions(
                     vllm_messages.append({"role": "assistant", "content": cur_res})
                     code_str = extract_code_from_segment(cur_res)
                     if code_str:
+                        code_str = Chinese_matplot_str + "\n" + code_str
                         # Use async version of execute_code_safe to avoid blocking
                         exe_output = await execute_code_safe_async(code_str, workspace_dir)
                         artifacts = tracker.diff_and_collect()

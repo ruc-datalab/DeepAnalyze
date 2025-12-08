@@ -36,7 +36,11 @@ from fastapi.responses import StreamingResponse
 import re
 
 os.environ.setdefault("MPLBACKEND", "Agg")
-
+Chinese_matplot_str = """
+import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei'] 
+plt.rcParams['axes.unicode_minus'] = False    
+"""
 
 def execute_code(code_str):
     import io
@@ -704,6 +708,7 @@ def bot_stream(messages, workspace, session_id="default"):
                 code_content = code_match.group(1).strip()
                 md_match = re.search(r"```(?:python)?(.*?)```", code_content, re.DOTALL)
                 code_str = md_match.group(1).strip() if md_match else code_content
+                code_str = Chinese_matplot_str + "\n" + code_str
                 # 执行前快照（路径 -> (size, mtime)）
                 try:
                     before_state = {
