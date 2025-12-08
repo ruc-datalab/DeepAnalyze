@@ -253,7 +253,7 @@ class DeepAnalyzeVLLM:
         self.api_url = api_url
         self.max_rounds = max_rounds
         self.client = OpenAI(
-            api_key=os.getenv("DASHSCOPE_API_KEY"),
+            api_key=os.getenv("DASHSCOPE_API_KEY") or "sk-ff7ffb528e1246fd9e576eb751000dad",
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         )
         self.is_interactive = is_interactive
@@ -386,7 +386,7 @@ class DeepAnalyzeVLLM:
 
 
 def execute_data_analyze_task():
-    # 目前尝试了qwen3-8b qwen3-coder-30b-a3b-instruct qwen3-32b
+    # 目前尝试了qwen3-4b qwen3-8b qwen3-coder-30b-a3b-instruct qwen3-32b
     deepanalyze = DeepAnalyzeVLLM(model_name="qwen3-coder-30b-a3b-instruct", is_interactive=True)
 
     task1 = """\
@@ -431,7 +431,7 @@ plt.rcParams['axes.unicode_minus'] = False  # 正常显示负号
 
     task_execute_trace = deepanalyze.generate(
         prompt=f"{task2}\n{extra_content}",
-        workspace="example",
+        workspace="example/financial_insights_and_api_usage_analytics",
         temperature=0.3,
         top_p=1.0,
     )
