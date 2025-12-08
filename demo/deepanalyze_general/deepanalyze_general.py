@@ -431,7 +431,7 @@ plt.rcParams['axes.unicode_minus'] = False  # 正常显示负号
 
     task_execute_trace = deepanalyze.generate(
         prompt=f"{task2}\n{extra_content}",
-        workspace="example/financial_insights_and_api_usage_analytics",
+        workspace="../../example/financial_insights_and_api_usage_analytics",
         temperature=0.3,
         top_p=1.0,
     )
