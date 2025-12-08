@@ -253,7 +253,7 @@ class DeepAnalyzeVLLM:
         self.api_url = api_url
         self.max_rounds = max_rounds
         self.client = OpenAI(
-            api_key=os.getenv("DASHSCOPE_API_KEY") or "sk-ff7ffb528e1246fd9e576eb751000dad",
+            api_key=os.getenv("DASHSCOPE_API_KEY"),
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         )
         self.is_interactive = is_interactive
