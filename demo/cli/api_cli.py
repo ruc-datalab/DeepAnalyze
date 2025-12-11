@@ -244,7 +244,7 @@ class DeepAnalyzeCLI:
             console.print("[dim]📋 Generated files: AI-created reports, images, and data files, automatically accessible via thread workspace[/dim]")
 
   
-  def chat_with_file(self, message: str, file_ids: List[str] = None, stream: bool = True):
+    def chat_with_file(self, message: str, file_ids: List[str] = None, stream: bool = True):
         """Chat with AI for analysis"""
         try:
             if not self.client:
