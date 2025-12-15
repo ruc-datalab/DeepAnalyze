@@ -94,9 +94,6 @@ def execute_code_safe(
         os.close(fd)
         with open(tmp_path, "w", encoding="utf-8") as f:
             f.write(code_str)
-        print(
-            f"[exec] Running script: {tmp_path} (timeout={timeout_sec}s) cwd={exec_cwd}"
-        )
         # 在子进程中设置无界面环境变量，避免 GUI 后端
         child_env = os.environ.copy()
         child_env.setdefault("MPLBACKEND", "Agg")
@@ -554,8 +551,6 @@ async def upload_to_dir(
 @app.post("/execute")
 async def execute_code_api(request: dict):
     """执行 Python 代码"""
-    print("🔥 Execute API called:", request)  # Debug log
-
     try:
         code = request.get("code", "")
         session_id = request.get("session_id", "default")
@@ -564,11 +559,8 @@ async def execute_code_api(request: dict):
         if not code:
             raise HTTPException(status_code=400, detail="No code provided")
 
-        print(f"Executing code: {code[:100]}...")  # Debug log (first 100 chars)
-
         # 使用子进程安全执行，避免 GUI/线程问题（在指定 session workspace 中）
         result = execute_code_safe(code, workspace_dir)
-        print(f"✅ Execution result: {result[:200]}...")  # Debug log
 
         return {
             "success": True,
@@ -577,7 +569,6 @@ async def execute_code_api(request: dict):
         }
 
     except Exception as e:
-        print(f"❌ Execution error: {traceback.format_exc()}")  # Debug log
         return {
             "success": False,
             "result": f"Error: {str(e)}",
@@ -906,21 +897,23 @@ def _save_md(md_text: str, base_name: str, workspace_dir: str) -> Path:
 import pypandoc
 
 
-def _save_pdf(md_text: str, base_name: str, workspace_dir: str) -> Path:
+def _save_pdf(md_text: str, base_name: str, workspace_dir: str) -> Path | None:
     Path(workspace_dir).mkdir(parents=True, exist_ok=True)
     pdf_path = uniquify_path(Path(workspace_dir) / f"{base_name}.pdf")
-
-    output = pypandoc.convert_text(
-        md_text,
-        "pdf",
-        format="md",
-        outputfile=str(pdf_path),
-        extra_args=[
-            "--standalone",
-            "--pdf-engine=xelatex",
-        ],
-    )
-    return pdf_path
+    try:
+        pypandoc.convert_text(
+            md_text,
+            "pdf",
+            format="md",
+            outputfile=str(pdf_path),
+            extra_args=[
+                "--standalone",
+                "--pdf-engine=xelatex",
+            ],
+        )
+        return pdf_path
+    except Exception:
+        return None
 
 
 from typing import Optional
@@ -977,7 +970,6 @@ async def export_report(body: dict = Body(...)):
         export_dir = os.path.join(workspace_dir, "generated")
         os.makedirs(export_dir, exist_ok=True)
 
-        print(md_text)
         md_path = _save_md(md_text, base_name, export_dir)
 
         # PDF 暂不生成（TODO）。

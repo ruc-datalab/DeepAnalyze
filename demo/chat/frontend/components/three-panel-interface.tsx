@@ -380,6 +380,8 @@ export function ThreePanelInterface() {
 
   const lastScrollTimeRef = useRef(0);
   const scrollRafRef = useRef<number | null>(null);
+  const aiUpdateTimerRef = useRef<number | null>(null);
+  const aiPendingContentRef = useRef<string>("");
 
   // 节流滚动到底部
   const scrollToBottom = useCallback(() => {
@@ -2016,17 +2018,12 @@ export function ThreePanelInterface() {
                     variant="ghost"
                     size="sm"
                     onClick={async () => {
-                      const before = content.slice(0, match.position);
-                      const codeMatches = Array.from(
-                        before.matchAll(/<Code>([\s\S]*?)<\/Code>/g)
+                      const executionOutput = extractCode(
+                        sectionBody || match.content || ""
                       );
-                      const last = codeMatches.length
-                        ? codeMatches[codeMatches.length - 1]
-                        : null;
-                      const codeSection = last ? last[1] : "";
-                      const code = extractCode(codeSection || "");
-                      if (code) {
-                        const ok = await copyToClipboard(code.trim());
+                      const textToCopy = executionOutput || sectionBody || "";
+                      if (textToCopy.trim()) {
+                        const ok = await copyToClipboard(textToCopy.trim());
                         toast({
                           description: ok ? "已复制" : "复制失败",
                           variant: ok ? undefined : "destructive",
@@ -2034,7 +2031,7 @@ export function ThreePanelInterface() {
                       }
                     }}
                     className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                    title="复制与此 Execute 对应的代码"
+                    title="复制此 Execute 的输出"
                   >
                     <Copy className="h-3 w-3" />
                   </Button>
@@ -2201,11 +2198,17 @@ export function ThreePanelInterface() {
         },
       ]);
 
+      aiPendingContentRef.current = "";
+      if (aiUpdateTimerRef.current !== null) {
+        window.clearTimeout(aiUpdateTimerRef.current);
+        aiUpdateTimerRef.current = null;
+      }
+
       // [修改] 用于在本地累积完整的消息内容
       let accumulatedMessage = "";
 
-      // 更新 UI 的辅助函数
-      const updateAiMessage = (fullText: string) => {
+      // 更新 UI 的辅助函数（节流）
+      const flushAiMessage = (fullText: string) => {
         setMessages((prev) => {
           const next = [...prev];
           const idx = next.findIndex((m) => m.id === aiMsgId);
@@ -2228,6 +2231,16 @@ export function ThreePanelInterface() {
             fileRefreshTimerRef.current = null;
           }, 300);
         }
+      };
+
+      const scheduleAiMessageUpdate = (fullText: string) => {
+        aiPendingContentRef.current = fullText;
+        if (aiUpdateTimerRef.current !== null) return;
+        aiUpdateTimerRef.current = window.setTimeout(() => {
+          aiUpdateTimerRef.current = null;
+          const text = aiPendingContentRef.current;
+          flushAiMessage(text);
+        }, 60);
       };
 
       let buffer = "";
@@ -2256,7 +2269,7 @@ export function ThreePanelInterface() {
 
             if (deltaContent) {
               accumulatedMessage += deltaContent;
-              updateAiMessage(accumulatedMessage);
+              scheduleAiMessageUpdate(accumulatedMessage);
 
               // 检查是否包含结束标签（用于辅助逻辑，实际流结束由 done 决定）
               if (accumulatedMessage.includes("</Answer>")) {
@@ -2276,10 +2289,16 @@ export function ThreePanelInterface() {
           const deltaContent = json.choices?.[0]?.delta?.content;
           if (deltaContent) {
             accumulatedMessage += deltaContent;
-            updateAiMessage(accumulatedMessage);
+            scheduleAiMessageUpdate(accumulatedMessage);
           }
         } catch (e) { }
       }
+
+      if (aiUpdateTimerRef.current !== null) {
+        window.clearTimeout(aiUpdateTimerRef.current);
+        aiUpdateTimerRef.current = null;
+      }
+      flushAiMessage(accumulatedMessage);
 
       // 结束后刷新一次文件列表确保无遗漏
       await loadWorkspaceFiles();
