@@ -29,6 +29,8 @@
 
 
 ## 🔥 News
+
+- **[2025.12.28]**: DeepAnalyze API keys are now available by filling out the application form: https://forms.gle/YxVkCzczqq8jeciw9. For more details, please refer to the [docs/DeepAnalyze API Key Usage Guide.md](docs/DeepAnalyze API Key Usage Guide.md).
 - **[2025.11.13]**: DeepAnalyze now supports OpenAI-style API endpointsis and is accessible through the Command Line Terminal UI. Thanks to the contributor [@LIUyizheSDU](https://github.com/LIUyizheSDU/)
 - **[2025.11.08]**: DeepAnalyze is now accessible through the JupyterUI, building based on [jupyter-mcp-server](https://github.com/datalayer/jupyter-mcp-server). Thanks to the contributor [@ChengJiale150](https://github.com/ChengJiale150).
 - **[2025.10.28]**: We welcome all contributions, including improving the DeepAnalyze and sharing use cases (see [`CONTRIBUTION.md`](CONTRIBUTION.md)). All merged PRs will be listed as contributors.
