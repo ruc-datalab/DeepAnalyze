@@ -108,6 +108,10 @@ Try DeepAnalyze through the command-line interface
 
 ## 🚀 Quick Start
 
+### Use API 
+
+You can get DeepAnalyze API keys by filling out the application form: https://forms.gle/YxVkCzczqq8jeciw9. Please refer to the [docs/DeepAnalyze API Key Usage Guide.md](docs/DeepAnalyze API Key Usage Guide.md) for more details.
+
 ### Model Download
 
 Download model in  [RUC-DataLab/DeepAnalyze-8B · Hugging Face](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)  or  [DeepAnalyze-8B · 模型库](https://www.modelscope.cn/models/RUC-DataLab/DeepAnalyze-8B/summary)
