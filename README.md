@@ -30,11 +30,26 @@
 
 ## 🔥 News
 
-- **[2025.12.28]**: DeepAnalyze API keys are now available by filling out the application form: https://forms.gle/YxVkCzczqq8jeciw9. For more details, please refer to the [./docs/DeepAnalyze_API_Key_Usage_Guide.md](./docs/DeepAnalyze_API_Key_Usage_Guide.md).
+- **[2025.12.28] ANNOUNCEMENT: DeepAnalyze API Keys Now Available **🎉🎉🎉
+
+  **Apply Here:**
+  *   Google Forms: https://forms.gle/YxVkCzczqq8jeciw9
+  *   Feishu Form (Alternative): https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg
+
+  **For Full Details & Usage Guide:**
+  *   Documentation: [./docs/DeepAnalyze_API_Key_Usage_Guide.md](./docs/DeepAnalyze_API_Key_Usage_Guide.md)
+  *   Feishu Wiki: https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg
+
+  
+
 - **[2025.11.13]**: DeepAnalyze now supports OpenAI-style API endpointsis and is accessible through the Command Line Terminal UI. Thanks to the contributor [@LIUyizheSDU](https://github.com/LIUyizheSDU/)
+
 - **[2025.11.08]**: DeepAnalyze is now accessible through the JupyterUI, building based on [jupyter-mcp-server](https://github.com/datalayer/jupyter-mcp-server). Thanks to the contributor [@ChengJiale150](https://github.com/ChengJiale150).
+
 - **[2025.10.28]**: We welcome all contributions, including improving the DeepAnalyze and sharing use cases (see [`CONTRIBUTION.md`](CONTRIBUTION.md)). All merged PRs will be listed as contributors.
+
 - **[2025.10.27]**: DeepAnalyze has attracted widespread attention, gaining **1K+** GitHub stars and **200K+** Twitter views within a week.
+
 - **[2025.10.21]**: DeepAnalyze's [paper](https://arxiv.org/abs/2510.16872), [code](https://github.com/ruc-datalab/DeepAnalyze), [model](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B), [training data](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K) are released!
 
 ## 🖥 Demo
@@ -105,12 +120,21 @@ Try DeepAnalyze through the command-line interface
 >
 > 🔥 The UI of the demo is an initial version. Welcome to further develop it, and we will include you as a contributor.
 
-
 ## 🚀 Quick Start
 
-### Use API 
+### 🔑 **Use the DeepAnalyze API**
 
-You can get DeepAnalyze API keys by filling out the application form: https://forms.gle/YxVkCzczqq8jeciw9. Please refer to the [./docs/DeepAnalyze_API_Key_Usage_Guide](./docs/DeepAnalyze_API_Key_Usage_Guide) for more details.
+**API keys are now available!**
+
+To request your key, please fill out one of the following application forms:
+*   **Primary Form (Google):** https://forms.gle/YxVkCzczqq8jeciw9
+*   **Alternative Form (Feishu):** https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg
+
+**📚 For comprehensive usage instructions, please refer to the API guide:**
+*   **Documentation:** [./docs/DeepAnalyze_API_Key_Usage_Guide.md](./docs/DeepAnalyze_API_Key_Usage_Guide.md)
+*   **Feishu Wiki:** https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg
+
+
 
 ### Model Download
 
@@ -344,8 +368,15 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
 - DeepAnalyze only has 8B parameters, so we also welcome examples where DeepAnalyze performs slightly worse than the closed-source LLMs — this will help us improve DeepAnalyze.
 
 ## 🤝 Acknowledgement
-- Training framework: [ms-swift](https://github.com/modelscope/ms-swift), [SkyRL](https://github.com/NovaSky-AI/SkyRL)
-- Source of Training Data: [Reasoning-Table](https://github.com/MJinXiang/Reasoning-Table), [Spider](https://yale-lily.github.io/spider), [BIRD](https://bird-bench.github.io/), [DABStep](https://huggingface.co/blog/dabstep)
+
+- **Training Frameworks:** [ms-swift](https://github.com/modelscope/ms-swift), [SkyRL](https://github.com/NovaSky-AI/SkyRL)
+
+- **Sources of Training Data:** [Reasoning-Table](https://github.com/MJinXiang/Reasoning-Table), [Spider](https://yale-lily.github.io/spider), [BIRD](https://bird-bench.github.io/), [DABStep](https://huggingface.co/blog/dabstep)
+
+ - **API Key & Related Services: HeyWhale Community** .
+
+   **HeyWhale Community (www.heywhale.com) is a world-leading Chinese hands-on AI community. By providing massive data resources, practical cases, learning materials, and a wide range of AI training activities, it brings together nearly one million AI practitioners and enthusiasts to share insights, exchange ideas, collaborate, and rapidly advance their skills through practice.**
+
 
 ## 🖋 Citation
 
