@@ -352,11 +352,12 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
 
 
 ## 👏 Contribution
-> We welcome all forms of contributions, and merged PRs will be listed as contributors.
+> We welcome all forms of contributions, and merged PRs will be listed as contributors. 
 ### Contribution on Code and Model
 
 - We welcome all forms of contributions on DeepAnalyze's code, model and UI, such as Docker packaging, DeepAnalyze model conversion and quantization, and submitting DeepAnalyze workflows based on closed-source LLMs. 
 - You can submit a pull request directly.
+- Please refer to the [Developer Guides](https://matchbench.github.io/md_file/DeveloperGuides.html) for contribution guidelines.
 
 ### Contribution on Case Study
 
