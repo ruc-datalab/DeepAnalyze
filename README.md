@@ -30,17 +30,8 @@
 
 ## 🔥 News
 
-- **[2025.12.28] ANNOUNCEMENT: DeepAnalyze API Keys Now Available **🎉🎉🎉
+- **[2025.12.28] ANNOUNCEMENT: DeepAnalyze API Keys Are Now Available 🎉🎉🎉**  You can now apply for your API key via this [Google Form](https://forms.gle/YxVkCzczqq8jeciw9) or this [Feishu Form](https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg). For full details and usage instructions, please refer to the [Guide](./docs/DeepAnalyze_API_Key_Usage_Guide.md) or the [Feishu Wiki](https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg).
 
-  **Apply Here:**
-  *   Google Forms: https://forms.gle/YxVkCzczqq8jeciw9
-  *   Feishu Form (Alternative): https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg
-
-  **For Full Details & Usage Guide:**
-  *   Documentation: [./docs/DeepAnalyze_API_Key_Usage_Guide.md](./docs/DeepAnalyze_API_Key_Usage_Guide.md)
-  *   Feishu Wiki: https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg
-
-  
 
 - **[2025.11.13]**: DeepAnalyze now supports OpenAI-style API endpointsis and is accessible through the Command Line Terminal UI. Thanks to the contributor [@LIUyizheSDU](https://github.com/LIUyizheSDU/)
 
@@ -127,12 +118,13 @@ Try DeepAnalyze through the command-line interface
 **API keys are now available!**
 
 To request your key, please fill out one of the following application forms:
-*   **Primary Form (Google):** https://forms.gle/YxVkCzczqq8jeciw9
-*   **Alternative Form (Feishu):** https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg
+*   **[Primary Form (Google)](https://forms.gle/YxVkCzczqq8jeciw9)**
+*   **[Alternative Form (Feishu)](https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg)**
 
 **📚 For comprehensive usage instructions, please refer to the API guide:**
-*   **Documentation:** [./docs/DeepAnalyze_API_Key_Usage_Guide.md](./docs/DeepAnalyze_API_Key_Usage_Guide.md)
-*   **Feishu Wiki:** https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg
+
+*   **[Documentation](./docs/DeepAnalyze_API_Key_Usage_Guide.md)**
+*   **[Feishu Wiki](https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg)**
 
 
 
