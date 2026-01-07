@@ -7,7 +7,7 @@ import {
   oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import Editor from "@monaco-editor/react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { configureMonaco } from "@/lib/monaco-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,6 +113,183 @@ interface AnalysisSection {
   icon: string;
   color: string;
 }
+
+type CodeBlockViewProps = {
+  language: string;
+  code: string;
+  showHeader?: boolean;
+  isDarkMode: boolean;
+  onEdit: (code: string) => void;
+};
+
+const CodeBlockView = memo(function CodeBlockView({
+  language,
+  code,
+  showHeader = false,
+  isDarkMode,
+  onEdit,
+}: CodeBlockViewProps) {
+  const { toast } = useToast();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code.trim());
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 1500);
+      toast({ description: "已复制代码" });
+    } catch {
+      toast({ description: "复制失败", variant: "destructive" });
+    }
+  };
+
+  const isLargeCode = code.length > 8000;
+
+  return (
+    <div className="code-block my-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      {showHeader && (
+        <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 px-3 py-2 text-xs">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="h-5 w-5 p-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              {isCollapsed ? (
+                <ChevronRight className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )}
+            </Button>
+            <span className="text-gray-600 dark:text-gray-300">Code</span>
+            <span className="text-gray-500 font-mono">{language || "text"}</span>
+            {isLargeCode && (
+              <span className="text-[10px] text-gray-400">
+                （代码较长，已关闭高亮）
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopy}
+              className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              {isCopied ? (
+                <Check className="h-3 w-3" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(code.trim())}
+              className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              <Edit className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+      {!showHeader || !isCollapsed ? (
+        isLargeCode ? (
+          <pre className="m-0 p-3 text-xs overflow-x-auto whitespace-pre-wrap font-mono bg-transparent">
+            {code.trim()}
+          </pre>
+        ) : (
+          <SyntaxHighlighter
+            language={language || "text"}
+            style={isDarkMode ? oneDark : oneLight}
+            customStyle={{
+              margin: 0,
+              background: "transparent",
+              overflowX: "hidden",
+              whiteSpace: "pre-wrap",
+            }}
+            codeTagProps={{
+              style: {
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.875rem",
+                whiteSpace: "pre-wrap",
+              },
+            }}
+          >
+            {code.trim()}
+          </SyntaxHighlighter>
+        )
+      ) : null}
+    </div>
+  );
+});
+
+type ChatMessageItemProps = {
+  message: Message;
+  messageIndex: number;
+  isStreaming: boolean;
+  renderAssistant: (content: string, messageIndex?: number) => React.ReactNode;
+};
+
+const ChatMessageItem = memo(
+  function ChatMessageItem({
+    message,
+    messageIndex,
+    isStreaming,
+    renderAssistant,
+  }: ChatMessageItemProps) {
+    return (
+      <div className="space-y-2">
+        {message.sender === "user" ? (
+          <div className="flex items-start justify-end gap-2">
+            <div className="max-w-[80%] bg-black text-white dark:bg-white dark:text-black rounded-lg px-4 py-3 message-bubble message-appear">
+              <div className="text-sm break-words whitespace-pre-wrap">
+                {message.content}
+              </div>
+            </div>
+            <Avatar>
+              <AvatarImage src="/placeholder-user.jpg" alt="User" />
+              <AvatarFallback className="text-[10px]">U</AvatarFallback>
+            </Avatar>
+          </div>
+        ) : (
+          <div className="flex items-start gap-2 min-w-0">
+            <Avatar>
+              <AvatarImage src="/placeholder-logo.png" alt="AI Assistant" />
+              <AvatarFallback className="text-[10px]">
+                <Sparkles className="h-3 w-3" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1 message-appear">
+              <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                Assistant
+              </div>
+              <div className="space-y-4 min-w-0">
+                {isStreaming ? (
+                  <div className="text-sm break-words whitespace-pre-wrap">
+                    {message.content}
+                  </div>
+                ) : (
+                  renderAssistant(message.content, messageIndex)
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  },
+  (prev, next) => {
+    return (
+      prev.message === next.message &&
+      prev.messageIndex === next.messageIndex &&
+      prev.isStreaming === next.isStreaming &&
+      prev.renderAssistant === next.renderAssistant
+    );
+  }
+);
 
 export function ThreePanelInterface() {
   const { toast } = useToast();
@@ -278,6 +455,10 @@ export function ThreePanelInterface() {
       toast({ description: "导出失败", variant: "destructive" });
     }
   };
+  const exportReportBackendRef = useRef(exportReportBackend);
+  useEffect(() => {
+    exportReportBackendRef.current = exportReportBackend;
+  }, [exportReportBackend]);
 
   // 切换主题
   const toggleTheme = () => {
@@ -382,6 +563,9 @@ export function ThreePanelInterface() {
   const scrollRafRef = useRef<number | null>(null);
   const aiUpdateTimerRef = useRef<number | null>(null);
   const aiPendingContentRef = useRef<string>("");
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
+    null
+  );
 
   // 节流滚动到底部
   const scrollToBottom = useCallback(() => {
@@ -407,32 +591,17 @@ export function ThreePanelInterface() {
     });
   }, []);
 
-  // AI 输入时持续滚动
+  // 输入完成后平滑滚动到底部（避免流式期间 setInterval 导致频繁布局计算）
   useEffect(() => {
-    if (isTyping) {
-      // 每 200ms 检查并滚动一次
-      const intervalId = setInterval(() => {
-        if (messagesContainerRef.current) {
-          const container = messagesContainerRef.current;
-          // 直接设置到底部
-          container.scrollTop = container.scrollHeight;
-        }
-      }, 200);
-
-      return () => {
-        clearInterval(intervalId);
-      };
-    } else {
-      // 输入完成，平滑滚动到底部
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTo({
-            top: messagesContainerRef.current.scrollHeight,
-            behavior: "smooth",
-          });
-        }
-      }, 100);
-    }
+    if (isTyping) return;
+    setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }, 100);
   }, [isTyping]);
 
   // 监听消息变化
@@ -466,25 +635,41 @@ export function ThreePanelInterface() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 每次消息变更时保存到本地
+  // 消息本地缓存：流式生成时节流保存，避免每个 chunk 都写 localStorage 导致卡顿
+  const saveChatTimerRef = useRef<number | null>(null);
   useEffect(() => {
     try {
       if (!chatLoaded) return; // 避免首屏用欢迎消息覆盖已有缓存
       if (typeof window === "undefined") return;
-      const data = JSON.stringify(
-        messages.map((m) => ({
-          ...m,
-          timestamp: (m.timestamp instanceof Date
-            ? m.timestamp
-            : new Date(m.timestamp as any)
-          ).toISOString(),
-        }))
-      );
-      localStorage.setItem(CHAT_STORAGE_KEY, data);
+
+      if (saveChatTimerRef.current) {
+        window.clearTimeout(saveChatTimerRef.current);
+        saveChatTimerRef.current = null;
+      }
+
+      const delay = isTyping ? 1500 : 200;
+      saveChatTimerRef.current = window.setTimeout(() => {
+        try {
+          const data = JSON.stringify(
+            messages.map((m) => ({
+              ...m,
+              timestamp: (m.timestamp instanceof Date
+                ? m.timestamp
+                : new Date(m.timestamp as any)
+              ).toISOString(),
+            }))
+          );
+          localStorage.setItem(CHAT_STORAGE_KEY, data);
+        } catch (e) {
+          console.warn("save chat cache failed", e);
+        } finally {
+          saveChatTimerRef.current = null;
+        }
+      }, delay);
     } catch (e) {
       console.warn("save chat cache failed", e);
     }
-  }, [messages, chatLoaded]);
+  }, [messages, chatLoaded, isTyping]);
 
   // 一键清空聊天：保留欢迎消息（仅本地显示）
   const clearChat = () => {
@@ -1361,105 +1546,7 @@ export function ThreePanelInterface() {
     }
   };
 
-  const CodeBlock = ({
-    language,
-    code,
-    showHeader = false,
-  }: {
-    language: string;
-    code: string;
-    showHeader?: boolean;
-  }) => {
-    const [isCollapsed, setIsCollapsed] = useState(false);
-    const [isCopied, setIsCopied] = useState(false);
-
-    const handleCopy = async () => {
-      try {
-        await navigator.clipboard.writeText(code.trim());
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 1500);
-        toast({ description: "已复制代码" });
-      } catch {
-        toast({ description: "复制失败", variant: "destructive" });
-      }
-    };
-
-    return (
-      <div className="code-block my-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-        {showHeader && (
-          <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 px-3 py-2 text-xs">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                className="h-5 w-5 p-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                {isCollapsed ? (
-                  <ChevronRight className="h-3 w-3" />
-                ) : (
-                  <ChevronDown className="h-3 w-3" />
-                )}
-              </Button>
-              <span className="text-gray-600 dark:text-gray-300">Code</span>
-              <span className="text-gray-500 font-mono">
-                {language || "text"}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCopy}
-                className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                {isCopied ? (
-                  <Check className="h-3 w-3" />
-                ) : (
-                  <Copy className="h-3 w-3" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setCodeEditorContent(code.trim());
-                  setSelectedCodeSection(code);
-                  setShowCodeEditor(true);
-                }}
-                className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-        )}
-        {!showHeader || !isCollapsed ? (
-          <SyntaxHighlighter
-            language={language || "text"}
-            style={isDarkMode ? oneDark : oneLight}
-            customStyle={{
-              margin: 0,
-              background: "transparent",
-              overflowX: "hidden",
-              whiteSpace: "pre-wrap",
-            }}
-            codeTagProps={{
-              style: {
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.875rem",
-                whiteSpace: "pre-wrap",
-              },
-            }}
-          >
-            {code.trim()}
-          </SyntaxHighlighter>
-        ) : null}
-      </div>
-    );
-  };
-
-  const renderMarkdownContent = (
+  const renderMarkdownContent = useCallback((
     content: string,
     options?: { withinSection?: boolean }
   ) => {
@@ -1475,11 +1562,17 @@ export function ThreePanelInterface() {
           if (codeBlockMatch) {
             const [, language, code] = codeBlockMatch;
             return (
-              <CodeBlock
+              <CodeBlockView
                 key={index}
                 language={language || "python"}
                 code={code}
                 showHeader={!withinSection}
+                isDarkMode={isDarkMode}
+                onEdit={(c) => {
+                  setCodeEditorContent(c);
+                  setSelectedCodeSection(c);
+                  setShowCodeEditor(true);
+                }}
               />
             );
           }
@@ -1560,11 +1653,14 @@ export function ThreePanelInterface() {
         })}
       </div>
     );
-  };
+  }, [isDarkMode]);
 
-  const renderSectionContent = (content: string) => {
-    return renderMarkdownContent(content, { withinSection: true });
-  };
+  const renderSectionContent = useCallback(
+    (content: string) => {
+      return renderMarkdownContent(content, { withinSection: true });
+    },
+    [renderMarkdownContent]
+  );
 
   // 解析 Markdown 中的文件/图片链接，返回用于卡片渲染的数据
   const parseGeneratedFiles = (
@@ -1708,51 +1804,70 @@ export function ThreePanelInterface() {
     }, 150);
   };
 
-  // 监听滚动，更新当前激活的步骤
-  useEffect(() => {
-    const handleScroll = () => {
-      const container = messagesContainerRef.current;
-      if (!container) return;
+  const updateActiveSectionFromScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
 
-      const sections = document.querySelectorAll("[data-section-key]");
-      const containerRect = container.getBoundingClientRect();
-      const containerMiddle = containerRect.top + containerRect.height / 2;
+    const sections = document.querySelectorAll("[data-section-key]");
+    const containerRect = container.getBoundingClientRect();
+    const containerMiddle = containerRect.top + containerRect.height / 2;
 
-      let closestSection = "";
-      let closestDistance = Infinity;
+    let closestSection = "";
+    let closestDistance = Infinity;
 
-      sections.forEach((section) => {
-        const rect = section.getBoundingClientRect();
-        const sectionMiddle = rect.top + rect.height / 2;
-        const distance = Math.abs(sectionMiddle - containerMiddle);
+    sections.forEach((section) => {
+      const rect = section.getBoundingClientRect();
+      const sectionMiddle = rect.top + rect.height / 2;
+      const distance = Math.abs(sectionMiddle - containerMiddle);
 
-        // 找到离容器中心最近的 section
-        if (
-          distance < closestDistance &&
-          rect.top < containerRect.bottom &&
-          rect.bottom > containerRect.top
-        ) {
-          closestDistance = distance;
-          closestSection = section.getAttribute("data-section-key") || "";
-        }
-      });
-
-      if (closestSection) {
-        setActiveSection(closestSection);
+      // 找到离容器中心最近的 section
+      if (
+        distance < closestDistance &&
+        rect.top < containerRect.bottom &&
+        rect.bottom > containerRect.top
+      ) {
+        closestDistance = distance;
+        closestSection = section.getAttribute("data-section-key") || "";
       }
+    });
+
+    if (closestSection) {
+      setActiveSection(closestSection);
+    }
+  }, []);
+
+  // 监听滚动，更新当前激活的步骤（避免 messages 更新时反复解绑/绑定 scroll 事件）
+  const activeSectionRafRef = useRef<number | null>(null);
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const onScroll = () => {
+      if (activeSectionRafRef.current) return;
+      activeSectionRafRef.current = window.requestAnimationFrame(() => {
+        activeSectionRafRef.current = null;
+        updateActiveSectionFromScroll();
+      });
     };
 
-    const container = messagesContainerRef.current;
-    if (container) {
-      // 初始化时也触发一次
-      handleScroll();
+    onScroll(); // 初始化
+    container.addEventListener("scroll", onScroll);
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      if (activeSectionRafRef.current) {
+        window.cancelAnimationFrame(activeSectionRafRef.current);
+        activeSectionRafRef.current = null;
+      }
+    };
+  }, [updateActiveSectionFromScroll]);
 
-      container.addEventListener("scroll", handleScroll);
-      return () => container.removeEventListener("scroll", handleScroll);
-    }
-  }, [messages]);
+  // 新消息追加/清空时刷新一次 active section（不在流式内容每次变化时都跑）
+  useEffect(() => {
+    if (!messagesContainerRef.current) return;
+    window.requestAnimationFrame(() => updateActiveSectionFromScroll());
+  }, [messages.length, updateActiveSectionFromScroll]);
 
-  const renderMessageWithSections = (
+  const renderMessageWithSections = useCallback((
     content: string,
     messageIndex?: number
   ) => {
@@ -1965,7 +2080,7 @@ export function ThreePanelInterface() {
                       });
                       return;
                     }
-                    await exportReportBackend();
+                    await exportReportBackendRef.current();
                   }}
                   className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   title="后端导出 PDF/MD 到 workspace"
@@ -2066,11 +2181,11 @@ export function ThreePanelInterface() {
     }
 
     return <>{parts}</>;
-  };
+  }, [collapsedSections, isTyping, renderMarkdownContent, renderSectionContent, toast]);
 
   // 根据完整内容自动折叠：除最后一个块外全部折叠
   const autoCollapseForContent = useCallback(
-    (content: string) => {
+    (content: string, messageIndex?: number) => {
       if (!autoCollapseEnabled) return;
       const sectionTypes = [
         "Analyze",
@@ -2093,14 +2208,18 @@ export function ThreePanelInterface() {
       matches.sort((a, b) => a.pos - b.pos);
       const next: Record<string, boolean> = {};
       matches.forEach((m, i) => {
-        const key = `${m.type}-${i}`;
+        const baseKey = `${m.type}-${i}`;
+        const msgKey =
+          messageIndex !== undefined ? `msg${messageIndex}-${m.type}-${i}` : null;
+        const key = msgKey || baseKey;
         next[key] = i !== matches.length - 1; // 最后一个不折叠
       });
       setCollapsedSections((prev) => {
         const merged: Record<string, boolean> = { ...prev };
         // 只在未手动锁定的 key 上更新，保留用户手动状态
         for (const key in next) {
-          if (!manualLocks[key]) merged[key] = next[key];
+          const baseKey = key.replace(/^msg\d+-/, "");
+          if (!manualLocks[key] && !manualLocks[baseKey]) merged[key] = next[key];
         }
         return merged;
       });
@@ -2110,6 +2229,8 @@ export function ThreePanelInterface() {
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() && attachments.length === 0) return;
+    const baseMessageIndex = messages.length;
+    const aiMessageIndex = baseMessageIndex + 1;
 
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -2169,7 +2290,7 @@ export function ThreePanelInterface() {
             timestamp: new Date(),
           },
         ]);
-        autoCollapseForContent(content);
+        autoCollapseForContent(content, aiMessageIndex);
         if (content.includes("<File>")) {
           await loadWorkspaceTree();
           await loadWorkspaceFiles();
@@ -2183,11 +2304,13 @@ export function ThreePanelInterface() {
       const decoder = new TextDecoder();
       if (!reader) {
         setIsTyping(false);
+        setStreamingMessageId(null);
         return;
       }
 
       // 预先插入 AI 消息占位
       const aiMsgId = `${Date.now()}-${Math.random()}`;
+      setStreamingMessageId(aiMsgId);
       setMessages((prev) => [
         ...prev,
         {
@@ -2218,9 +2341,6 @@ export function ThreePanelInterface() {
           return next;
         });
 
-        // 实时处理折叠和文件刷新逻辑
-        autoCollapseForContent(fullText);
-
         if (fullText.includes("<File>")) {
           if (fileRefreshTimerRef.current) {
             window.clearTimeout(fileRefreshTimerRef.current);
@@ -2240,7 +2360,7 @@ export function ThreePanelInterface() {
           aiUpdateTimerRef.current = null;
           const text = aiPendingContentRef.current;
           flushAiMessage(text);
-        }, 60);
+        }, 120);
       };
 
       let buffer = "";
@@ -2299,15 +2419,18 @@ export function ThreePanelInterface() {
         aiUpdateTimerRef.current = null;
       }
       flushAiMessage(accumulatedMessage);
+      autoCollapseForContent(accumulatedMessage, aiMessageIndex);
 
       // 结束后刷新一次文件列表确保无遗漏
       await loadWorkspaceFiles();
       await loadWorkspaceTree();
       setIsTyping(false); // 结束加载状态
+      setStreamingMessageId(null);
 
     } catch (error) {
       console.error("Error sending message:", error);
       setIsTyping(false);
+      setStreamingMessageId(null);
     }
   };
 
@@ -2767,43 +2890,15 @@ export function ThreePanelInterface() {
                   }`}
               >
                 {messages.map((message, msgIdx) => (
-                  <div key={message.id} className="space-y-2">
-                    {message.sender === "user" ? (
-                      <div className="flex items-start justify-end gap-2">
-                        <div className="max-w-[80%] bg-black text-white dark:bg-white dark:text-black rounded-lg px-4 py-3 message-bubble message-appear">
-                          <div className="text-sm break-words whitespace-pre-wrap">
-                            {message.content}
-                          </div>
-                        </div>
-                        <Avatar>
-                          <AvatarImage src="/placeholder-user.jpg" alt="User" />
-                          <AvatarFallback className="text-[10px]">
-                            U
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
-                    ) : (
-                      <div className="flex items-start gap-2 min-w-0">
-                        <Avatar>
-                          <AvatarImage
-                            src="/placeholder-logo.png"
-                            alt="AI Assistant"
-                          />
-                          <AvatarFallback className="text-[10px]">
-                            <Sparkles className="h-3 w-3" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1 message-appear">
-                          <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                            Assistant
-                          </div>
-                          <div className="space-y-4 min-w-0">
-                            {renderMessageWithSections(message.content, msgIdx)}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <ChatMessageItem
+                    key={message.id}
+                    message={message}
+                    messageIndex={msgIdx}
+                    isStreaming={
+                      message.sender === "ai" && message.id === streamingMessageId
+                    }
+                    renderAssistant={renderMessageWithSections}
+                  />
                 ))}
                 {/* 加载气泡已移除，改为仅按钮态提示 */}
                 <div ref={messagesEndRef} />
