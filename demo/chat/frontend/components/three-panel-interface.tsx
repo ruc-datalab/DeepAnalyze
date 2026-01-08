@@ -292,6 +292,67 @@ const ChatMessageItem = memo(
   }
 );
 
+type StructuredSectionType =
+  | "Analyze"
+  | "Understand"
+  | "Code"
+  | "Execute"
+  | "Answer"
+  | "File";
+
+const StreamingMarkdownBlock = memo(
+  function StreamingMarkdownBlock({
+    content,
+    renderMarkdownContent,
+    className,
+  }: {
+    content: string;
+    renderMarkdownContent: (content: string) => React.ReactNode;
+    className?: string;
+  }) {
+    if (!content.trim()) return null;
+    return <div className={className}>{renderMarkdownContent(content)}</div>;
+  },
+  (prev, next) =>
+    prev.content === next.content &&
+    prev.renderMarkdownContent === next.renderMarkdownContent &&
+    prev.className === next.className
+);
+
+const StreamingSectionBody = memo(
+  function StreamingSectionBody({
+    type,
+    content,
+    isComplete,
+    renderSectionContent,
+  }: {
+    type: StructuredSectionType;
+    content: string;
+    isComplete: boolean;
+    renderSectionContent: (content: string) => React.ReactNode;
+  }) {
+    if (!content.trim()) return null;
+    if (!isComplete) {
+      if (type === "Code" || type === "Execute") {
+        return (
+          <pre className="m-0 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+            {content}
+          </pre>
+        );
+      }
+      return (
+        <div className="text-sm break-words whitespace-pre-wrap">{content}</div>
+      );
+    }
+    return <div className="markdown-content">{renderSectionContent(content)}</div>;
+  },
+  (prev, next) =>
+    prev.type === next.type &&
+    prev.content === next.content &&
+    prev.isComplete === next.isComplete &&
+    prev.renderSectionContent === next.renderSectionContent
+);
+
 export function ThreePanelInterface() {
   const { toast } = useToast();
   const [isDarkMode, setIsDarkMode] = useState(false); // 服务端默认 false
@@ -1925,7 +1986,7 @@ export function ThreePanelInterface() {
         },
       };
 
-      // 没有结构化标签时，保持最轻量文本渲染
+      // 没有结构化标签时，保持最轻量文本渲染（避免每个 chunk 都触发 Markdown/高亮重解析）
       if (!content.includes("<")) {
         return (
           <div className="text-sm break-words whitespace-pre-wrap">
@@ -1941,21 +2002,19 @@ export function ThreePanelInterface() {
       let m: RegExpExecArray | null;
 
       while ((m = openRe.exec(content)) !== null) {
-        const type = m[1] as (typeof sectionTypes)[number];
+        const type = m[1] as StructuredSectionType;
         const start = m.index;
 
         if (start > cursor) {
           const before = content.slice(cursor, start);
-          if (before) {
-            parts.push(
-              <div
-                key={`stream-text-${cursor}`}
-                className="text-sm break-words whitespace-pre-wrap mb-2"
-              >
-                {before}
-              </div>
-            );
-          }
+          parts.push(
+            <StreamingMarkdownBlock
+              key={`stream-md-${cursor}`}
+              className="markdown-content mb-2"
+              content={before}
+              renderMarkdownContent={renderMarkdownContent}
+            />
+          );
         }
 
         const openTag = m[0];
@@ -1964,7 +2023,7 @@ export function ThreePanelInterface() {
         const closeIdx = content.indexOf(closeTag, openEnd);
         const isComplete = closeIdx !== -1;
         const bodyEnd = isComplete ? closeIdx : content.length;
-        const body = content.slice(openEnd, bodyEnd);
+        const body = content.slice(openEnd, bodyEnd).trim();
 
         const baseKey = `${type}-${sectionIndex}`;
         const msgKey =
@@ -2019,15 +2078,12 @@ export function ThreePanelInterface() {
             </div>
             {!isCollapsed && (
               <div className="p-3">
-                {type === "Code" || type === "Execute" ? (
-                  <pre className="m-0 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
-                    {body}
-                  </pre>
-                ) : (
-                  <div className="text-sm break-words whitespace-pre-wrap">
-                    {body}
-                  </div>
-                )}
+                <StreamingSectionBody
+                  type={type}
+                  content={body}
+                  isComplete={isComplete}
+                  renderSectionContent={renderSectionContent}
+                />
               </div>
             )}
           </div>
@@ -2042,7 +2098,7 @@ export function ThreePanelInterface() {
 
       if (cursor < content.length) {
         const after = content.slice(cursor);
-        if (after) {
+        if (after.trim()) {
           parts.push(
             <div key="stream-text-end" className="text-sm break-words whitespace-pre-wrap">
               {after}
@@ -2061,7 +2117,7 @@ export function ThreePanelInterface() {
 
       return <>{parts}</>;
     },
-    [collapsedSections]
+    [collapsedSections, renderMarkdownContent, renderSectionContent]
   );
 
   const renderMessageWithSections = useCallback((
