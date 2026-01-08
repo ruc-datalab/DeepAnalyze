@@ -231,6 +231,7 @@ type ChatMessageItemProps = {
   messageIndex: number;
   isStreaming: boolean;
   renderAssistant: (content: string, messageIndex?: number) => React.ReactNode;
+  renderAssistantStreaming: (content: string, messageIndex?: number) => React.ReactNode;
 };
 
 const ChatMessageItem = memo(
@@ -239,6 +240,7 @@ const ChatMessageItem = memo(
     messageIndex,
     isStreaming,
     renderAssistant,
+    renderAssistantStreaming,
   }: ChatMessageItemProps) {
     return (
       <div className="space-y-2">
@@ -268,9 +270,7 @@ const ChatMessageItem = memo(
               </div>
               <div className="space-y-4 min-w-0">
                 {isStreaming ? (
-                  <div className="text-sm break-words whitespace-pre-wrap">
-                    {message.content}
-                  </div>
+                  renderAssistantStreaming(message.content, messageIndex)
                 ) : (
                   renderAssistant(message.content, messageIndex)
                 )}
@@ -286,7 +286,8 @@ const ChatMessageItem = memo(
       prev.message === next.message &&
       prev.messageIndex === next.messageIndex &&
       prev.isStreaming === next.isStreaming &&
-      prev.renderAssistant === next.renderAssistant
+      prev.renderAssistant === next.renderAssistant &&
+      prev.renderAssistantStreaming === next.renderAssistantStreaming
     );
   }
 );
@@ -561,6 +562,7 @@ export function ThreePanelInterface() {
 
   const lastScrollTimeRef = useRef(0);
   const scrollRafRef = useRef<number | null>(null);
+  const stickToBottomRef = useRef(true);
   const aiUpdateTimerRef = useRef<number | null>(null);
   const aiPendingContentRef = useRef<string>("");
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
@@ -585,6 +587,7 @@ export function ThreePanelInterface() {
       if (messagesContainerRef.current) {
         const container = messagesContainerRef.current;
         container.scrollTop = container.scrollHeight;
+        stickToBottomRef.current = true;
         lastScrollTimeRef.current = Date.now();
       }
       scrollRafRef.current = null;
@@ -594,6 +597,7 @@ export function ThreePanelInterface() {
   // 输入完成后平滑滚动到底部（避免流式期间 setInterval 导致频繁布局计算）
   useEffect(() => {
     if (isTyping) return;
+    if (!stickToBottomRef.current) return;
     setTimeout(() => {
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTo({
@@ -606,7 +610,9 @@ export function ThreePanelInterface() {
 
   // 监听消息变化
   useEffect(() => {
-    scrollToBottom();
+    if (stickToBottomRef.current) {
+      scrollToBottom();
+    }
   }, [messages, scrollToBottom]);
 
   // 聊天消息本地缓存：加载与保存
@@ -1843,6 +1849,11 @@ export function ThreePanelInterface() {
     if (!container) return;
 
     const onScroll = () => {
+      // 只有用户当前在底部时才自动跟随输出
+      const distanceToBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      stickToBottomRef.current = distanceToBottom <= 24;
+
       if (activeSectionRafRef.current) return;
       activeSectionRafRef.current = window.requestAnimationFrame(() => {
         activeSectionRafRef.current = null;
@@ -1866,6 +1877,192 @@ export function ThreePanelInterface() {
     if (!messagesContainerRef.current) return;
     window.requestAnimationFrame(() => updateActiveSectionFromScroll());
   }, [messages.length, updateActiveSectionFromScroll]);
+
+  // 流式阶段的轻量渲染：支持 <Analyze>/<Code> 等块，但避免高开销的 Markdown/高亮解析
+  const renderMessageWithSectionsStreaming = useCallback(
+    (content: string, messageIndex?: number) => {
+      const sectionTypes = [
+        "Analyze",
+        "Understand",
+        "Code",
+        "Execute",
+        "Answer",
+        "File",
+      ] as const;
+      const sectionConfigs: Record<
+        (typeof sectionTypes)[number],
+        { icon: string; color: string }
+      > = {
+        Analyze: {
+          icon: "🔍",
+          color:
+            "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800",
+        },
+        Understand: {
+          icon: "🧠",
+          color:
+            "bg-cyan-50 border-cyan-200 dark:bg-cyan-950/30 dark:border-cyan-800",
+        },
+        Code: {
+          icon: "💻",
+          color:
+            "bg-gray-50 border-gray-200 dark:bg-gray-950/30 dark:border-gray-700",
+        },
+        Execute: {
+          icon: "⚡",
+          color:
+            "bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-800",
+        },
+        Answer: {
+          icon: "✅",
+          color:
+            "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800",
+        },
+        File: {
+          icon: "📎",
+          color:
+            "bg-purple-50 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800",
+        },
+      };
+
+      // 没有结构化标签时，保持最轻量文本渲染
+      if (!content.includes("<")) {
+        return (
+          <div className="text-sm break-words whitespace-pre-wrap">
+            {content}
+          </div>
+        );
+      }
+
+      const parts: React.ReactNode[] = [];
+      const openRe = /<(Analyze|Understand|Code|Execute|Answer|File)>/g;
+      let cursor = 0;
+      let sectionIndex = 0;
+      let m: RegExpExecArray | null;
+
+      while ((m = openRe.exec(content)) !== null) {
+        const type = m[1] as (typeof sectionTypes)[number];
+        const start = m.index;
+
+        if (start > cursor) {
+          const before = content.slice(cursor, start);
+          if (before) {
+            parts.push(
+              <div
+                key={`stream-text-${cursor}`}
+                className="text-sm break-words whitespace-pre-wrap mb-2"
+              >
+                {before}
+              </div>
+            );
+          }
+        }
+
+        const openTag = m[0];
+        const openEnd = start + openTag.length;
+        const closeTag = `</${type}>`;
+        const closeIdx = content.indexOf(closeTag, openEnd);
+        const isComplete = closeIdx !== -1;
+        const bodyEnd = isComplete ? closeIdx : content.length;
+        const body = content.slice(openEnd, bodyEnd);
+
+        const baseKey = `${type}-${sectionIndex}`;
+        const msgKey =
+          messageIndex !== undefined ? `msg${messageIndex}-${type}-${sectionIndex}` : baseKey;
+        const sectionKey = msgKey;
+        const isCollapsed =
+          (collapsedSections as any)[msgKey] ??
+          (collapsedSections as any)[baseKey] ??
+          false;
+
+        const toggleSection = () => {
+          setCollapsedSections((prev) => {
+            const next = { ...prev } as Record<string, boolean>;
+            const current = (prev as any)[msgKey] ?? (prev as any)[baseKey] ?? false;
+            next[msgKey] = !current;
+            next[baseKey] = !current;
+            return next;
+          });
+        };
+
+        parts.push(
+          <div
+            key={`stream-section-${sectionKey}`}
+            className={`mb-4 border rounded-lg overflow-hidden ${sectionConfigs[type].color}`}
+            data-section={type}
+            data-section-key={sectionKey}
+          >
+            <div className="flex items-center justify-between px-3 py-2 bg-white/60 dark:bg-black/30 border-b border-black/5 dark:border-white/10">
+              <div className="flex items-center gap-2 min-w-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleSection}
+                  className="h-5 w-5 p-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  {isCollapsed ? (
+                    <ChevronRight className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                </Button>
+                <span className="text-sm">{sectionConfigs[type].icon}</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {type}
+                </span>
+                {!isComplete && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    （生成中）
+                  </span>
+                )}
+              </div>
+            </div>
+            {!isCollapsed && (
+              <div className="p-3">
+                {type === "Code" || type === "Execute" ? (
+                  <pre className="m-0 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                    {body}
+                  </pre>
+                ) : (
+                  <div className="text-sm break-words whitespace-pre-wrap">
+                    {body}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+        sectionIndex += 1;
+        cursor = isComplete ? closeIdx + closeTag.length : content.length;
+        openRe.lastIndex = cursor;
+
+        if (!isComplete) break;
+      }
+
+      if (cursor < content.length) {
+        const after = content.slice(cursor);
+        if (after) {
+          parts.push(
+            <div key="stream-text-end" className="text-sm break-words whitespace-pre-wrap">
+              {after}
+            </div>
+          );
+        }
+      }
+
+      if (parts.length === 0) {
+        return (
+          <div className="text-sm break-words whitespace-pre-wrap">
+            {content}
+          </div>
+        );
+      }
+
+      return <>{parts}</>;
+    },
+    [collapsedSections]
+  );
 
   const renderMessageWithSections = useCallback((
     content: string,
@@ -2886,8 +3083,7 @@ export function ThreePanelInterface() {
               {/* Chat Messages */}
               <div
                 ref={messagesContainerRef}
-                className={`flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 pr-5 space-y-6 ${isTyping ? "scrollbar-hide" : "scrollbar-auto"
-                  }`}
+                className="flex-1 min-h-0 min-w-0 overflow-y-scroll overflow-x-hidden px-4 py-4 pr-5 space-y-6 scrollbar-auto"
               >
                 {messages.map((message, msgIdx) => (
                   <ChatMessageItem
@@ -2898,6 +3094,7 @@ export function ThreePanelInterface() {
                       message.sender === "ai" && message.id === streamingMessageId
                     }
                     renderAssistant={renderMessageWithSections}
+                    renderAssistantStreaming={renderMessageWithSectionsStreaming}
                   />
                 ))}
                 {/* 加载气泡已移除，改为仅按钮态提示 */}
