@@ -14,3 +14,4 @@ python-multipart
 uvicorn
 fastapi
 openai
+pypandoc
