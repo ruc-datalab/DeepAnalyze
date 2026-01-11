@@ -88,7 +88,7 @@ def quantize_model_8bit(model_path: str, output_path: str):
     print(f"Saving 8bit quantized model to: {output_path}")
     os.makedirs(output_path, exist_ok=True)
     model.save_pretrained(output_path)
-    tokenizer.save_pretained(output_path)
+    tokenizer.save_pretrained(output_path)
     
     print("8bit quantization completed!")
     return model, tokenizer
