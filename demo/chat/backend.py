@@ -1,4 +1,5 @@
 import openai
+from typing import Optional, List, Dict, Any
 import json
 import os
 import shutil
@@ -26,6 +27,7 @@ import os
 import re
 import json
 from fastapi.responses import StreamingResponse
+from fastapi.concurrency import run_in_threadpool
 import os
 import re
 from copy import deepcopy
@@ -41,43 +43,6 @@ import matplotlib.pyplot as plt
 plt.rcParams['font.sans-serif'] = ['SimHei'] 
 plt.rcParams['axes.unicode_minus'] = False    
 """
-
-def execute_code(code_str):
-    import io
-    import contextlib
-    import traceback
-
-    stdout_capture = io.StringIO()
-    stderr_capture = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(
-            stderr_capture
-        ):
-            exec(code_str, {})
-        output = stdout_capture.getvalue()
-        if stderr_capture.getvalue():
-            output += stderr_capture.getvalue()
-        return output
-    except Exception as exec_error:
-        code_lines = code_str.splitlines()
-        tb_lines = traceback.format_exc().splitlines()
-        error_line = None
-        for line in tb_lines:
-            if 'File "<string>", line' in line:
-                try:
-                    line_num = int(line.split(", line ")[1].split(",")[0])
-                    error_line = line_num
-                    break
-                except (IndexError, ValueError):
-                    continue
-        error_message = f"Traceback (most recent call last):\n"
-        if error_line is not None and 1 <= error_line <= len(code_lines):
-            error_message += f'  File "<string>", line {error_line}, in <module>\n'
-            error_message += f"    {code_lines[error_line-1].strip()}\n"
-        error_message += f"{type(exec_error).__name__}: {str(exec_error)}"
-        if stderr_capture.getvalue():
-            error_message += f"\n{stderr_capture.getvalue()}"
-        return f"[Error]:\n{error_message.strip()}"
 
 
 def execute_code_safe(
@@ -105,6 +70,8 @@ def execute_code_safe(
             cwd=exec_cwd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout_sec,
             env=child_env,
         )
@@ -249,21 +216,7 @@ def uniquify_path(target: Path) -> Path:
         i += 1
 
 
-def execute_code(code_str):
-    """执行Python代码"""
-    stdout_capture = io.StringIO()
-    stderr_capture = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(
-            stderr_capture
-        ):
-            exec(code_str, {})
-        output = stdout_capture.getvalue()
-        if stderr_capture.getvalue():
-            output += stderr_capture.getvalue()
-        return output
-    except Exception as exec_error:
-        return f"[Error]: {str(exec_error)}"
+
 
 
 # API Routes
@@ -325,7 +278,7 @@ def _rel_path(path: Path, root: Path) -> str:
         return path.name
 
 
-def build_tree(path: Path, root: Path | None = None) -> dict:
+def build_tree(path: Path, root: Optional[Path] = None) -> dict:
     if root is None:
         root = path
     node: dict = {
@@ -560,7 +513,7 @@ async def execute_code_api(request: dict):
             raise HTTPException(status_code=400, detail="No code provided")
 
         # 使用子进程安全执行，避免 GUI/线程问题（在指定 session workspace 中）
-        result = execute_code_safe(code, workspace_dir)
+        result = await run_in_threadpool(execute_code_safe, code, workspace_dir)
 
         return {
             "success": True,
