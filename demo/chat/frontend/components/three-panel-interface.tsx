@@ -631,7 +631,7 @@ export function ThreePanelInterface() {
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
     null
   );
-  const [clearChatOpen, setClearChatOpen] = useState(false);
+  // const [clearChatOpen, setClearChatOpen] = useState(false); // Removed redundant state
 
   // 节流滚动到底部
 
@@ -750,10 +750,6 @@ export function ThreePanelInterface() {
       toast({ description: "执行中，暂时无法清空", variant: "destructive" });
       return;
     }
-    setClearChatOpen(true);
-  };
-
-  const confirmClearChat = () => {
     const welcome: Message = {
       id: `welcome-${Date.now()}`,
       content: "Hello! I'm DeepAnalyze-8B, your autonomous data science assistant. Upload your data and let's explore it together!",
@@ -768,7 +764,6 @@ export function ThreePanelInterface() {
       }
     } catch { }
     toast({ description: "已清空聊天" });
-    setClearChatOpen(false);
   };
 
   useEffect(() => {
@@ -3557,21 +3552,7 @@ export function ThreePanelInterface() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 清空聊天确认弹窗 */}
-      <AlertDialog open={clearChatOpen} onOpenChange={setClearChatOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认清空聊天记录？</AlertDialogTitle>
-            <AlertDialogDescription>
-              此操作将无法撤销，当前会话的所有消息将被清除（欢迎消息除外）。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setClearChatOpen(false)}>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmClearChat}>确认清空</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
       {/* 文件预览弹窗 */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent
