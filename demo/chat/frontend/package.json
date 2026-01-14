@@ -51,7 +51,7 @@
     "geist": "latest",
     "html2canvas": "^1.4.1",
     "input-otp": "1.4.1",
-    "jspdf": "^3.0.3",
+    "jspdf": "^4.0.0",
     "lucide-react": "^0.454.0",
     "monaco-editor": "^0.55.1",
     "next": "^14.2.33",

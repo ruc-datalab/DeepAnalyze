@@ -624,19 +624,23 @@ export function ThreePanelInterface() {
   const lastScrollTimeRef = useRef(0);
   const scrollRafRef = useRef<number | null>(null);
   const stickToBottomRef = useRef(true);
-  const aiUpdateTimerRef = useRef<number | null>(null);
+  // const aiUpdateTimerRef = useRef<number | null>(null); // Removed in favor of RAF
   const aiPendingContentRef = useRef<string>("");
+  const aiDisplayedContentRef = useRef<string>("");
+  const streamRafRef = useRef<number | null>(null);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
     null
   );
+  // const [clearChatOpen, setClearChatOpen] = useState(false); // Removed redundant state
 
   // 节流滚动到底部
-  const scrollToBottom = useCallback(() => {
+
+  const scrollToBottom = useCallback((force: boolean = false) => {
     const now = Date.now();
     const timeSinceLastScroll = now - lastScrollTimeRef.current;
 
-    // 节流：至少间隔 100ms
-    if (timeSinceLastScroll < 100) {
+    // 节流：默认 100ms，强制模式下忽略
+    if (!force && timeSinceLastScroll < 100) {
       return;
     }
 
@@ -647,6 +651,7 @@ export function ThreePanelInterface() {
     scrollRafRef.current = requestAnimationFrame(() => {
       if (messagesContainerRef.current) {
         const container = messagesContainerRef.current;
+        // 使用 behavior: auto (默认) 以确保瞬间跳转，避免 smooth 带来的滞后叠加
         container.scrollTop = container.scrollHeight;
         stickToBottomRef.current = true;
         lastScrollTimeRef.current = Date.now();
@@ -672,9 +677,10 @@ export function ThreePanelInterface() {
   // 监听消息变化
   useEffect(() => {
     if (stickToBottomRef.current) {
-      scrollToBottom();
+      // 流式输出时(streamingMessageId存在)强制滚动，消除滞后
+      scrollToBottom(!!streamingMessageId);
     }
-  }, [messages, scrollToBottom]);
+  }, [messages, scrollToBottom, streamingMessageId]);
 
   // 聊天消息本地缓存：加载与保存
   const CHAT_STORAGE_KEY = "chat_messages_v1";
@@ -769,7 +775,10 @@ export function ThreePanelInterface() {
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (!isUploading) {
+      // 智能轮询：仅在页面可见且未上传时轮询
+      const isVisible =
+        typeof document !== "undefined" && document.visibilityState === "visible";
+      if (!isUploading && isVisible) {
         loadWorkspaceTree();
         loadWorkspaceFiles();
       }
@@ -2575,26 +2584,28 @@ export function ThreePanelInterface() {
       ]);
 
       aiPendingContentRef.current = "";
-      if (aiUpdateTimerRef.current !== null) {
-        window.clearTimeout(aiUpdateTimerRef.current);
-        aiUpdateTimerRef.current = null;
+      aiDisplayedContentRef.current = "";
+
+      if (streamRafRef.current) {
+        cancelAnimationFrame(streamRafRef.current);
+        streamRafRef.current = null;
       }
 
       // [修改] 用于在本地累积完整的消息内容
       let accumulatedMessage = "";
 
-      // 更新 UI 的辅助函数（节流）
-      const flushAiMessage = (fullText: string) => {
+      // 更新 UI 的辅助函数
+      const flushAiMessage = (visibleText: string) => {
         setMessages((prev) => {
           const next = [...prev];
           const idx = next.findIndex((m) => m.id === aiMsgId);
           if (idx >= 0) {
-            next[idx] = { ...next[idx], content: fullText };
+            next[idx] = { ...next[idx], content: visibleText };
           }
           return next;
         });
 
-        if (fullText.includes("<File>")) {
+        if (visibleText.includes("<File>")) {
           if (fileRefreshTimerRef.current) {
             window.clearTimeout(fileRefreshTimerRef.current);
           }
@@ -2606,15 +2617,35 @@ export function ThreePanelInterface() {
         }
       };
 
-      const scheduleAiMessageUpdate = (fullText: string) => {
-        aiPendingContentRef.current = fullText;
-        if (aiUpdateTimerRef.current !== null) return;
-        aiUpdateTimerRef.current = window.setTimeout(() => {
-          aiUpdateTimerRef.current = null;
-          const text = aiPendingContentRef.current;
-          flushAiMessage(text);
-        }, 120);
+      // 启动平滑动画循环
+      const loop = () => {
+        const pending = aiPendingContentRef.current;
+        const displayed = aiDisplayedContentRef.current;
+
+        if (displayed !== pending) {
+          const diff = pending.length - displayed.length;
+          // 若 pending 比 displayed 短（理论不应发生），或差异极小，则直接同步
+          if (diff < 0) {
+            aiDisplayedContentRef.current = pending;
+            flushAiMessage(pending);
+          } else {
+            // 自适应速度：
+            // 如果落后很多（网络卡顿后突然涌入），则步进大一些以快速追赶
+            // 如果落后很少，则步进小，实现打字机效果
+            // min=1 保证不卡死，max 限制瞬时渲染量
+            // Math.ceil(diff / 10) 意味着每帧追赶 10% 的差距 -> 渐进式平滑
+            const step = Math.max(1, Math.ceil(diff / 5));
+
+            const next = pending.slice(0, displayed.length + step);
+            aiDisplayedContentRef.current = next;
+            flushAiMessage(next);
+
+
+          }
+        }
+        streamRafRef.current = requestAnimationFrame(loop);
       };
+      streamRafRef.current = requestAnimationFrame(loop);
 
       let buffer = "";
 
@@ -2624,30 +2655,22 @@ export function ThreePanelInterface() {
 
         buffer += decoder.decode(value, { stream: true });
 
-        // [修改] 核心解析逻辑：按换行符分割 (NDJSON)
         const lines = buffer.split("\n");
-        // 保留最后一个可能不完整的片段在 buffer 中
         buffer = lines.pop() || "";
 
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-          if (trimmed === "data: [DONE]") continue; // 兼容 OpenAI 标准结束符
+          if (trimmed === "data: [DONE]") continue;
 
           try {
             const json = JSON.parse(trimmed);
-
-            // [修改] 解析 Delta 而不是 Message
             const deltaContent = json.choices?.[0]?.delta?.content;
 
             if (deltaContent) {
               accumulatedMessage += deltaContent;
-              scheduleAiMessageUpdate(accumulatedMessage);
-
-              // 检查是否包含结束标签（用于辅助逻辑，实际流结束由 done 决定）
-              if (accumulatedMessage.includes("</Answer>")) {
-                // 不在这里 setIsTyping(false)，等待流彻底结束
-              }
+              // 仅更新 pending，不直接刷新 UI
+              aiPendingContentRef.current = accumulatedMessage;
             }
           } catch (e) {
             console.warn("JSON parse error for line:", trimmed, e);
@@ -2655,22 +2678,24 @@ export function ThreePanelInterface() {
         }
       }
 
-      // 处理 buffer 中剩余的内容 (极少情况)
       if (buffer.trim()) {
         try {
           const json = JSON.parse(buffer.trim());
           const deltaContent = json.choices?.[0]?.delta?.content;
           if (deltaContent) {
             accumulatedMessage += deltaContent;
-            scheduleAiMessageUpdate(accumulatedMessage);
+            aiPendingContentRef.current = accumulatedMessage;
           }
         } catch (e) { }
       }
 
-      if (aiUpdateTimerRef.current !== null) {
-        window.clearTimeout(aiUpdateTimerRef.current);
-        aiUpdateTimerRef.current = null;
+      // 流束后，确保最终内容完全显示
+      // 停止动画循环
+      if (streamRafRef.current) {
+        cancelAnimationFrame(streamRafRef.current);
+        streamRafRef.current = null;
       }
+      // 强制同步最后状态
       flushAiMessage(accumulatedMessage);
       autoCollapseForContent(accumulatedMessage, aiMessageIndex);
 
@@ -3139,6 +3164,14 @@ export function ThreePanelInterface() {
               {/* Chat Messages */}
               <div
                 ref={messagesContainerRef}
+                onScroll={(e) => {
+                  const target = e.currentTarget;
+                  const isBottom =
+                    Math.abs(
+                      target.scrollHeight - target.scrollTop - target.clientHeight
+                    ) < 50;
+                  stickToBottomRef.current = isBottom;
+                }}
                 className="flex-1 min-h-0 min-w-0 overflow-y-scroll overflow-x-hidden px-4 py-4 pr-5 space-y-6 scrollbar-auto"
               >
                 {messages.map((message, msgIdx) => (
@@ -3518,6 +3551,8 @@ export function ThreePanelInterface() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+
       {/* 文件预览弹窗 */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent
