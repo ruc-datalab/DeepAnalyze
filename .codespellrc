@@ -1,9 +1,9 @@
 [codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
-skip = .git*,*.svg,package-lock.json,*-lock.yaml,*.lock,*.css,.codespellrc,playground,*.jsonl,.cache
+skip = .git*,*.svg,package-lock.json,*-lock.yaml,*.lock,*.css,.codespellrc,playground,*.jsonl,.cache,*/math.json,*setup.cfg
 check-hidden = true
-# Ignore embedded images in notebooks and camelCase/PascalCase identifiers
-ignore-regex = ^\s*"image/\S+": ".*|\b[a-z]+[A-Z]\w*\b|\b[A-Z][a-z]+[A-Z]\w*\b
+# Ignore embedded images, camelCase/PascalCase identifiers, and URLs
+ignore-regex = ^\s*"image/\S+": ".*|\b[a-z]+[A-Z]\w*\b|\b[A-Z][a-z]+[A-Z]\w*\b|https?://\S+
 # Domain-specific terms and variable names that are not typos
-# ot: file extension, fro: Frobenius norm in PyTorch, alse: part of regex (F|f)alse
-ignore-words-list = ans,rouge,aci,nd,medias,te,ot,fro,alse
+# ot: file extension, fro: Frobenius norm in PyTorch, alse: part of regex (F|f)alse, eles: variable name (elements)
+ignore-words-list = ans,rouge,aci,nd,medias,te,ot,fro,alse,eles
