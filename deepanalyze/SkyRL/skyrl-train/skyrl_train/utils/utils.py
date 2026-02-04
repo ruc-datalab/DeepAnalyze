@@ -54,7 +54,7 @@ def validate_batch_sizes(cfg: DictConfig):
     1. Each prompt in train_batch_size creates `n_samples_per_prompt` total samples.
     2. During training, these samples are split across data parallel (DP) workers, making the effective per-GPU batch size: `train_batch_size * n_samples_per_prompt / dp_size`.
     3. Mini batches are similarly normalized to per-gpu mini batches with size: `mini_batch_size * n_samples_per_prompt / dp_size`.
-    4. Per-gpu train batch size must be divisble by per-gpu mini batch size, otherwise the last mini batch will be incomplete.
+    4. Per-gpu train batch size must be divisible by per-gpu mini batch size, otherwise the last mini batch will be incomplete.
     5. Per-gpu mini batch size must be divisible by per-gpu micro batch size, otherwise the last micro batch will be incomplete.
     """
     assert cfg.trainer.train_batch_size >= cfg.trainer.policy_mini_batch_size
@@ -305,7 +305,7 @@ def validate_cfg(cfg: DictConfig):
 
         if not cfg.generator.batched:
             raise ValueError(
-                "Gneration with `trainer.algorithm.use_tis` needs to be batched with only single turn generation"
+                "Generation with `trainer.algorithm.use_tis` needs to be batched with only single turn generation"
             )
 
     if cfg.generator.sampling_params.logprobs is not None:

@@ -154,7 +154,7 @@ def logprobs_from_logits_v2(
             logits_labels - logsumexp_values
         )  # log_softmax(x_i) = x_i - logsumexp(x)
     else:
-        # logsumexp approach is unstable with bfloat16, fall back to slightly less efficent approach
+        # logsumexp approach is unstable with bfloat16, fall back to slightly less efficient approach
         logprobs_labels = []
         for row_logits, row_labels in zip(
             logits, labels

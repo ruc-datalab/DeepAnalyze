@@ -329,7 +329,7 @@ class Worker(DistributedTorchRayActor):
             # NOTE (sumanthrh): This doesn't work yet, and is thus commented out.
             # The better way is to just have this specified in __del__, but there is
             # no guarattee that __del__ will be called in general. Ray also doesn't
-            # explictly call __del__ when the actor shuts down.
+            # explicitly call __del__ when the actor shuts down.
             # It's commented out so that we can fix this in the future.
             # atexit.register(self._handle_termination)
 

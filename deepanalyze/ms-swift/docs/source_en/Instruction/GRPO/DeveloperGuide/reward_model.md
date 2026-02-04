@@ -47,7 +47,7 @@ class RMlugin(DefaultRMPlugin):
     def __init__(self, model, template):
 
         super().__init__(model, template)
-        # initilize PTEngine to infer
+        # initialize PTEngine to infer
         self.engine = PtEngine.from_model_template(self.model, self.template, max_batch_size=0)
 
         ...

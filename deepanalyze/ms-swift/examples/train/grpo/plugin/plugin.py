@@ -732,7 +732,7 @@ class CustomizedRMPlugin:
     """
     Customized Reward Model Plugin, same to DefaultRMPlugin
 
-    It assumes that `self.model` is a classification model with a value head(output dimmension 1).
+    It assumes that `self.model` is a classification model with a value head(output dimension 1).
     The first logits value from the model's output is used as the reward score.
     """
 
@@ -757,7 +757,7 @@ class QwenLongPlugin(DefaultRMPlugin):
     # ms_dataset: https://modelscope.cn/datasets/iic/DocQA-RL-1.6K
     def __init__(self, model, template, accuracy_orm=None):
         super().__init__(model, template)
-        # initilize PTEngine to infer
+        # initialize PTEngine to infer
         self.engine = PtEngine.from_model_template(self.model, self.template, max_batch_size=0)  # 0: no limit
         self.request_config = RequestConfig(temperature=0)  # customise your request config here
         self.system = textwrap.dedent("""

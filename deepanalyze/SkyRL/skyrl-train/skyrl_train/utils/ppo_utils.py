@@ -327,7 +327,7 @@ class BaseFunctionRegistry:
         If ray is initialized, this function will get or create a named ray actor (RegistryActor)
         for the registry, and sync the registry to the actor.
 
-        If ray is not initalized, the function will be stored in the local registry only.
+        If ray is not initialized, the function will be stored in the local registry only.
 
         To make sure all locally registered functions are available to all ray processes,
         call sync_with_actor() after ray.init().

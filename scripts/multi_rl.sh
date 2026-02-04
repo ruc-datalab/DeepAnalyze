@@ -13,7 +13,7 @@ python -m examples.deepanalyze.main_deepanalyze \
     data.train_data="[
         \"${DATA_DIR}/RL/qa.parquet\",
         \"${DATA_DIR}/RL/datatask.parquet\",
-        \"${DATA_DIR}/RL/reseach.parquet\"
+        \"${DATA_DIR}/RL/research.parquet\"
     ]" \
     trainer.policy.model.path="${MODEL_COLDSTART_PATH}" \
     trainer.placement.colocate_all=true \

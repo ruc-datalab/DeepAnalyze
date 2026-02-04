@@ -1,4 +1,4 @@
-# Open-ended Data Reseach on Student Loan
+# Open-ended Data Research on Student Loan
 
 ## Input
 ```python

@@ -831,8 +831,8 @@ def get_llm_for_sequence_regression(
     # https://github.com/huggingface/transformers/issues/26877
     model.config.use_cache = False
 
-    # NOTE: For reward model training only, intialize value_head manually
-    # because deepspeed.zero.Init() will not intialize them.
+    # NOTE: For reward model training only, initialize value_head manually
+    # because deepspeed.zero.Init() will not initialize them.
     # TODO: Find a better way to clarify reward model training.
     if init_value_head:
         value_head = getattr(model, value_head_prefix)

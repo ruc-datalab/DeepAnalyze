@@ -286,7 +286,7 @@ class VLLMInferenceEngine(BaseVLLMInferenceEngine):
             raise ValueError(f"Expected update weight request with 'names' entry, got keys: {request.keys()}")
 
         if not len(request["names"]):
-            raise ValueError("Update weight request should have atleast one entry in 'names'")
+            raise ValueError("Update weight request should have at least one entry in 'names'")
 
         engine = self._get_engine()
         # Use IPC if handles are provided
@@ -387,7 +387,7 @@ class AsyncVLLMInferenceEngine(BaseVLLMInferenceEngine):
             raise ValueError(f"Expected update weight request with 'names' entry, got keys: {request.keys()}")
 
         if not len(request["names"]):
-            raise ValueError("Update weight request should have atleast one entry in 'names'")
+            raise ValueError("Update weight request should have at least one entry in 'names'")
 
         engine = self._get_engine()
         # Use IPC if handles are provided
@@ -491,7 +491,7 @@ class AsyncVLLMInferenceEngine(BaseVLLMInferenceEngine):
 #             raise ValueError(f"Expected update weight request with 'names' entry, got keys: {request.keys()}")
 
 #         if not len(request["names"]):
-#             raise ValueError("Update weight request should have atleast one entry in 'names'")
+#             raise ValueError("Update weight request should have at least one entry in 'names'")
 
 #         engine = self._get_engine()
 #         # Use IPC if handles are provided

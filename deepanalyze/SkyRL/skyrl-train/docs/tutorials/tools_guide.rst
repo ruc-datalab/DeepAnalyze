@@ -12,7 +12,7 @@ Core Concepts
 
 **ToolGroup**: A ``ToolGroup`` is a collection of related tools that share the same context or states. Tool groups enable all tools within the group to access and modify the shared state, such as a shared database connection or cache.
 
-**Environment**: An ``Environment`` is a class that defines the task for the agent to solve, and can integrate one ore more tool groups for the agent to use. See the following doc for more details on how to build an environment: :doc:`new_env`.
+**Environment**: An ``Environment`` is a class that defines the task for the agent to solve, and can integrate one or more tool groups for the agent to use. See the following doc for more details on how to build an environment: :doc:`new_env`.
 
 
 ToolGroup and the @tool Decorator
@@ -84,14 +84,14 @@ Search ToolGroup
 Environment Integration
 ------------------------
 
-Tools groups can be integrated into any environment in SkyGym-RL. The base environment class for text-based environments is ``BaseTextEnv``, which provides simple utilities for managing and using multiple tool groups in a single envrionment.
+Tools groups can be integrated into any environment in SkyGym-RL. The base environment class for text-based environments is ``BaseTextEnv``, which provides simple utilities for managing and using multiple tool groups in a single environment.
 
 The following sub-sections walk through integrating and using tools in an environment.
 
 Tool Initialization
 ~~~~~~~~~~~~~~~~~~~
 
-To incorporate tools into an envrionment, first build and initialize the tool groups during environment construction:
+To incorporate tools into an environment, first build and initialize the tool groups during environment construction:
 
 
 .. code-block:: python
@@ -112,7 +112,7 @@ To incorporate tools into an envrionment, first build and initialize the tool gr
 Tool Execution
 ~~~~~~~~~~~~~~
 
-To use a tool and get the result, you can call the ``_execute_tool`` (provided by ``BaseTextEnv``) method with the tool group name, tool name, and the tool input. Tools are most often used in the envrionment ``step`` method.
+To use a tool and get the result, you can call the ``_execute_tool`` (provided by ``BaseTextEnv``) method with the tool group name, tool name, and the tool input. Tools are most often used in the environment ``step`` method.
 
 .. code-block:: python
 

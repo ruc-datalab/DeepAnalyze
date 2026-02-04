@@ -85,10 +85,10 @@ def _get_swebench_workspace_dir_name(instance: pd.Series, dataset: str) -> str:
 
 # Phase 1. READING: read the problem and reword it in clearer terms
 #    1.1 If there are code or config snippets. Express in words any best practices or conventions in them.
-#    1.2 Hightlight message errors, method names, variables, file names, stack traces, and technical details.
+#    1.2 Highlight message errors, method names, variables, file names, stack traces, and technical details.
 #    1.3 Explain the problem in clear terms.
 #    1.4 Enumerate the steps to reproduce the problem.
-#    1.5 Hightlight any best practices to take into account when testing and fixing the issue
+#    1.5 Highlight any best practices to take into account when testing and fixing the issue
 
 # Phase 2. RUNNING: install and run the tests on the repository
 #    2.1 Follow the readme

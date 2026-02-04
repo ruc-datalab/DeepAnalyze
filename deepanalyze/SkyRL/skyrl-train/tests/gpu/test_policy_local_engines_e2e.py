@@ -131,7 +131,7 @@ def test_policy_local_engines_e2e(
     colocate_all, weight_sync_backend, strategy, backend, tp_size
 ):
     """
-    Tests initalizing the policy actor group and inference engine, syncing weights, and performing generation.
+    Tests initializing the policy actor group and inference engine, syncing weights, and performing generation.
     """
     try:
         cfg = get_test_actor_config()

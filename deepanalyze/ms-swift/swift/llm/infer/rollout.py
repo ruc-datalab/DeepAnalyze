@@ -383,7 +383,7 @@ class SwiftRolloutDeploy(SwiftPipeline):
                 requests = RolloutInferRequest(
                     messages=[{"role": "user", "content": "<placeholder>"}]
                 )
-            # different seed bewteen vLLM Engine
+            # different seed between vLLM Engine
             if request_config.seed:
                 request_config.seed += i * len(requests)
             kwargs = {
