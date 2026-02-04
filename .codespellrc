@@ -5,4 +5,5 @@ check-hidden = true
 # Ignore embedded images in notebooks and camelCase/PascalCase identifiers
 ignore-regex = ^\s*"image/\S+": ".*|\b[a-z]+[A-Z]\w*\b|\b[A-Z][a-z]+[A-Z]\w*\b
 # Domain-specific terms and variable names that are not typos
-ignore-words-list = ans,rouge,aci,nd,medias,te
+# ot: file extension, fro: Frobenius norm in PyTorch, alse: part of regex (F|f)alse
+ignore-words-list = ans,rouge,aci,nd,medias,te,ot,fro,alse

@@ -24,4 +24,4 @@ wheels/
 **/.claude/
 **/workspace/
 **/CLAUDE.md
-**/logs/
+**/logs/.npm/
