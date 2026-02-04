@@ -1,6 +1,8 @@
 [codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
-skip = .git*,*.svg,package-lock.json,*-lock.yaml,*.lock,*.css,.codespellrc
+skip = .git*,*.svg,package-lock.json,*-lock.yaml,*.lock,*.css,.codespellrc,playground,*.jsonl,.cache
 check-hidden = true
-ignore-regex = ^\s*"image/\S+": ".*
-# ignore-words-list =
+# Ignore embedded images in notebooks and camelCase/PascalCase identifiers
+ignore-regex = ^\s*"image/\S+": ".*|\b[a-z]+[A-Z]\w*\b|\b[A-Z][a-z]+[A-Z]\w*\b
+# Domain-specific terms and variable names that are not typos
+ignore-words-list = ans,rouge,aci,nd,medias,te
