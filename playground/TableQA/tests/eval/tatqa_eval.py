@@ -101,14 +101,14 @@ def evaluate(results_dict: Dict[str, Dict]) -> Tuple[float, float]:
                 model_answer = model_answer[0]
             try:
                 model_answer = str(int(float(str(model_answer))))
-            except:
+            except Exception:
                 model_answer = str(model_answer)
 
             if isinstance(gold_answer, list) and len(gold_answer) > 0:
                 gold_answer = gold_answer[0]
             try:
                 gold_answer = str(int(float(str(gold_answer))))
-            except:
+            except Exception:
                 gold_answer = str(gold_answer)
         elif answer_type == "arithmetic" and not isinstance(model_answer, list):
             model_answer = [str(model_answer)]

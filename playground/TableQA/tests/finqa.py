@@ -309,7 +309,7 @@ def process_finqa_data_batch(
                         # Allow small differences due to rounding
                         if abs(extracted_number - gold_number) < 0.01:
                             is_correct = True
-                    except:
+                    except Exception:
                         # If conversion fails, stick with string comparison
                         pass
 

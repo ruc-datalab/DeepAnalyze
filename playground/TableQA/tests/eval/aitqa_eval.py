@@ -98,7 +98,7 @@ def normalize_answer(answer):
             # Return as integer if it's a whole number
             return str(int(value))
         return str(value)
-    except:
+    except Exception:
         # Not numeric, just clean and return
         return "".join(c for c in answer if c.isdigit() or c in ".-")
 
@@ -120,7 +120,7 @@ def compute_answer_match(ground_truth, prediction):
         pred_num = float(norm_pred)
         # Use small epsilon for floating point comparison
         return abs(gt_num - pred_num) < 1e-6
-    except:
+    except Exception:
         # Fall back to string comparison
         return norm_gt == norm_pred
 

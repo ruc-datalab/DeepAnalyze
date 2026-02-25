@@ -30,7 +30,7 @@ def call_openai_api(
                 stop=stop,
             )
             break
-        except:
+        except Exception:
             import time
 
             time.sleep(10)

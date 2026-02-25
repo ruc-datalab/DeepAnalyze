@@ -116,7 +116,7 @@ def get_metrics(
 
         if pred_nums[0] == gold_nums[0]:
             return 1.0, 1.0
-    except:
+    except Exception:
         pass
 
     if set(predicted_bags[0]) == set(gold_bags[0]) and len(predicted_bags[0]) == len(
