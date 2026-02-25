@@ -114,10 +114,17 @@ class DeepAnalyzeVLLM:
 
                 response_message.append(ans)
 
-                # Check for <Code> block
-                code_match = re.search(r"<Code>(.*?)</Code>", ans, re.DOTALL)
-                if not code_match or "<Answer>" in ans:
+                # Check for termination: only stop when <Answer> is present
+                if "<Answer>" in ans:
                     break
+
+                # Check for <Code> block to execute
+                code_match = re.search(r"<Code>(.*?)</Code>", ans, re.DOTALL)
+                if not code_match:
+                    # No <Code> and no <Answer> (e.g. <Analyze>-only response);
+                    # continue the loop so the model can produce the next step.
+                    messages.append({"role": "assistant", "content": ans})
+                    continue
 
                 code_content = code_match.group(1).strip()
                 md_match = re.search(r"```(?:python)?(.*?)```", code_content, re.DOTALL)
