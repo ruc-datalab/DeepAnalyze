@@ -11,5 +11,5 @@ EXTRACTOR_PROMPT = """Please process the following webpage content and user goal
 2. **Key Extraction for Evidence**: Identify and extract the **most relevant information** from the content, you never miss any important information, output the **full original context** of the content as far as possible, it can be more than three paragraphs.
 3. **Summary Output for Summary**: Organize into a concise paragraph with logical flow, prioritizing clarity and judge the contribution of the information to the goal.
 
-**Final Output Format using JSON format has "rational", "evidence", "summary" feilds**
+**Final Output Format using JSON format has "rational", "evidence", "summary" fields**
 """

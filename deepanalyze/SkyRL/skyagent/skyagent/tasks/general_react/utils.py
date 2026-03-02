@@ -26,7 +26,7 @@ class GeneralReactTask(BaseTask):
                 system_prompt = {
                     "role": "system", 
                     "content": "Please solve the problem with the following tools and return the final answer inside the finish tool. \
-                    If there are additional requirments such as the answer should be included inside \\boxed{}, please return the answer in the format of \
+                    If there are additional requirements such as the answer should be included inside \\boxed{}, please return the answer in the format of \
                     <function=finish> \
                     <parameter=answer>\\boxed{'The final answer goes here.'}</parameter> \
                     </function>"

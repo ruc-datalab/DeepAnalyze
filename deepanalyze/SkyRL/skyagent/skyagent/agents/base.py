@@ -339,7 +339,7 @@ class AgentRunner:
             has_finish_action_list.append(result.get("finish", False))
             finish_reason_list.append(result.get("finish_reason", None))
 
-        # Encode messages, get assitant mask and position ids
+        # Encode messages, get assistant mask and position ids
         prompt_encodings = self.tokenizer.apply_chat_template(
             all_prompts,
             # return_tensors="pt",

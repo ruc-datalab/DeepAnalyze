@@ -353,7 +353,7 @@ def prepare_adapter(
         logger.info(f"reft config: {reft_config}")
         model = Swift.prepare_model(model, {"reft": reft_config})
     elif args.train_type == "bone":
-        # Version loosing
+        # Version losing
         from peft import BoneConfig
 
         bone_config = BoneConfig(

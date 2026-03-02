@@ -260,7 +260,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
   answer = deepanalyze.generate(prompt, workspace=workspace)
   print(answer["reasoning"])
   ```
-  You shoud get a deep research report, which can be rendered as a PDF.:
+  You should get a deep research report, which can be rendered as a PDF.:
   ```text
   # Comprehensive Analysis of Student Enrollment Patterns and Institutional Transfers
   

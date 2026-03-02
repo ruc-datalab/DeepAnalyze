@@ -17,7 +17,7 @@ class DefaultRMPlugin:
     Default Reward Model Plugin
 
     This class implements the default processing logic for reward models.
-    It assumes that `self.model` is a classification model with a value head(output dimmension 1).
+    It assumes that `self.model` is a classification model with a value head(output dimension 1).
     The first logits value from the model's output is used as the reward score.
     """
 
@@ -54,7 +54,7 @@ class GenRMPlugin(DefaultRMPlugin):
         """
 
         super().__init__(model, template)
-        # initilize PTEngine to infer
+        # initialize PTEngine to infer
         self.engine = PtEngine.from_model_template(
             self.model, self.template, max_batch_size=0
         )  # 0: no limit

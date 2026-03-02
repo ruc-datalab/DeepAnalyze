@@ -45,7 +45,7 @@ CPU tests
 GPU tests
 ~~~~~~~~~
 
-The GPU tests require a node with atleast 8 GPUs. They have been tested on a 8xH100 node, but should work even on 8xA100 nodes. We are actively working on making these more accessible.
+The GPU tests require a node with at least 8 GPUs. They have been tested on a 8xH100 node, but should work even on 8xA100 nodes. We are actively working on making these more accessible.
 
 .. code-block:: bash
 

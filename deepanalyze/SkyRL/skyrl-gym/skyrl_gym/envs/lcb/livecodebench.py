@@ -83,7 +83,7 @@ class TimeoutException(Exception):
 
 
 def timeout_handler(signum, frame):
-    print("timeout occured: alarm went off")
+    print("timeout occurred: alarm went off")
     raise TimeoutException
 
 
@@ -195,7 +195,7 @@ def compile_code(code: str, timeout: int):
             # else condition allows future extensibility to other platforms
             compiled_sol = tmp_sol.Solution()
         else:
-            # do nothing in the other case since function is accesible
+            # do nothing in the other case since function is accessible
             compiled_sol = tmp_sol
 
         assert compiled_sol is not None
@@ -389,9 +389,9 @@ def grade_stdio(
             if stripped_prediction_line == stripped_gt_out_line:
                 continue
 
-            ## CASE 2: element-wise comparision
+            ## CASE 2: element-wise comparison
             ## if there are floating elements
-            ## use `decimal` library for good floating point comparision
+            ## use `decimal` library for good floating point comparison
             ## otherwise gotcha: np.isclose(50000000000000000, 50000000000000001) = True
             ## note that we should always be able to convert to decimals
 

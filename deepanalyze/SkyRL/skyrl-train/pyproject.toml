@@ -53,7 +53,7 @@ skyrl-gym = { path = "./skyrl-gym" , editable = true }
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
 flash-attn = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.0.post2/flash_attn-2.8.0.post2+cu12torch2.7cxx11abiFALSE-cp312-cp312-linux_x86_64.whl" }
-# NOTE (sumanthrh): We explictly use a flashinfer wheel from their index. 
+# NOTE (sumanthrh): We explicitly use a flashinfer wheel from their index. 
 # The wheels on PyPI don't come with pre-compiled kernels and the package will JIT compile them at runtime which is slow.
 # additionally, different inference engines may pin different compatible flashinfer versions, so we provide the option to pin different versions for vllm/sglang
 flashinfer-python = [

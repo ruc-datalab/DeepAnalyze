@@ -234,7 +234,7 @@ def main():
         print(f"do sample cost: {(time.time()-ts) / 60:.1f} minutes.", flush=True)
         ts = time.time()
         # if want to train the original dataset with datasets, add the original dataset here
-        # if want to train the original model everytime, change to first_model
+        # if want to train the original model every time, change to first_model
         ckpt = do_train(model, model_type, datasets, i)
         print(f"do train cost: {(time.time() - ts) / 60:.1f} minutes.", flush=True)
         ts = time.time()

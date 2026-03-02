@@ -506,7 +506,7 @@ def compute_score(solution_str: str,
             if "\\pi" in extracted_model_output or "\\pi" in ground_truth:
                 equivs = []
                 for pi in [math.pi, 3.14]:
-                    equivs.append(math_equal(extracted_model_output, ground_truth, tiemout=True, pi=pi))
+                    equivs.append(math_equal(extracted_model_output, ground_truth, timeout=True, pi=pi))
                     correct = any(equivs)
             else:
                 correct = math_equal(extracted_model_output, ground_truth, timeout=True)

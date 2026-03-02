@@ -18,7 +18,7 @@ class SwiftRLHF(SwiftSft):
 
     def _prepare_model_tokenizer(self):
         if self.args.sequence_parallel_size > 1:
-            # Duplicate calling is allowd to promise this function will
+            # Duplicate calling is allowed to promise this function will
             # be called before model initializing.
             from swift.trainers.sequence_parallel import sequence_parallel
 
