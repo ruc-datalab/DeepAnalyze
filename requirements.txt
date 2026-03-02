@@ -6,6 +6,7 @@ seaborn
 torch
 transformers
 matplotlib
+pypandoc
 
 # Web UI
 requests
