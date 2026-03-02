@@ -95,7 +95,7 @@ def calculate_bleu(reference: Union[str, List[str]], candidate: str) -> float:
                 smoothing_function=smoothie,
             )
             bleu_scores.append(score)
-        except:
+        except Exception:
             # Fallback to unigram precision if higher n-grams fail
             try:
                 score = sentence_bleu(
@@ -105,7 +105,7 @@ def calculate_bleu(reference: Union[str, List[str]], candidate: str) -> float:
                     smoothing_function=smoothie,
                 )
                 bleu_scores.append(score)
-            except:
+            except Exception:
                 # If all fails, use 0
                 bleu_scores.append(0)
 

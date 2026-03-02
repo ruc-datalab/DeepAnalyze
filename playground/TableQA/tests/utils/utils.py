@@ -20,7 +20,7 @@ def load_jsonl(file: Union[str, Path]) -> Iterable[Any]:
         for line in f:
             try:
                 yield json.loads(line)
-            except:
+            except Exception:
                 print("Error in loading:", line)
                 exit()
 

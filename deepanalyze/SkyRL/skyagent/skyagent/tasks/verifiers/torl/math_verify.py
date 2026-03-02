@@ -113,7 +113,7 @@ def is_equiv(str1, str2, verbose=False):
         str1=parse(str1)
         str2=parse(str2)
         return verify(str1, str2)
-    except:
+    except Exception:
         pass
 
     try:

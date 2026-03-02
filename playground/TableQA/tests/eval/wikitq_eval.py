@@ -101,7 +101,7 @@ def normalize_answer(answer):
         if num.is_integer():
             return str(int(num))
         return str(num)
-    except:
+    except Exception:
         # Not a number, continue with further normalization
         pass
 

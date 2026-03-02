@@ -48,7 +48,7 @@ def normalize_answer(answer: str) -> Tuple[float, str, bool]:
             return num_value, "$", False
         else:
             return num_value, "", False
-    except:
+    except Exception:
         return None, original, False
 
 

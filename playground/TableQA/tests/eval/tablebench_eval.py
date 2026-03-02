@@ -74,7 +74,7 @@ def normalize_answer(s):
             if num_val == int(num_val):
                 return str(int(num_val))
             return str(num_val)
-        except:
+        except Exception:
             return num_str
 
     # Non-numeric answers - standard text normalization

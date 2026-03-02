@@ -77,7 +77,7 @@ def calculate_bleu(reference: str, candidate: str) -> float:
             weights=(0.25, 0.25, 0.25, 0.25),
             smoothing_function=smoothie,
         )
-    except:
+    except Exception:
         # Fallback to unigram precision if higher n-grams fail
         return sentence_bleu(
             [reference_tokens],

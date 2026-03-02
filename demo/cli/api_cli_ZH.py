@@ -93,7 +93,7 @@ class DeepAnalyzeCLI:
             temp_client = openai.OpenAI(api_key="dummy", base_url=self.api_base)
             models = temp_client.models.list()
             return True
-        except:
+        except Exception:
             return False
 
     def display_header(self):

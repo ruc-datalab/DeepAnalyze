@@ -553,7 +553,7 @@ def combined_evaluate(
         # Delete temporary files
         try:
             os.remove(temp_exact_match_file)
-        except:
+        except Exception:
             pass
 
         if verbose:

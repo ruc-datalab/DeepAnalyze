@@ -72,5 +72,5 @@ if __name__ == "__main__":
             jupyter_process.terminate()
             try:
                 jupyter_process.wait(timeout=5)
-            except:
+            except Exception:
                 jupyter_process.kill()

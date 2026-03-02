@@ -14,7 +14,7 @@ def _fix_fracs(string):
             else:
                 try:
                     assert len(substr) >= 2
-                except:
+                except Exception:
                     return string
                 a = substr[0]
                 b = substr[1]
@@ -47,7 +47,7 @@ def _fix_a_slash_b(string):
         assert string == "{}/{}".format(a, b)
         new_string = "\\frac{" + str(a) + "}{" + str(b) + "}"
         return new_string
-    except:
+    except Exception:
         return string
 
 

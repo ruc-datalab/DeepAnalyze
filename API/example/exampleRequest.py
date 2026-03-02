@@ -166,7 +166,7 @@ def check_server():
     try:
         response = requests.get(f"{API_BASE}/health", timeout=2)
         return response.status_code == 200
-    except:
+    except Exception:
         return False
 
 
