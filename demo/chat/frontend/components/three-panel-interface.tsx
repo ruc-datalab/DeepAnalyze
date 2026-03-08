@@ -73,6 +73,13 @@ import {
   Eye,
   PanelRightOpen,
   WandSparkles,
+  Languages,
+  FileSpreadsheet,
+  Package,
+  Archive,
+  FileImage,
+  FileCode2,
+  FileJson,
 } from "lucide-react";
 import { Tree, NodeApi } from "react-arborist";
 import { useToast } from "@/hooks/use-toast";
@@ -91,6 +98,7 @@ import {
 import {
   DATA_ANALYSIS_PROMPT_PRESETS,
   DEFAULT_SYSTEM_PROMPT,
+  type UILanguage,
 } from "@/lib/prompt-presets";
 
 interface Message {
@@ -112,9 +120,12 @@ interface FileAttachment {
 
 interface WorkspaceFile {
   name: string;
+  path: string;
   size: number;
   extension: string;
   icon: string;
+  category?: "table" | "image" | "other";
+  is_generated?: boolean;
   download_url: string;
   preview_url?: string;
 }
@@ -422,6 +433,11 @@ export function ThreePanelInterface() {
         setAutoCollapseEnabled(savedAuto !== "false");
       }
 
+      const savedLanguage = localStorage.getItem("deepanalyze.uiLanguage");
+      if (savedLanguage === "en" || savedLanguage === "zh") {
+        setUiLanguage(savedLanguage);
+      }
+
       const savedSystemPrompt = localStorage.getItem("deepanalyze.systemPrompt");
       if (savedSystemPrompt) {
         setSystemPrompt(savedSystemPrompt);
@@ -637,11 +653,17 @@ export function ThreePanelInterface() {
   const [workspaceSearch, setWorkspaceSearch] = useState("");
   const [selectedWorkspacePath, setSelectedWorkspacePath] = useState("");
   const [showPromptPanel, setShowPromptPanel] = useState(true);
+  const [uiLanguage, setUiLanguage] = useState<UILanguage>("en");
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [selectedPresetId, setSelectedPresetId] = useState(
     DATA_ANALYSIS_PROMPT_PRESETS[0]?.id || ""
   );
 
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("deepanalyze.uiLanguage", uiLanguage);
+  }, [uiLanguage]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -937,6 +959,57 @@ export function ThreePanelInterface() {
   const toggleExpand = (p: string) =>
     setExpanded((prev) => ({ ...prev, [p]: !prev[p] }));
 
+  const textLabels = useMemo(
+    () => ({
+      workspace: uiLanguage === "zh" ? "工作区" : "Workspace",
+      workspaceHint:
+        uiLanguage === "zh"
+          ? "文件、提示词与分类下载都放在这里"
+          : "Files, prompts, and bundle downloads live here.",
+      language: uiLanguage === "zh" ? "系统语言" : "Language",
+      uploaded: uiLanguage === "zh" ? "上传文件" : "Uploaded",
+      generated: uiLanguage === "zh" ? "生成文件" : "Generated",
+      all: uiLanguage === "zh" ? "全部文件" : "All Files",
+      search: uiLanguage === "zh" ? "搜索文件名或路径..." : "Search by file name or path...",
+      recentPreview: uiLanguage === "zh" ? "最近预览" : "Recent Preview",
+      preview: uiLanguage === "zh" ? "预览" : "Preview",
+      promptPresets: uiLanguage === "zh" ? "预设 Prompt" : "Preset Prompt",
+      promptHint:
+        uiLanguage === "zh"
+          ? "切换预设时，输入框会自动同步对应内容"
+          : "Selecting a preset automatically updates the input box.",
+      systemPrompt: "System Prompt",
+      systemPromptPlaceholder:
+        uiLanguage === "zh"
+          ? "可选：在这里填写 system prompt，不填则为空"
+          : "Optional: write a system prompt here, or leave it empty.",
+      bundleDownload:
+        uiLanguage === "zh" ? "分类打包下载" : "Bundle Downloads",
+      noFiles:
+        uiLanguage === "zh"
+          ? "当前筛选条件下没有文件"
+          : "No files match the current filter.",
+      autoInjected:
+        uiLanguage === "zh" ? "输入框已同步预设内容" : "Input synced with preset prompt",
+      tableBundle: uiLanguage === "zh" ? "表格文件" : "Tables",
+      imageBundle: uiLanguage === "zh" ? "图片文件" : "Images",
+      otherBundle: uiLanguage === "zh" ? "其他文件" : "Others",
+      allBundle: uiLanguage === "zh" ? "全部打包" : "Download All",
+      filesUnit: uiLanguage === "zh" ? "个文件" : "files",
+      clickToPreview:
+        uiLanguage === "zh" ? "点击卡片预览" : "Click a card to preview",
+      assistantHint:
+        uiLanguage === "zh"
+          ? "中间只保留对话、流式分析和快捷操作"
+          : "The center stays focused on chat, streaming analysis, and quick actions.",
+      presetsDescription:
+        uiLanguage === "zh" ? "预设会同步到输入框" : "Presets sync to the input box",
+      emptySystemPrompt:
+        uiLanguage === "zh" ? "默认留空" : "Default empty",
+    }),
+    [uiLanguage]
+  );
+
   const selectedPreset = useMemo(
     () =>
       DATA_ANALYSIS_PROMPT_PRESETS.find((item) => item.id === selectedPresetId) ||
@@ -944,71 +1017,109 @@ export function ThreePanelInterface() {
     [selectedPresetId]
   );
 
-  const applyPresetToInput = useCallback(() => {
-    if (!selectedPreset?.prompt) return;
-    setInputValue((prev) =>
-      prev.trim()
-        ? `${prev.trim()}\n\n${selectedPreset.prompt}`
-        : selectedPreset.prompt
-    );
-  }, [selectedPreset]);
+  const selectedPresetPrompt = selectedPreset?.prompt[uiLanguage] || "";
+  const selectedPresetLabel = selectedPreset?.label[uiLanguage] || "";
+  const selectedPresetDescription = selectedPreset?.description[uiLanguage] || "";
 
-  const workspaceSummary = useMemo(() => {
-    const stats = { uploaded: 0, generated: 0, total: 0 };
+  useEffect(() => {
+    if (!selectedPresetPrompt) return;
+    setInputValue(selectedPresetPrompt);
+  }, [selectedPresetPrompt]);
 
-    const walk = (node: WorkspaceNode | null) => {
-      if (!node) return;
-      if (!node.is_dir) {
-        stats.total += 1;
-        if (node.is_generated) {
-          stats.generated += 1;
-        } else {
-          stats.uploaded += 1;
-        }
-      }
-      node.children?.forEach(walk);
+  const generatedBundleCounts = useMemo(() => {
+    const generatedFiles = workspaceFiles.filter((file) => file.is_generated);
+    return {
+      all: generatedFiles.length,
+      table: generatedFiles.filter((file) => file.category === "table").length,
+      image: generatedFiles.filter((file) => file.category === "image").length,
+      other: generatedFiles.filter((file) => (file.category || "other") === "other").length,
     };
+  }, [workspaceFiles]);
 
-    walk(workspaceTree);
-    return stats;
-  }, [workspaceTree]);
-
-  const filteredWorkspaceTree = useMemo(() => {
-    if (!workspaceTree) return null;
-
+  const filteredWorkspaceFiles = useMemo(() => {
     const query = workspaceSearch.trim().toLowerCase();
+    return workspaceFiles
+      .filter((file) => {
+        if (workspaceView === "generated" && !file.is_generated) return false;
+        if (workspaceView === "uploaded" && file.is_generated) return false;
+        if (!query) return true;
+        return (
+          file.name.toLowerCase().includes(query) ||
+          file.path.toLowerCase().includes(query)
+        );
+      })
+      .sort((a, b) => {
+        if (!!a.is_generated !== !!b.is_generated) {
+          return a.is_generated ? 1 : -1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }, [workspaceFiles, workspaceSearch, workspaceView]);
 
-    const shouldKeepInView = (node: WorkspaceNode) => {
-      if (workspaceView === "generated") return !!node.is_generated;
-      if (workspaceView === "uploaded") return !node.is_generated;
-      return true;
-    };
-
-    const filterNode = (node: WorkspaceNode): WorkspaceNode | null => {
-      const filteredChildren = node.children
-        ?.map(filterNode)
-        .filter(Boolean) as WorkspaceNode[] | undefined;
-      const selfMatches =
-        !query ||
-        node.name.toLowerCase().includes(query) ||
-        node.path.toLowerCase().includes(query);
-      const viewMatches = node.is_dir
-        ? node.path === "" || shouldKeepInView(node)
-        : shouldKeepInView(node);
-      const hasChildren = !!filteredChildren?.length;
-
-      if ((selfMatches && viewMatches) || hasChildren) {
+  const getLocalizedPreviewType = useCallback(
+    (type: "text" | "image" | "pdf" | "binary") => {
+      if (uiLanguage === "zh") {
         return {
-          ...node,
-          children: filteredChildren,
-        };
+          image: "图片",
+          pdf: "PDF",
+          text: "文本",
+          binary: "二进制文件",
+        }[type];
       }
+      return {
+        image: "Image",
+        pdf: "PDF",
+        text: "Text",
+        binary: "Binary",
+      }[type];
+    },
+    [uiLanguage]
+  );
 
-      return null;
-    };
+  const getFileAccentClasses = useCallback((file: WorkspaceFile) => {
+    if (file.category === "table") {
+      return "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/20";
+    }
+    if (file.category == "image") {
+      return "border-blue-200 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/20";
+    }
+    return "border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900/60";
+  }, []);
 
-    return filterNode(workspaceTree);
-  }, [workspaceSearch, workspaceTree, workspaceView]);
+  const handlePresetChange = useCallback((value: string) => {
+    setSelectedPresetId(value);
+  }, []);
+
+  const downloadGeneratedBundle = useCallback(
+    async (category: "all" | "table" | "image" | "other") => {
+      try {
+        const url = buildApiUrlWithParams(
+          API_CONFIG.ENDPOINTS.WORKSPACE_DOWNLOAD_BUNDLE,
+          { category, session_id: sessionId }
+        );
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = `generated_${category}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+      } catch (error) {
+        toast({
+          description:
+            uiLanguage === "zh" ? "打包下载失败" : "Bundle download failed",
+          variant: "destructive",
+        });
+      }
+    },
+    [sessionId, toast, uiLanguage]
+  );
 
   const deleteFile = async (p: string) => {
     try {
@@ -1088,9 +1199,16 @@ export function ThreePanelInterface() {
     const correctedUrl = ensureGeneratedInUrl(node.download_url || "");
     const mapped: WorkspaceFile = {
       name: node.name,
+      path: node.path,
       size: node.size || 0,
       extension: ext,
       icon: node.icon || "",
+      category: ["csv", "tsv", "xlsx", "xls", "parquet", "sqlite", "db"].includes(ext)
+        ? "table"
+        : ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"].includes(ext)
+          ? "image"
+          : "other",
+      is_generated: node.is_generated,
       download_url: correctedUrl,
       preview_url: correctedUrl,
     };
@@ -1620,7 +1738,7 @@ export function ThreePanelInterface() {
     setIsPreviewOpen(true);
     setPreviewLoading(true);
 
-    const ext = (file.extension || "").toLowerCase();
+    const ext = (file.extension || "").replace(/^\./, "").toLowerCase();
     if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) {
       setPreviewType("image");
       // 修正 URL
@@ -2898,15 +3016,15 @@ export function ThreePanelInterface() {
       >
         <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* Left Panel - Workspace Tree */}
-          <ResizablePanel defaultSize={28} minSize={18}>
-            <div className="flex flex-col min-h-0 min-w-0 h-full bg-white/80 dark:bg-gray-950/80">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 shrink-0">
+          <ResizablePanel defaultSize={30} minSize={20}>
+            <div className="flex flex-col min-h-0 min-w-0 h-full bg-white/80 dark:bg-gray-950/80 border-r border-gray-200/70 dark:border-gray-800/70">
+              <div className="flex items-start justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 shrink-0">
                 <div>
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Workspace
+                    {textLabels.workspace}
                   </h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    区分原始上传与分析产物，支持快速预览与下载
+                    {textLabels.workspaceHint}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -2921,12 +3039,21 @@ export function ThreePanelInterface() {
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => setShowPromptPanel((prev) => !prev)}
+                    className="h-8 w-8 p-0"
+                    title={textLabels.promptPresets}
+                  >
+                    <WandSparkles className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       loadWorkspaceTree();
                       loadWorkspaceFiles();
                     }}
-                    className="h-8 w-8 p-0 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
-                    title="刷新文件列表"
+                    className="h-8 w-8 p-0"
+                    title="refresh"
                   >
                     <RefreshCw className="h-4 w-4" />
                   </Button>
@@ -2936,25 +3063,29 @@ export function ThreePanelInterface() {
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
-                        title="清空 workspace"
+                        title="clear workspace"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>清空 workspace？</AlertDialogTitle>
+                        <AlertDialogTitle>
+                          {uiLanguage === "zh" ? "清空 workspace？" : "Clear workspace?"}
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                          将删除 workspace 根目录下的所有文件与文件夹，此操作不可撤销。
+                          {uiLanguage === "zh"
+                            ? "将删除 workspace 根目录下的所有文件与文件夹，此操作不可撤销。"
+                            : "This deletes all files and folders under the workspace root. This action cannot be undone."}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>取消</AlertDialogCancel>
+                        <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
                         <AlertDialogAction
                           className="bg-red-600 hover:bg-red-700"
                           onClick={clearWorkspace}
                         >
-                          确认清空
+                          {uiLanguage === "zh" ? "确认清空" : "Confirm"}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -2966,23 +3097,79 @@ export function ThreePanelInterface() {
                 ref={treeContainerRef}
                 className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-3"
               >
-                <div className="grid grid-cols-2 gap-2">
-                  <Card className="border-blue-200/70 bg-blue-50/80 dark:border-blue-900 dark:bg-blue-950/30 p-3">
-                    <div className="text-xs text-blue-700 dark:text-blue-300">上传文件</div>
-                    <div className="mt-1 text-2xl font-semibold text-blue-900 dark:text-blue-100">
-                      {workspaceSummary.uploaded}
+                {showPromptPanel && (
+                  <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {textLabels.language}
+                        </div>
+                        <Select
+                          value={uiLanguage}
+                          onValueChange={(value) => setUiLanguage(value as UILanguage)}
+                        >
+                          <SelectTrigger className="w-full rounded-xl">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="en">English</SelectItem>
+                            <SelectItem value="zh">中文</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {textLabels.promptPresets}
+                        </div>
+                        <Select value={selectedPresetId} onValueChange={handlePresetChange}>
+                          <SelectTrigger className="w-full rounded-xl">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DATA_ANALYSIS_PROMPT_PRESETS.map((item) => (
+                              <SelectItem key={item.id} value={item.id}>
+                                {item.label[uiLanguage]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 dark:bg-gray-900/60 px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
+                      <div className="font-medium text-gray-800 dark:text-gray-100">
+                        {selectedPresetLabel}
+                      </div>
+                      <div className="mt-1">{selectedPresetDescription}</div>
+                      <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                        {textLabels.promptHint}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {textLabels.systemPrompt}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-gray-500"
+                          onClick={() => setSystemPrompt(DEFAULT_SYSTEM_PROMPT)}
+                        >
+                          {textLabels.emptySystemPrompt}
+                        </Button>
+                      </div>
+                      <Textarea
+                        value={systemPrompt}
+                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black text-sm"
+                        placeholder={textLabels.systemPromptPlaceholder}
+                      />
                     </div>
                   </Card>
-                  <Card className="border-purple-200/70 bg-purple-50/80 dark:border-purple-900 dark:bg-purple-950/30 p-3">
-                    <div className="text-xs text-purple-700 dark:text-purple-300">生成文件</div>
-                    <div className="mt-1 text-2xl font-semibold text-purple-900 dark:text-purple-100">
-                      {workspaceSummary.generated}
-                    </div>
-                  </Card>
-                </div>
+                )}
 
                 <div
-                  className={`rounded-2xl border border-dashed px-4 py-5 text-sm select-none transition-colors ${dropActive
+                  className={`rounded-2xl border border-dashed px-4 py-4 text-sm select-none transition-colors ${dropActive
                     ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300"
                     : "bg-gray-50 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300"
                     }`}
@@ -3004,9 +3191,13 @@ export function ThreePanelInterface() {
                       <Upload className="h-4 w-4" />
                     </div>
                     <div className="space-y-1">
-                      <div className="font-medium">上传数据或脚本</div>
+                      <div className="font-medium">
+                        {uiLanguage === "zh" ? "上传文件到工作区" : "Upload files to workspace"}
+                      </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                        支持拖拽上传，文件默认进入 workspace 根目录
+                        {uiLanguage === "zh"
+                          ? "支持拖拽上传，图片会自动显示缩略图。"
+                          : "Drag and drop is supported, and image files show thumbnails automatically."}
                       </div>
                     </div>
                   </div>
@@ -3024,16 +3215,10 @@ export function ThreePanelInterface() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="rounded-full px-2.5">
-                            最近预览
+                            {textLabels.recentPreview}
                           </Badge>
                           <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {previewType === "image"
-                              ? "图片"
-                              : previewType === "pdf"
-                                ? "PDF"
-                                : previewType === "text"
-                                  ? "文本"
-                                  : "二进制文件"}
+                            {getLocalizedPreviewType(previewType)}
                           </span>
                         </div>
                         <div className="mt-2 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -3048,7 +3233,7 @@ export function ThreePanelInterface() {
                           onClick={() => setIsPreviewOpen(true)}
                         >
                           <Eye className="h-3.5 w-3.5 mr-1" />
-                          预览
+                          {textLabels.preview}
                         </Button>
                         <Button
                           variant="ghost"
@@ -3063,11 +3248,58 @@ export function ThreePanelInterface() {
                   </Card>
                 )}
 
+                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {textLabels.bundleDownload}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {uiLanguage === "zh"
+                          ? "仅打包 generated 目录中的结果文件"
+                          : "Bundles only include files inside the generated folder."}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
+                      disabled={!generatedBundleCounts.all}
+                      onClick={() => downloadGeneratedBundle("all")}
+                    >
+                      <Archive className="h-3.5 w-3.5 mr-1" />
+                      {textLabels.allBundle}
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: "table", label: textLabels.tableBundle, count: generatedBundleCounts.table },
+                      { key: "image", label: textLabels.imageBundle, count: generatedBundleCounts.image },
+                      { key: "other", label: textLabels.otherBundle, count: generatedBundleCounts.other },
+                    ].map((item) => (
+                      <Button
+                        key={item.key}
+                        variant="outline"
+                        size="sm"
+                        className="h-auto flex-col gap-1 rounded-2xl py-3"
+                        disabled={!item.count}
+                        onClick={() => downloadGeneratedBundle(item.key as "table" | "image" | "other")}
+                      >
+                        <Package className="h-4 w-4" />
+                        <span className="text-xs">{item.label}</span>
+                        <span className="text-[11px] text-gray-500">
+                          {item.count} {textLabels.filesUnit}
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                </Card>
+
                 <div className="space-y-2">
                   <Input
                     value={workspaceSearch}
                     onChange={(e) => setWorkspaceSearch(e.target.value)}
-                    placeholder="搜索文件名或路径..."
+                    placeholder={textLabels.search}
                     className="h-9 rounded-xl border-gray-200 dark:border-gray-800"
                   />
                   <Tabs
@@ -3078,58 +3310,96 @@ export function ThreePanelInterface() {
                     className="gap-0"
                   >
                     <TabsList className="grid w-full grid-cols-3 rounded-xl">
-                      <TabsTrigger value="uploaded">上传文件</TabsTrigger>
-                      <TabsTrigger value="generated">生成文件</TabsTrigger>
-                      <TabsTrigger value="all">全部</TabsTrigger>
+                      <TabsTrigger value="uploaded">{textLabels.uploaded}</TabsTrigger>
+                      <TabsTrigger value="generated">{textLabels.generated}</TabsTrigger>
+                      <TabsTrigger value="all">{textLabels.all}</TabsTrigger>
                     </TabsList>
                   </Tabs>
                 </div>
 
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
                   <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/60">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="secondary"
-                        className={`rounded-full px-2.5 ${workspaceView === "generated"
-                          ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-                          : workspaceView === "uploaded"
-                            ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                            : ""
-                          }`}
-                      >
-                        {workspaceView === "generated"
-                          ? "分析产物"
-                          : workspaceView === "uploaded"
-                            ? "用户上传"
-                            : "全部文件"}
-                      </Badge>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        共 {workspaceSummary.total} 个文件
-                      </span>
-                    </div>
+                    <Badge variant="secondary" className="rounded-full px-2.5">
+                      {workspaceView === "generated"
+                        ? textLabels.generated
+                        : workspaceView === "uploaded"
+                          ? textLabels.uploaded
+                          : textLabels.all}
+                    </Badge>
                     <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                      单击预览，双击下载
+                      {textLabels.clickToPreview}
                     </span>
                   </div>
-
-                  <div className="min-h-[420px]">
-                    {filteredWorkspaceTree?.children?.length ? (
-                      <Tree
-                        width={treeSize.w || 300}
-                        height={Math.max(treeSize.h - 310, 360)}
-                        data={toArbor(filteredWorkspaceTree).children || []}
-                        openByDefault
-                        indent={14}
-                        rowHeight={32}
-                      >
-                        {Row}
-                      </Tree>
-                    ) : (
-                      <div className="flex items-center justify-center h-full px-4 py-10 text-sm text-gray-500 dark:text-gray-400">
-                        当前筛选条件下没有文件
-                      </div>
-                    )}
-                  </div>
+                  {filteredWorkspaceFiles.length ? (
+                    <div className="grid grid-cols-2 gap-3 p-3 xl:grid-cols-3">
+                      {filteredWorkspaceFiles.map((file) => {
+                        const isImage = file.category === "image" && !!file.preview_url;
+                        const imageUrl = ensureGeneratedInUrl(file.preview_url || file.download_url);
+                        const ext = (file.extension || "").replace(/^\./, "").toUpperCase() || "FILE";
+                        return (
+                          <button
+                            key={file.path}
+                            className={`group text-left rounded-2xl border p-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${getFileAccentClasses(file)} ${selectedWorkspacePath === file.path ? "ring-2 ring-blue-300 dark:ring-blue-800" : ""}`}
+                            onClick={() => {
+                              setSelectedWorkspacePath(file.path);
+                              openPreview(file);
+                            }}
+                            type="button"
+                          >
+                            <div className="aspect-square overflow-hidden rounded-xl bg-white/80 dark:bg-gray-950/70 border border-white/60 dark:border-gray-800 flex items-center justify-center">
+                              {isImage ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={file.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : file.category === "table" ? (
+                                <div className="flex flex-col items-center justify-center text-emerald-700 dark:text-emerald-300">
+                                  <FileSpreadsheet className="h-9 w-9" />
+                                  <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                </div>
+                              ) : ["json", "sqlite", "db"].includes((file.extension || "").replace(/^\./, "")) ? (
+                                <div className="flex flex-col items-center justify-center text-amber-700 dark:text-amber-300">
+                                  <FileJson className="h-9 w-9" />
+                                  <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                </div>
+                              ) : ["py", "sql", "js", "ts", "tsx", "jsx", "ipynb"].includes((file.extension || "").replace(/^\./, "")) ? (
+                                <div className="flex flex-col items-center justify-center text-violet-700 dark:text-violet-300">
+                                  <FileCode2 className="h-9 w-9" />
+                                  <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                </div>
+                              ) : file.category === "image" ? (
+                                <div className="flex flex-col items-center justify-center text-blue-700 dark:text-blue-300">
+                                  <FileImage className="h-9 w-9" />
+                                  <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center justify-center text-gray-700 dark:text-gray-300">
+                                  <FileText className="h-9 w-9" />
+                                  <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="px-1 pt-2">
+                              <div className="truncate text-xs font-medium text-gray-900 dark:text-gray-100" title={file.path}>
+                                {file.name}
+                              </div>
+                              <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                                <span className="truncate">{formatFileSize(file.size)}</span>
+                                <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[10px]">
+                                  {file.is_generated ? textLabels.generated : textLabels.uploaded}
+                                </Badge>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full px-4 py-10 text-sm text-gray-500 dark:text-gray-400">
+                      {textLabels.noFiles}
+                    </div>
+                  )}
                 </Card>
               </div>
             </div>
@@ -3150,17 +3420,17 @@ export function ThreePanelInterface() {
                     {isTyping && (
                       <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 text-xs">
                         <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
-                        执行中
+                        {uiLanguage === "zh" ? "执行中" : "Running"}
                       </Badge>
                     )}
                   </div>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">
-                    对话、分析步骤和代码工作台集中在一个流里完成
+                    {textLabels.assistantHint}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="hidden xl:flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 rounded-full border border-gray-200 dark:border-gray-800 px-3 py-1.5">
-                    <span>自动折叠</span>
+                    <span>{uiLanguage === "zh" ? "自动折叠" : "Auto Collapse"}</span>
                     <Switch
                       className="data-[state=unchecked]:bg-gray-200 data-[state=unchecked]:border data-[state=unchecked]:border-gray-300"
                       checked={autoCollapseEnabled}
@@ -3183,20 +3453,11 @@ export function ThreePanelInterface() {
                     variant="outline"
                     size="sm"
                     className="h-8 rounded-full"
-                    onClick={() => setShowPromptPanel((prev) => !prev)}
-                  >
-                    <WandSparkles className="h-3.5 w-3.5 mr-1" />
-                    提示词
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 rounded-full"
                     onClick={() => setShowCodeEditor(true)}
                     disabled={!codeEditorContent.trim()}
                   >
                     <PanelRightOpen className="h-3.5 w-3.5 mr-1" />
-                    代码工作台
+                    {uiLanguage === "zh" ? "代码工作台" : "Code Lab"}
                   </Button>
                   <Button
                     variant="ghost"
@@ -3468,77 +3729,14 @@ export function ThreePanelInterface() {
               </div>
 
               {/* Input Area */}
-              <div className="p-4 border-t border-gray-200 dark:border-gray-800 shrink-0 bg-white/80 dark:bg-gray-950/80 space-y-3">
-                {showPromptPanel && (
-                  <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3">
-                    <div className="flex flex-col gap-3">
-                      <div className="flex flex-col xl:flex-row xl:items-center gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                            预设分析 Prompt
-                          </div>
-                          <Select value={selectedPresetId} onValueChange={setSelectedPresetId}>
-                            <SelectTrigger className="w-full rounded-xl">
-                              <SelectValue placeholder="选择预设 Prompt" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {DATA_ANALYSIS_PROMPT_PRESETS.map((item) => (
-                                <SelectItem key={item.id} value={item.id}>
-                                  {item.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="xl:w-40 shrink-0">
-                          <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                            快速应用
-                          </div>
-                          <Button
-                            variant="outline"
-                            className="w-full rounded-xl"
-                            onClick={applyPresetToInput}
-                          >
-                            插入输入框
-                          </Button>
-                        </div>
-                      </div>
-                      {selectedPreset && (
-                        <div className="rounded-xl bg-gray-50 dark:bg-gray-900/60 px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
-                          {selectedPreset.description}
-                        </div>
-                      )}
-                      <div>
-                        <div className="mb-1.5 flex items-center justify-between">
-                          <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                            System Prompt
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs text-gray-500"
-                            onClick={() => setSystemPrompt(DEFAULT_SYSTEM_PROMPT)}
-                          >
-                            恢复默认
-                          </Button>
-                        </div>
-                        <Textarea
-                          value={systemPrompt}
-                          onChange={(e) => setSystemPrompt(e.target.value)}
-                          className="min-h-28 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black text-sm"
-                          placeholder="在这里自定义系统提示词..."
-                        />
-                      </div>
-                    </div>
-                  </Card>
-                )}
-
+              <div className="p-4 border-t border-gray-200 dark:border-gray-800 shrink-0 bg-white/80 dark:bg-gray-950/80">
                 <div className="flex gap-3 items-end">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
                     className="h-10 w-10 p-0 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    title={uiLanguage === "zh" ? "上传文件" : "Upload Files"}
                   >
                     <Paperclip className="h-4 w-4" />
                   </Button>
@@ -3546,7 +3744,11 @@ export function ThreePanelInterface() {
                     <Textarea
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
-                      placeholder="描述你的分析目标，或先选择上方预设 Prompt..."
+                      placeholder={
+                        uiLanguage === "zh"
+                          ? "输入你的分析需求，或在左侧切换预设 Prompt..."
+                          : "Describe your analysis task, or pick a preset from the left panel..."
+                      }
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
@@ -3561,7 +3763,7 @@ export function ThreePanelInterface() {
                       <Button
                         variant="outline"
                         size="sm"
-                        title="清空聊天"
+                        title={uiLanguage === "zh" ? "清空聊天" : "Clear Chat"}
                         className="h-10 px-3 rounded-full"
                         disabled={isTyping}
                       >
@@ -3570,18 +3772,22 @@ export function ThreePanelInterface() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>清空聊天？</AlertDialogTitle>
+                        <AlertDialogTitle>
+                          {uiLanguage === "zh" ? "清空聊天？" : "Clear chat?"}
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                          将删除当前会话内的所有消息，仅保留欢迎提示。
+                          {uiLanguage === "zh"
+                            ? "将删除当前会话内的所有消息，仅保留欢迎提示。"
+                            : "This removes all messages in the current session and keeps only the welcome message."}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>取消</AlertDialogCancel>
+                        <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={clearChat}
                           className="bg-red-600 hover:bg-red-700"
                         >
-                          确认清空
+                          {uiLanguage === "zh" ? "确认清空" : "Confirm"}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -3590,7 +3796,7 @@ export function ThreePanelInterface() {
                     <Button
                       size="sm"
                       className="h-10 w-10 p-0 rounded-full bg-white text-black border border-blue-400/50 dark:bg-white dark:text-black"
-                      title="正在生成…"
+                      title={uiLanguage === "zh" ? "正在生成" : "Generating"}
                       disabled
                     >
                       <RefreshCw className="h-4 w-4 animate-spin" />
@@ -3603,7 +3809,7 @@ export function ThreePanelInterface() {
                       className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
                     >
                       <Send className="h-4 w-4 mr-1" />
-                      发送
+                      {uiLanguage === "zh" ? "发送" : "Send"}
                     </Button>
                   )}
                 </div>

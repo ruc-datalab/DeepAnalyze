@@ -5,7 +5,9 @@ import json
 import re
 import shutil
 import socketserver
+import tempfile
 import threading
+import zipfile
 from functools import partial
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -13,7 +15,8 @@ from urllib.parse import quote
 
 import httpx
 from fastapi import HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
+from starlette.background import BackgroundTask
 
 from ..settings import PREVIEWABLE_EXTENSIONS, settings
 
@@ -118,6 +121,36 @@ def get_file_icon(extension: str) -> str:
     return "📧"
 
 
+TABLE_EXTENSIONS = {
+    ".csv",
+    ".tsv",
+    ".xlsx",
+    ".xls",
+    ".parquet",
+    ".sqlite",
+    ".db",
+}
+
+IMAGE_EXTENSIONS = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".bmp",
+}
+
+
+def classify_file_type(path: Path) -> str:
+    ext = path.suffix.lower()
+    if ext in TABLE_EXTENSIONS:
+        return "table"
+    if ext in IMAGE_EXTENSIONS:
+        return "image"
+    return "other"
+
+
 def uniquify_path(target: Path) -> Path:
     if not target.exists():
         return target
@@ -158,16 +191,19 @@ def resolve_workspace_path(session_id: str, relative_path: str = "") -> Path:
 def list_workspace_files(session_id: str) -> list[dict]:
     workspace_root = resolve_workspace_root(session_id)
     files: list[dict] = []
-    for file_path in sorted(workspace_root.iterdir(), key=lambda path: path.name.lower()):
-        if not file_path.is_file():
-            continue
-        rel_path = f"{session_id}/{file_path.name}"
+    all_files = [path for path in workspace_root.rglob("*") if path.is_file()]
+    for file_path in sorted(all_files, key=lambda path: _rel_path(path, workspace_root).lower()):
+        rel = _rel_path(file_path, workspace_root)
+        rel_path = f"{session_id}/{rel}"
         files.append(
             {
                 "name": file_path.name,
+                "path": rel,
                 "size": file_path.stat().st_size,
                 "extension": file_path.suffix.lower(),
                 "icon": get_file_icon(file_path.suffix),
+                "category": classify_file_type(file_path),
+                "is_generated": rel == "generated" or rel.startswith("generated/"),
                 "download_url": build_download_url(rel_path),
                 "preview_url": (
                     build_download_url(rel_path)
@@ -177,6 +213,46 @@ def list_workspace_files(session_id: str) -> list[dict]:
             }
         )
     return files
+
+
+def download_generated_bundle(session_id: str, category: str = "all") -> FileResponse:
+    workspace_root = resolve_workspace_root(session_id)
+    generated_root = workspace_root / "generated"
+    if not generated_root.exists() or not generated_root.is_dir():
+        raise HTTPException(status_code=404, detail="generated folder not found")
+
+    normalized_category = (category or "all").strip().lower()
+    if normalized_category not in {"all", "table", "image", "other"}:
+        raise HTTPException(status_code=400, detail="invalid category")
+
+    files = [path for path in generated_root.rglob("*") if path.is_file()]
+    if normalized_category != "all":
+        files = [
+            path for path in files if classify_file_type(path) == normalized_category
+        ]
+
+    if not files:
+        raise HTTPException(status_code=404, detail="no files matched the category")
+
+    temp_file = tempfile.NamedTemporaryFile(
+        prefix=f"deepanalyze_{normalized_category}_",
+        suffix=".zip",
+        delete=False,
+    )
+    temp_path = Path(temp_file.name)
+    temp_file.close()
+
+    with zipfile.ZipFile(temp_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for file_path in files:
+            archive.write(file_path, file_path.relative_to(generated_root))
+
+    filename = f"generated_{normalized_category}.zip"
+    return FileResponse(
+        path=temp_path,
+        media_type="application/zip",
+        filename=filename,
+        background=BackgroundTask(lambda: temp_path.unlink(missing_ok=True)),
+    )
 
 
 def _rel_path(path: Path, root: Path) -> str:

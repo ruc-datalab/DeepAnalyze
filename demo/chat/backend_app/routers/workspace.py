@@ -19,6 +19,14 @@ async def workspace_tree(session_id: str = Query("default")):
     return workspace_service.build_tree(workspace_root, workspace_root, session_id)
 
 
+@router.get("/workspace/download-bundle")
+async def download_workspace_bundle(
+    category: str = Query("all", description="all/table/image/other"),
+    session_id: str = Query("default"),
+):
+    return workspace_service.download_generated_bundle(session_id, category)
+
+
 @router.delete("/workspace/file")
 async def delete_workspace_file(
     path: str = Query(..., description="relative path under workspace"),

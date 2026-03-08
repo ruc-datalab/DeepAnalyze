@@ -1,67 +1,123 @@
-export interface PromptPreset {
-  id: string;
-  label: string;
-  description: string;
-  prompt: string;
+export type UILanguage = "en" | "zh";
+
+export interface LocalizedText {
+  en: string;
+  zh: string;
 }
 
-export const DEFAULT_SYSTEM_PROMPT = `你是 DeepAnalyze 的数据分析助手。
+export interface PromptPreset {
+  id: string;
+  label: LocalizedText;
+  description: LocalizedText;
+  prompt: LocalizedText;
+}
 
-请默认使用中文回答，并遵循以下原则：
-1. 优先理解用户上传的数据、字段含义和业务问题。
-2. 输出尽量结构化，结论先行，再给关键依据。
-3. 生成代码时优先使用 Python 数据分析栈（pandas、numpy、matplotlib、seaborn、scipy）。
-4. 如果会生成文件，请给出文件用途，并保持命名清晰。
-5. 如果信息不足，先提出最小必要假设，并说明假设内容。`;
+export const DEFAULT_SYSTEM_PROMPT = "";
 
 export const DATA_ANALYSIS_PROMPT_PRESETS: PromptPreset[] = [
   {
     id: "eda",
-    label: "探索性分析",
-    description: "快速理解数据概况、分布、缺失值和异常点。",
-    prompt:
-      "请对当前数据做探索性分析，先概览字段和数据质量，再给出关键分布、异常点、相关性和后续建议。",
+    label: {
+      en: "Exploratory Analysis",
+      zh: "探索性分析",
+    },
+    description: {
+      en: "Quickly inspect data quality, distributions, missing values, and anomalies.",
+      zh: "快速理解数据质量、分布、缺失值与异常点。",
+    },
+    prompt: {
+      en: "Please perform exploratory data analysis on the current dataset. Start with schema and data quality, then summarize distributions, anomalies, correlations, and recommended next steps.",
+      zh: "请对当前数据做探索性分析，先概览字段和数据质量，再总结分布、异常点、相关性以及建议的下一步。",
+    },
   },
   {
     id: "cleaning",
-    label: "数据清洗",
-    description: "定位缺失、重复、异常值，并给出清洗方案。",
-    prompt:
-      "请检查当前数据中的缺失值、重复值、类型问题和异常值，给出清洗策略，并在必要时生成可直接运行的清洗代码。",
+    label: {
+      en: "Data Cleaning",
+      zh: "数据清洗",
+    },
+    description: {
+      en: "Detect missing values, duplicates, type issues, and outliers, then propose a cleaning plan.",
+      zh: "定位缺失值、重复值、类型问题和异常值，并给出清洗方案。",
+    },
+    prompt: {
+      en: "Please inspect the current data for missing values, duplicates, data type issues, and outliers. Provide a cleaning strategy and generate runnable cleaning code when helpful.",
+      zh: "请检查当前数据中的缺失值、重复值、类型问题和异常值，给出清洗策略，并在必要时生成可直接运行的清洗代码。",
+    },
   },
   {
     id: "viz",
-    label: "可视化报告",
-    description: "输出适合汇报的图表和文字解读。",
-    prompt:
-      "请生成一组适合汇报的数据可视化，突出最重要的趋势、对比和异常，并给出每张图的业务解读。",
+    label: {
+      en: "Visualization Report",
+      zh: "可视化报告",
+    },
+    description: {
+      en: "Create presentation-ready charts with concise interpretation.",
+      zh: "输出适合汇报的图表，并配套简洁解读。",
+    },
+    prompt: {
+      en: "Please generate a set of presentation-ready visualizations for the current data, highlight key trends, comparisons, and anomalies, and explain the business meaning of each chart.",
+      zh: "请为当前数据生成一组适合汇报的可视化，突出关键趋势、对比和异常，并说明每张图的业务含义。",
+    },
   },
   {
     id: "stats",
-    label: "统计检验",
-    description: "比较组间差异并解释显著性。",
-    prompt:
-      "请基于当前数据设计合适的统计检验，说明假设、方法选择理由、显著性结果和业务含义。",
+    label: {
+      en: "Statistical Testing",
+      zh: "统计检验",
+    },
+    description: {
+      en: "Compare groups, explain significance, and interpret practical impact.",
+      zh: "比较组间差异，解释显著性与实际意义。",
+    },
+    prompt: {
+      en: "Please design appropriate statistical tests for the current data, explain the hypotheses and method selection, and interpret significance and business implications.",
+      zh: "请基于当前数据设计合适的统计检验，说明假设、方法选择理由，并解释显著性结果和业务意义。",
+    },
   },
   {
     id: "sql",
-    label: "SQL 分析",
-    description: "面向 SQLite / 表结构的查询分析。",
-    prompt:
-      "请基于当前数据库或表结构，设计 SQL 分析方案，逐步给出查询语句、结果解释和可视化建议。",
+    label: {
+      en: "SQL Analysis",
+      zh: "SQL 分析",
+    },
+    description: {
+      en: "Analyze SQLite tables and generate query-driven insights.",
+      zh: "面向 SQLite 或表结构做查询分析。",
+    },
+    prompt: {
+      en: "Please analyze the current database or table structure with SQL. Propose a query plan, provide the SQL statements step by step, and explain the results and visual follow-up ideas.",
+      zh: "请基于当前数据库或表结构设计 SQL 分析方案，逐步给出查询语句，并解释结果和后续可视化思路。",
+    },
   },
   {
     id: "feature",
-    label: "建模前特征分析",
-    description: "识别重要特征、目标变量关系和可建模性。",
-    prompt:
-      "请从建模准备的角度分析当前数据，识别候选目标变量、重要特征、特征质量问题以及下一步建模建议。",
+    label: {
+      en: "Feature Review",
+      zh: "特征分析",
+    },
+    description: {
+      en: "Assess feature quality, target candidates, and modeling readiness.",
+      zh: "评估特征质量、候选目标变量和建模准备度。",
+    },
+    prompt: {
+      en: "Please review the current data from a modeling-preparation perspective. Identify candidate targets, important features, feature quality issues, and recommended next modeling steps.",
+      zh: "请从建模准备的角度分析当前数据，识别候选目标变量、重要特征、特征质量问题以及建议的下一步建模动作。",
+    },
   },
   {
     id: "report",
-    label: "结论总结",
-    description: "适合直接复制到汇报或文档中的总结。",
-    prompt:
-      "请把当前分析过程和结果整理成简洁的结论总结，包含关键发现、证据、风险点和下一步行动建议。",
+    label: {
+      en: "Executive Summary",
+      zh: "结论总结",
+    },
+    description: {
+      en: "Turn the analysis into a concise report summary for stakeholders.",
+      zh: "整理为适合汇报或文档的简洁总结。",
+    },
+    prompt: {
+      en: "Please summarize the current analysis into an executive-ready report that includes key findings, supporting evidence, risks, and recommended next actions.",
+      zh: "请把当前分析整理成适合汇报的结论总结，包含关键发现、证据、风险点和建议的下一步行动。",
+    },
   },
 ];
