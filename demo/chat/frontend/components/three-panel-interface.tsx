@@ -16,7 +16,7 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { API_URLS, API_CONFIG } from "@/lib/config";
+import { API_URLS, API_CONFIG, buildApiUrlWithParams } from "@/lib/config";
 import {
   Dialog,
   DialogContent,
@@ -899,12 +899,11 @@ export function ThreePanelInterface() {
   // 移动：将工作区内的文件/文件夹移动到指定目录（空字符串表示根目录）
   const moveToDir = async (srcPath: string, dstDir: string) => {
     try {
-      const url = `${API_CONFIG.BACKEND_BASE_URL
-        }/workspace/move?src=${encodeURIComponent(
-          srcPath
-        )}&dst_dir=${encodeURIComponent(dstDir)}&session_id=${encodeURIComponent(
-          sessionId
-        )}`;
+      const url = buildApiUrlWithParams(API_CONFIG.ENDPOINTS.WORKSPACE_MOVE, {
+        src: srcPath,
+        dst_dir: dstDir,
+        session_id: sessionId,
+      });
       const res = await fetch(url, { method: "POST" });
       if (res.ok) {
         await loadWorkspaceTree();
@@ -1233,12 +1232,14 @@ export function ThreePanelInterface() {
             const srcPath = dt.getData("text/x-workspace-path");
             if (srcPath) {
               try {
-                const url = `${API_CONFIG.BACKEND_BASE_URL
-                  }/workspace/move?src=${encodeURIComponent(
-                    srcPath
-                  )}&dst_dir=${encodeURIComponent(
-                    node.path
-                  )}&session_id=${encodeURIComponent(sessionId)}`;
+                const url = buildApiUrlWithParams(
+                  API_CONFIG.ENDPOINTS.WORKSPACE_MOVE,
+                  {
+                    src: srcPath,
+                    dst_dir: node.path,
+                    session_id: sessionId,
+                  }
+                );
                 const res = await fetch(url, { method: "POST" });
                 if (res.ok) {
                   await loadWorkspaceTree();

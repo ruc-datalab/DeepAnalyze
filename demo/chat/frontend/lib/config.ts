@@ -28,6 +28,7 @@ export const API_CONFIG = {
     WORKSPACE_CLEAR: "/workspace/clear",
     WORKSPACE_DELETE_FILE: "/workspace/file",
     WORKSPACE_UPLOAD_TO: "/workspace/upload-to",
+    WORKSPACE_MOVE: "/workspace/move",
     WORKSPACE_DELETE_DIR: "/workspace/dir",
 
     // 代码执行
@@ -38,12 +39,32 @@ export const API_CONFIG = {
   },
 };
 
+const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
+
+const normalizeEndpoint = (endpoint: string) =>
+  endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+
 // 构建完整的API URL
 export const buildApiUrl = (
   endpoint: string,
   baseUrl: string = API_CONFIG.BACKEND_BASE_URL
 ) => {
-  return `${baseUrl}${endpoint}`;
+  return `${normalizeBaseUrl(baseUrl)}${normalizeEndpoint(endpoint)}`;
+};
+
+export const buildApiUrlWithParams = (
+  endpoint: string,
+  params: Record<string, string | number | boolean | null | undefined>,
+  baseUrl: string = API_CONFIG.BACKEND_BASE_URL
+) => {
+  const url = new URL(buildApiUrl(endpoint, baseUrl));
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+    url.searchParams.set(key, String(value));
+  });
+  return url.toString();
 };
 
 // 预定义的API URLs
@@ -57,6 +78,7 @@ export const API_URLS = {
     API_CONFIG.ENDPOINTS.WORKSPACE_DELETE_FILE
   ),
   WORKSPACE_UPLOAD_TO: buildApiUrl(API_CONFIG.ENDPOINTS.WORKSPACE_UPLOAD_TO),
+  WORKSPACE_MOVE: buildApiUrl(API_CONFIG.ENDPOINTS.WORKSPACE_MOVE),
   WORKSPACE_DELETE_DIR: buildApiUrl(API_CONFIG.ENDPOINTS.WORKSPACE_DELETE_DIR),
   EXECUTE_CODE: buildApiUrl(API_CONFIG.ENDPOINTS.EXECUTE_CODE),
   EXPORT_REPORT: buildApiUrl(API_CONFIG.ENDPOINTS.EXPORT_REPORT),
