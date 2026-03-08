@@ -7,13 +7,23 @@ import {
   oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import Editor from "@monaco-editor/react";
-import { useState, useRef, useEffect, useCallback, memo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import { configureMonaco } from "@/lib/monaco-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { API_URLS, API_CONFIG, buildApiUrlWithParams } from "@/lib/config";
@@ -23,6 +33,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -53,6 +70,9 @@ import {
   Upload,
   Square,
   Code2,
+  Eye,
+  PanelRightOpen,
+  WandSparkles,
 } from "lucide-react";
 import { Tree, NodeApi } from "react-arborist";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +88,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DATA_ANALYSIS_PROMPT_PRESETS,
+  DEFAULT_SYSTEM_PROMPT,
+} from "@/lib/prompt-presets";
 
 interface Message {
   id: string;
@@ -397,8 +421,44 @@ export function ThreePanelInterface() {
       if (savedAuto !== null) {
         setAutoCollapseEnabled(savedAuto !== "false");
       }
+
+      const savedSystemPrompt = localStorage.getItem("deepanalyze.systemPrompt");
+      if (savedSystemPrompt) {
+        setSystemPrompt(savedSystemPrompt);
+      }
+
+      const savedPromptPanel = localStorage.getItem("deepanalyze.showPromptPanel");
+      if (savedPromptPanel !== null) {
+        setShowPromptPanel(savedPromptPanel !== "false");
+      }
+
+      const savedPresetId = localStorage.getItem("deepanalyze.selectedPresetId");
+      if (
+        savedPresetId &&
+        DATA_ANALYSIS_PROMPT_PRESETS.some((item) => item.id === savedPresetId)
+      ) {
+        setSelectedPresetId(savedPresetId);
+      }
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("deepanalyze.systemPrompt", systemPrompt);
+  }, [systemPrompt]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(
+      "deepanalyze.showPromptPanel",
+      showPromptPanel ? "true" : "false"
+    );
+  }, [showPromptPanel]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("deepanalyze.selectedPresetId", selectedPresetId);
+  }, [selectedPresetId]);
 
   // 按 session 维度持久化/恢复 折叠状态 与 手动锁
   useEffect(() => {
@@ -589,6 +649,16 @@ export function ThreePanelInterface() {
   const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [isExecutingCode, setIsExecutingCode] = useState(false);
   const [codeExecutionResult, setCodeExecutionResult] = useState("");
+  const [workspaceView, setWorkspaceView] = useState<
+    "all" | "uploaded" | "generated"
+  >("uploaded");
+  const [workspaceSearch, setWorkspaceSearch] = useState("");
+  const [selectedWorkspacePath, setSelectedWorkspacePath] = useState("");
+  const [showPromptPanel, setShowPromptPanel] = useState(true);
+  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
+  const [selectedPresetId, setSelectedPresetId] = useState(
+    DATA_ANALYSIS_PROMPT_PRESETS[0]?.id || ""
+  );
 
   // 预览弹窗状态
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -866,6 +936,79 @@ export function ThreePanelInterface() {
   const toggleExpand = (p: string) =>
     setExpanded((prev) => ({ ...prev, [p]: !prev[p] }));
 
+  const selectedPreset = useMemo(
+    () =>
+      DATA_ANALYSIS_PROMPT_PRESETS.find((item) => item.id === selectedPresetId) ||
+      DATA_ANALYSIS_PROMPT_PRESETS[0],
+    [selectedPresetId]
+  );
+
+  const applyPresetToInput = useCallback(() => {
+    if (!selectedPreset?.prompt) return;
+    setInputValue((prev) =>
+      prev.trim()
+        ? `${prev.trim()}\n\n${selectedPreset.prompt}`
+        : selectedPreset.prompt
+    );
+  }, [selectedPreset]);
+
+  const workspaceSummary = useMemo(() => {
+    const stats = { uploaded: 0, generated: 0, total: 0 };
+
+    const walk = (node: WorkspaceNode | null) => {
+      if (!node) return;
+      if (!node.is_dir) {
+        stats.total += 1;
+        if (node.is_generated) {
+          stats.generated += 1;
+        } else {
+          stats.uploaded += 1;
+        }
+      }
+      node.children?.forEach(walk);
+    };
+
+    walk(workspaceTree);
+    return stats;
+  }, [workspaceTree]);
+
+  const filteredWorkspaceTree = useMemo(() => {
+    if (!workspaceTree) return null;
+
+    const query = workspaceSearch.trim().toLowerCase();
+
+    const shouldKeepInView = (node: WorkspaceNode) => {
+      if (workspaceView === "generated") return !!node.is_generated;
+      if (workspaceView === "uploaded") return !node.is_generated;
+      return true;
+    };
+
+    const filterNode = (node: WorkspaceNode): WorkspaceNode | null => {
+      const filteredChildren = node.children
+        ?.map(filterNode)
+        .filter(Boolean) as WorkspaceNode[] | undefined;
+      const selfMatches =
+        !query ||
+        node.name.toLowerCase().includes(query) ||
+        node.path.toLowerCase().includes(query);
+      const viewMatches = node.is_dir
+        ? node.path === "" || shouldKeepInView(node)
+        : shouldKeepInView(node);
+      const hasChildren = !!filteredChildren?.length;
+
+      if ((selfMatches && viewMatches) || hasChildren) {
+        return {
+          ...node,
+          children: filteredChildren,
+        };
+      }
+
+      return null;
+    };
+
+    return filterNode(workspaceTree);
+  }, [workspaceSearch, workspaceTree, workspaceView]);
+
   const deleteFile = async (p: string) => {
     try {
       const url = `${API_URLS.WORKSPACE_DELETE_FILE}?path=${encodeURIComponent(
@@ -938,6 +1081,7 @@ export function ThreePanelInterface() {
 
   const openNode = async (node: WorkspaceNode) => {
     if (node.is_dir) return;
+    setSelectedWorkspacePath(node.path);
     const ext = (node.extension || "").replace(/^\./, "").toLowerCase();
     // 修正 URL，确保包含 generated 路径
     const correctedUrl = ensureGeneratedInUrl(node.download_url || "");
@@ -1035,8 +1179,11 @@ export function ThreePanelInterface() {
           </div>
         )}
         <div
-          className={`flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900 rounded px-2 py-1 ${isGenerated ? "bg-purple-50 dark:bg-purple-950/20" : ""
-            }`}
+          className={`flex items-center justify-between rounded px-2 py-1 transition-colors ${
+            data.id === selectedWorkspacePath
+              ? "bg-blue-50 ring-1 ring-blue-200 dark:bg-blue-950/30 dark:ring-blue-800"
+              : "hover:bg-gray-50 dark:hover:bg-gray-900"
+          } ${isGenerated ? "bg-purple-50 dark:bg-purple-950/20" : ""}`}
           onClick={(e) => {
             if (isDir) {
               node.toggle();
@@ -2517,6 +2664,14 @@ export function ThreePanelInterface() {
         body: JSON.stringify({
           model: "DeepAnalyze-8B", // 修正模型名
           messages: [
+            ...(systemPrompt.trim()
+              ? [
+                  {
+                    role: "system",
+                    content: systemPrompt.trim(),
+                  },
+                ]
+              : []),
             ...messages
               .filter((m) => !m.localOnly)
               .map((msg) => ({
@@ -2742,35 +2897,18 @@ export function ThreePanelInterface() {
       >
         <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* Left Panel - Workspace Tree */}
-          <ResizablePanel defaultSize={25} minSize={15}>
-            <div className="flex flex-col min-h-0 min-w-0 h-full">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 h-12">
-                <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Files
-                </h2>
-                <div
-                  className="flex items-center gap-1"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={async (e) => {
-                    e.preventDefault();
-                    const items = Array.from(e.dataTransfer.files || []);
-                    if (!items.length) return;
-                    const form = new FormData();
-                    items.forEach((f) => form.append("files", f));
-                    const dir = contextTarget?.is_dir ? contextTarget.path : "";
-                    try {
-                      const url = `${API_URLS.WORKSPACE_UPLOAD_TO
-                        }?dir=${encodeURIComponent(
-                          dir
-                        )}&session_id=${encodeURIComponent(sessionId)}`;
-                      await fetch(url, { method: "POST", body: form });
-                      await loadWorkspaceTree();
-                      await loadWorkspaceFiles();
-                    } catch (err) {
-                      console.error(err);
-                    }
-                  }}
-                >
+          <ResizablePanel defaultSize={28} minSize={18}>
+            <div className="flex flex-col min-h-0 min-w-0 h-full bg-white/80 dark:bg-gray-950/80">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 shrink-0">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    Workspace
+                  </h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    区分原始上传与分析产物，支持快速预览与下载
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -2779,31 +2917,34 @@ export function ThreePanelInterface() {
                     className="hidden"
                     accept="*"
                   />
-                  {/* <Button
+                  <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="h-6 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
+                    onClick={() => {
+                      loadWorkspaceTree();
+                      loadWorkspaceFiles();
+                    }}
+                    className="h-8 w-8 p-0 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100"
+                    title="刷新文件列表"
                   >
-                    <Paperclip className="h-3 w-3" />
-                  </Button> */}
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
+                        className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
                         title="清空 workspace"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>清空 workspace？</AlertDialogTitle>
                         <AlertDialogDescription>
-                          将删除 workspace
-                          根目录下的所有文件与文件夹，此操作不可撤销。
+                          将删除 workspace 根目录下的所有文件与文件夹，此操作不可撤销。
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -2822,12 +2963,27 @@ export function ThreePanelInterface() {
 
               <div
                 ref={treeContainerRef}
-                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pl-3 pr-1 py-2"
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-3"
               >
+                <div className="grid grid-cols-2 gap-2">
+                  <Card className="border-blue-200/70 bg-blue-50/80 dark:border-blue-900 dark:bg-blue-950/30 p-3">
+                    <div className="text-xs text-blue-700 dark:text-blue-300">上传文件</div>
+                    <div className="mt-1 text-2xl font-semibold text-blue-900 dark:text-blue-100">
+                      {workspaceSummary.uploaded}
+                    </div>
+                  </Card>
+                  <Card className="border-purple-200/70 bg-purple-50/80 dark:border-purple-900 dark:bg-purple-950/30 p-3">
+                    <div className="text-xs text-purple-700 dark:text-purple-300">生成文件</div>
+                    <div className="mt-1 text-2xl font-semibold text-purple-900 dark:text-purple-100">
+                      {workspaceSummary.generated}
+                    </div>
+                  </Card>
+                </div>
+
                 <div
-                  className={`mb-2 rounded border border-dashed flex items-center justify-center h-20 text-xs select-none ${dropActive
-                    ? "bg-blue-50 border-blue-300 text-blue-600"
-                    : "bg-gray-50 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700 text-gray-500"
+                  className={`rounded-2xl border border-dashed px-4 py-5 text-sm select-none transition-colors ${dropActive
+                    ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300"
+                    : "bg-gray-50 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300"
                     }`}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -2842,41 +2998,138 @@ export function ThreePanelInterface() {
                   }}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  {/* 独立隐藏 input 兼容点击上传 */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    accept="*"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Upload className="h-4 w-4" />
-                    <span>拖拽或点击此处上传（workspace 根目录）</span>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 rounded-xl bg-white/80 p-2 shadow-sm dark:bg-gray-950/80">
+                      <Upload className="h-4 w-4" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="font-medium">上传数据或脚本</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        支持拖拽上传，文件默认进入 workspace 根目录
+                      </div>
+                    </div>
                   </div>
                 </div>
+
                 {uploadMsg && (
-                  <div className="px-2 pb-2 text-[11px] text-gray-500">
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400">
                     {uploadMsg}
                   </div>
                 )}
-                {workspaceTree ? (
-                  <Tree
-                    width={treeSize.w || 300}
-                    height={treeSize.h || 400}
-                    data={toArbor(workspaceTree).children || []}
-                    openByDefault
-                    indent={14}
-                    rowHeight={28}
-                  >
-                    {Row}
-                  </Tree>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-gray-500">
-                    Loading...
-                  </div>
+
+                {previewTitle && (
+                  <Card className="p-3 rounded-2xl border-gray-200/80 dark:border-gray-800/80">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="rounded-full px-2.5">
+                            最近预览
+                          </Badge>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                            {previewType === "image"
+                              ? "图片"
+                              : previewType === "pdf"
+                                ? "PDF"
+                                : previewType === "text"
+                                  ? "文本"
+                                  : "二进制文件"}
+                          </span>
+                        </div>
+                        <div className="mt-2 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {previewTitle}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => setIsPreviewOpen(true)}
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          预览
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={handleDownload}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
                 )}
+
+                <div className="space-y-2">
+                  <Input
+                    value={workspaceSearch}
+                    onChange={(e) => setWorkspaceSearch(e.target.value)}
+                    placeholder="搜索文件名或路径..."
+                    className="h-9 rounded-xl border-gray-200 dark:border-gray-800"
+                  />
+                  <Tabs
+                    value={workspaceView}
+                    onValueChange={(value) =>
+                      setWorkspaceView(value as "all" | "uploaded" | "generated")
+                    }
+                    className="gap-0"
+                  >
+                    <TabsList className="grid w-full grid-cols-3 rounded-xl">
+                      <TabsTrigger value="uploaded">上传文件</TabsTrigger>
+                      <TabsTrigger value="generated">生成文件</TabsTrigger>
+                      <TabsTrigger value="all">全部</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+
+                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/60">
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className={`rounded-full px-2.5 ${workspaceView === "generated"
+                          ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
+                          : workspaceView === "uploaded"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                            : ""
+                          }`}
+                      >
+                        {workspaceView === "generated"
+                          ? "分析产物"
+                          : workspaceView === "uploaded"
+                            ? "用户上传"
+                            : "全部文件"}
+                      </Badge>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        共 {workspaceSummary.total} 个文件
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                      单击预览，双击下载
+                    </span>
+                  </div>
+
+                  <div className="min-h-[420px]">
+                    {filteredWorkspaceTree?.children?.length ? (
+                      <Tree
+                        width={treeSize.w || 300}
+                        height={Math.max(treeSize.h - 310, 360)}
+                        data={toArbor(filteredWorkspaceTree).children || []}
+                        openByDefault
+                        indent={14}
+                        rowHeight={32}
+                      >
+                        {Row}
+                      </Tree>
+                    ) : (
+                      <div className="flex items-center justify-center h-full px-4 py-10 text-sm text-gray-500 dark:text-gray-400">
+                        当前筛选条件下没有文件
+                      </div>
+                    )}
+                  </div>
+                </Card>
               </div>
             </div>
           </ResizablePanel>
@@ -2887,18 +3140,25 @@ export function ThreePanelInterface() {
           <ResizablePanel defaultSize={40} minSize={25}>
             <div className="flex flex-col min-h-0 min-w-0 h-full">
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 h-12 shrink-0">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 shrink-0 bg-white/80 dark:bg-gray-950/80">
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h1 className="text-sm font-medium">Assistant</h1>
+                    <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Assistant
+                    </h1>
                     {isTyping && (
-                      <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                        <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                        <span>执行中…</span>
-                      </div>
+                      <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 text-xs">
+                        <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
+                        执行中
+                      </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">
+                    对话、分析步骤和代码工作台集中在一个流里完成
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="hidden xl:flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 rounded-full border border-gray-200 dark:border-gray-800 px-3 py-1.5">
                     <span>自动折叠</span>
                     <Switch
                       className="data-[state=unchecked]:bg-gray-200 data-[state=unchecked]:border data-[state=unchecked]:border-gray-300"
@@ -2911,7 +3171,6 @@ export function ThreePanelInterface() {
                             (!!v).toString()
                           );
                         }
-                        // 关闭自动折叠时，展开所有块
                         if (!v) {
                           setCollapsedSections({});
                           setManualLocks({});
@@ -2919,14 +3178,30 @@ export function ThreePanelInterface() {
                       }}
                     />
                   </div>
-                  {/* 旧菜单已移除 */}
-                </div>
-                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-full"
+                    onClick={() => setShowPromptPanel((prev) => !prev)}
+                  >
+                    <WandSparkles className="h-3.5 w-3.5 mr-1" />
+                    提示词
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-full"
+                    onClick={() => setShowCodeEditor(true)}
+                    disabled={!codeEditorContent.trim()}
+                  >
+                    <PanelRightOpen className="h-3.5 w-3.5 mr-1" />
+                    代码工作台
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={toggleTheme}
-                    className="h-8 w-8 p-0"
+                    className="h-8 w-8 p-0 rounded-full"
                   >
                     {mounted ? (
                       isDarkMode ? (
@@ -3192,46 +3467,101 @@ export function ThreePanelInterface() {
               </div>
 
               {/* Input Area */}
-              <div className="p-4 border-t border-gray-200 dark:border-gray-800 shrink-0">
+              <div className="p-4 border-t border-gray-200 dark:border-gray-800 shrink-0 bg-white/80 dark:bg-gray-950/80 space-y-3">
+                {showPromptPanel && (
+                  <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col xl:flex-row xl:items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            预设分析 Prompt
+                          </div>
+                          <Select value={selectedPresetId} onValueChange={setSelectedPresetId}>
+                            <SelectTrigger className="w-full rounded-xl">
+                              <SelectValue placeholder="选择预设 Prompt" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {DATA_ANALYSIS_PROMPT_PRESETS.map((item) => (
+                                <SelectItem key={item.id} value={item.id}>
+                                  {item.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="xl:w-40 shrink-0">
+                          <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            快速应用
+                          </div>
+                          <Button
+                            variant="outline"
+                            className="w-full rounded-xl"
+                            onClick={applyPresetToInput}
+                          >
+                            插入输入框
+                          </Button>
+                        </div>
+                      </div>
+                      {selectedPreset && (
+                        <div className="rounded-xl bg-gray-50 dark:bg-gray-900/60 px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
+                          {selectedPreset.description}
+                        </div>
+                      )}
+                      <div>
+                        <div className="mb-1.5 flex items-center justify-between">
+                          <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            System Prompt
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-gray-500"
+                            onClick={() => setSystemPrompt(DEFAULT_SYSTEM_PROMPT)}
+                          >
+                            恢复默认
+                          </Button>
+                        </div>
+                        <Textarea
+                          value={systemPrompt}
+                          onChange={(e) => setSystemPrompt(e.target.value)}
+                          className="min-h-28 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black text-sm"
+                          placeholder="在这里自定义系统提示词..."
+                        />
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
                 <div className="flex gap-3 items-end">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    accept="*"
-                  />
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    className="h-10 w-10 p-0 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   >
                     <Paperclip className="h-4 w-4" />
                   </Button>
                   <div className="flex-1 relative">
-                    <Input
+                    <Textarea
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
-                      placeholder="Ask anything..."
-                      onKeyPress={(e) => {
+                      placeholder="描述你的分析目标，或先选择上方预设 Prompt..."
+                      onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
                           handleSendMessage();
                         }
                       }}
-                      className="border-gray-200 dark:border-gray-700 bg-white dark:bg-black rounded-lg"
+                      className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black pr-4"
                     />
                   </div>
-                  {/* 将清空按钮移动到发送按钮旁边 */}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
                         title="清空聊天"
-                        className="h-9 px-2"
+                        className="h-10 px-3 rounded-full"
                         disabled={isTyping}
                       >
                         <Eraser className="h-4 w-4" />
@@ -3258,7 +3588,7 @@ export function ThreePanelInterface() {
                   {isTyping ? (
                     <Button
                       size="sm"
-                      className="h-9 w-9 p-0 rounded-full bg-white text-black border border-blue-400/50 dark:bg-white dark:text-black"
+                      className="h-10 w-10 p-0 rounded-full bg-white text-black border border-blue-400/50 dark:bg-white dark:text-black"
                       title="正在生成…"
                       disabled
                     >
@@ -3268,166 +3598,159 @@ export function ThreePanelInterface() {
                     <Button
                       onClick={handleSendMessage}
                       size="sm"
-                      disabled={!inputValue.trim()}
-                      className="bg-black text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+                      disabled={!inputValue.trim() && attachments.length === 0}
+                      className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
                     >
-                      <Send className="h-4 w-4" />
+                      <Send className="h-4 w-4 mr-1" />
+                      发送
                     </Button>
                   )}
                 </div>
               </div>
+
             </div>
           </ResizablePanel>
 
-          <ResizableHandle withHandle />
-
-          {/* Right Panel - Code Editor */}
-          <ResizablePanel defaultSize={35} minSize={20}>
-            <div className="flex flex-col bg-gray-50 dark:bg-gray-900 min-h-0 h-full">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 h-12 shrink-0">
-                <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Code
-                </h2>
-                {showCodeEditor && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowCodeEditor(false);
-                        setCodeEditorContent("");
-                        setSelectedCodeSection("");
-                      }}
-                      className="h-6 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                    >
-                      Close
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={executeCode}
-                      disabled={!codeEditorContent || isExecutingCode}
-                      className="h-6 px-3 text-xs bg-black text-white dark:bg-white dark:text-black"
-                    >
-                      {isExecutingCode ? "Running..." : "Run"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {!showCodeEditor ? (
-                <div className="flex-1 flex items-center justify-center text-gray-400">
-                  <div className="text-center select-none">
-                    <p className="text-sm">Click a code block to edit</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 min-h-0 flex flex-col p-4 editor-container overflow-hidden">
-                  {/* Code Editor */}
-                  <div
-                    className="min-h-0 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-black flex flex-col"
-                    style={{ height: `${editorHeight}%` }}
-                  >
-                    <div className="bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
-                      <span className="text-xs text-gray-500 font-mono">
-                        python
-                      </span>
-                    </div>
-                    <div className="flex-1 min-h-0">
-                      <Editor
-                        height="100%"
-                        defaultLanguage="python"
-                        value={codeEditorContent}
-                        onChange={(value) => setCodeEditorContent(value || "")}
-                        theme={isDarkMode ? "vs-dark" : "light"}
-                        options={{
-                          fontSize: 14,
-                          fontFamily:
-                            "var(--font-mono), 'Courier New', monospace",
-                          lineNumbers: "on",
-                          minimap: { enabled: false },
-                          scrollBeyondLastLine: false,
-                          automaticLayout: true,
-                          tabSize: 4,
-                          insertSpaces: true,
-                          wordWrap: "on",
-                          folding: true,
-                          lineDecorationsWidth: 10,
-                          lineNumbersMinChars: 3,
-                          glyphMargin: false,
-                          selectOnLineNumbers: true,
-                          roundedSelection: false,
-                          readOnly: false,
-                          cursorStyle: "line",
-                          smoothScrolling: true,
-                          formatOnPaste: true,
-                          formatOnType: true,
-                          suggestOnTriggerCharacters: true,
-                          acceptSuggestionOnEnter: "on",
-                          tabCompletion: "on",
-                          scrollbar: {
-                            vertical: "visible",
-                            verticalScrollbarSize: 10,
-                          },
-                        }}
-                        loading={
-                          <div className="flex items-center justify-center h-full">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                              <span className="text-sm">加载编辑器...</span>
-                            </div>
-                          </div>
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Resizer */}
-                  <div
-                    className="h-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-row-resize flex items-center justify-center group"
-                    onMouseDown={handleMouseDown}
-                  >
-                    <div className="w-8 h-1 bg-gray-300 dark:bg-gray-600 rounded group-hover:bg-gray-400 dark:group-hover:bg-gray-500"></div>
-                  </div>
-
-                  {/* Terminal Output */}
-                  <div
-                    className="min-h-0 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900 flex flex-col"
-                    style={{ height: `${100 - editorHeight}%` }}
-                  >
-                    <div className="bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
-                      <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                        Output
-                      </span>
-                    </div>
-                    <div className="flex-1 min-h-0 p-3 overflow-auto font-mono text-sm bg-white dark:bg-black text-gray-800 dark:text-gray-200">
-                      {codeExecutionResult ? (
-                        <div>
-                          <div className="text-gray-500 dark:text-gray-400 mb-1">
-                            $ python main.py
-                          </div>
-                          <pre className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
-                            {codeExecutionResult}
-                          </pre>
-                          <div className="flex items-center mt-2">
-                            <span className="text-gray-500 dark:text-gray-400">
-                              $
-                            </span>
-                            <span className="w-2 h-4 bg-gray-400 dark:bg-gray-500 ml-1 animate-pulse"></span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-gray-400 dark:text-gray-500 italic">
-                          Run code to see output...
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+        <Sheet open={showCodeEditor} onOpenChange={setShowCodeEditor}>
+          <SheetContent side="right" className="w-[92vw] sm:max-w-3xl p-0 gap-0">
+            <SheetHeader className="border-b border-gray-200 dark:border-gray-800 px-5 py-4">
+              <div className="flex items-center justify-between gap-3 pr-8">
+                <div>
+                  <SheetTitle className="text-base">代码工作台</SheetTitle>
+                  <SheetDescription>
+                    在这里修改生成代码、执行，并查看输出结果
+                  </SheetDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCodeEditorContent("");
+                      setSelectedCodeSection("");
+                      setCodeExecutionResult("");
+                      setShowCodeEditor(false);
+                    }}
+                  >
+                    关闭
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={executeCode}
+                    disabled={!codeEditorContent || isExecutingCode}
+                    className="bg-black text-white dark:bg-white dark:text-black"
+                  >
+                    {isExecutingCode ? "运行中..." : "运行代码"}
+                  </Button>
+                </div>
+              </div>
+            </SheetHeader>
+
+            <div className="flex-1 min-h-0 flex flex-col p-4 editor-container overflow-hidden bg-gray-50 dark:bg-gray-950">
+              <div
+                className="min-h-0 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-black flex flex-col"
+                style={{ height: `${editorHeight}%` }}
+              >
+                <div className="bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-700 shrink-0 flex items-center justify-between">
+                  <span className="text-xs text-gray-500 font-mono">python</span>
+                  {selectedCodeSection && (
+                    <span className="text-[11px] text-gray-400 truncate max-w-52">
+                      来自最近选中的代码块
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-h-0">
+                  <Editor
+                    height="100%"
+                    defaultLanguage="python"
+                    value={codeEditorContent}
+                    onChange={(value) => setCodeEditorContent(value || "")}
+                    theme={isDarkMode ? "vs-dark" : "light"}
+                    options={{
+                      fontSize: 14,
+                      fontFamily:
+                        "var(--font-mono), 'Courier New', monospace",
+                      lineNumbers: "on",
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      tabSize: 4,
+                      insertSpaces: true,
+                      wordWrap: "on",
+                      folding: true,
+                      lineDecorationsWidth: 10,
+                      lineNumbersMinChars: 3,
+                      glyphMargin: false,
+                      selectOnLineNumbers: true,
+                      roundedSelection: false,
+                      readOnly: false,
+                      cursorStyle: "line",
+                      smoothScrolling: true,
+                      formatOnPaste: true,
+                      formatOnType: true,
+                      suggestOnTriggerCharacters: true,
+                      acceptSuggestionOnEnter: "on",
+                      tabCompletion: "on",
+                      scrollbar: {
+                        vertical: "visible",
+                        verticalScrollbarSize: 10,
+                      },
+                    }}
+                    loading={
+                      <div className="flex items-center justify-center h-full">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-sm">加载编辑器...</span>
+                        </div>
+                      </div>
+                    }
+                  />
+                </div>
+              </div>
+
+              <div
+                className="h-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-row-resize flex items-center justify-center group"
+                onMouseDown={handleMouseDown}
+              >
+                <div className="w-8 h-1 bg-gray-300 dark:bg-gray-600 rounded group-hover:bg-gray-400 dark:group-hover:bg-gray-500"></div>
+              </div>
+
+              <div
+                className="min-h-0 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-900 flex flex-col"
+                style={{ height: `${100 - editorHeight}%` }}
+              >
+                <div className="bg-gray-50 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                    Output
+                  </span>
+                </div>
+                <div className="flex-1 min-h-0 p-3 overflow-auto font-mono text-sm bg-white dark:bg-black text-gray-800 dark:text-gray-200">
+                  {codeExecutionResult ? (
+                    <div>
+                      <div className="text-gray-500 dark:text-gray-400 mb-1">
+                        $ python main.py
+                      </div>
+                      <pre className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+                        {codeExecutionResult}
+                      </pre>
+                      <div className="flex items-center mt-2">
+                        <span className="text-gray-500 dark:text-gray-400">$</span>
+                        <span className="w-2 h-4 bg-gray-400 dark:bg-gray-500 ml-1 animate-pulse"></span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 dark:text-gray-500 italic">
+                      运行代码后将在这里显示输出结果...
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+
       {contextPos && contextTarget && (
         <div
           className="fixed z-50 bg-card border border-gray-200 dark:border-gray-700 rounded shadow-sm text-sm"
