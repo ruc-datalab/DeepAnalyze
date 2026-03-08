@@ -442,24 +442,6 @@ export function ThreePanelInterface() {
     }
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem("deepanalyze.systemPrompt", systemPrompt);
-  }, [systemPrompt]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(
-      "deepanalyze.showPromptPanel",
-      showPromptPanel ? "true" : "false"
-    );
-  }, [showPromptPanel]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem("deepanalyze.selectedPresetId", selectedPresetId);
-  }, [selectedPresetId]);
-
   // 按 session 维度持久化/恢复 折叠状态 与 手动锁
   useEffect(() => {
     if (!sessionId) return;
@@ -659,6 +641,25 @@ export function ThreePanelInterface() {
   const [selectedPresetId, setSelectedPresetId] = useState(
     DATA_ANALYSIS_PROMPT_PRESETS[0]?.id || ""
   );
+
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("deepanalyze.systemPrompt", systemPrompt);
+  }, [systemPrompt]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(
+      "deepanalyze.showPromptPanel",
+      showPromptPanel ? "true" : "false"
+    );
+  }, [showPromptPanel]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("deepanalyze.selectedPresetId", selectedPresetId);
+  }, [selectedPresetId]);
 
   // 预览弹窗状态
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
