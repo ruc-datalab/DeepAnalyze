@@ -1,4 +1,4 @@
-vllm>=0.8.5
+# vllm>=0.8.5
 numpy
 pandas
 scikit-learn
@@ -6,6 +6,8 @@ seaborn
 torch
 transformers
 matplotlib
+plotly
+statsmodels
 
 # Web UI
 requests
