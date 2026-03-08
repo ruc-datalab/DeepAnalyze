@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "postinstall": "node scripts/setup-monaco.js",
-    "build": "next build",
-    "dev": "next dev -p 4000",
+    "build": "next build --webpack",
+    "dev": "next dev --webpack",
     "lint": "next lint",
     "start": "next start"
   },
