@@ -3332,13 +3332,13 @@ export function ThreePanelInterface() {
                   </div>
                   {filteredWorkspaceFiles.length ? (
                     <div className="grid grid-cols-2 gap-3 p-3 xl:grid-cols-3">
-                      {filteredWorkspaceFiles.map((file) => {
+                      {filteredWorkspaceFiles.map((file, index) => {
                         const isImage = file.category === "image" && !!file.preview_url;
                         const imageUrl = ensureGeneratedInUrl(file.preview_url || file.download_url);
                         const ext = (file.extension || "").replace(/^\./, "").toUpperCase() || "FILE";
                         return (
                           <button
-                            key={file.path}
+                            key={`${file.path || file.name}-${index}`}
                             className={`group text-left rounded-2xl border p-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${getFileAccentClasses(file)} ${selectedWorkspacePath === file.path ? "ring-2 ring-blue-300 dark:ring-blue-800" : ""}`}
                             onClick={() => {
                               setSelectedWorkspacePath(file.path);
