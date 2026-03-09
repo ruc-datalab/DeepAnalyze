@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
-from ..services.chat import bot_stream, request_stop
+from ..services.chat import bot_stream, build_chat_runtime_config, request_stop
 from ..services.execution import execute_code_safe
 from ..services.workspace import get_session_workspace
 from ..settings import settings
@@ -48,14 +48,15 @@ async def chat(body: dict = Body(...)):
     messages = body.get("messages", [])
     workspace = body.get("workspace", [])
     session_id = body.get("session_id", "default")
+    runtime_config = build_chat_runtime_config(body)
 
     def generate():
-        for delta_content in bot_stream(messages, workspace, session_id):
+        for delta_content in bot_stream(messages, workspace, session_id, runtime_config):
             chunk = {
                 "id": "chatcmpl-stream",
                 "object": "chat.completion.chunk",
                 "created": 1677652288,
-                "model": settings.model_path,
+                "model": runtime_config.model or settings.model_path,
                 "choices": [
                     {
                         "index": 0,
@@ -70,7 +71,7 @@ async def chat(body: dict = Body(...)):
             "id": "chatcmpl-stream",
             "object": "chat.completion.chunk",
             "created": 1677652288,
-            "model": settings.model_path,
+            "model": runtime_config.model or settings.model_path,
             "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
         }
         yield json.dumps(end_chunk) + "\n"

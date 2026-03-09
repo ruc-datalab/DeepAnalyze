@@ -502,6 +502,21 @@ export function ThreePanelInterface() {
         setSystemPrompt(savedSystemPrompt);
       }
 
+      const savedProvider = localStorage.getItem("deepanalyze.llmProvider");
+      if (savedProvider === "local" || savedProvider === "heywhale") {
+        setLlmProvider(savedProvider);
+      }
+
+      const savedTemperature = localStorage.getItem("deepanalyze.modelTemperature");
+      if (savedTemperature) {
+        setModelTemperature(savedTemperature);
+      }
+
+      const savedApiKey = sessionStorage.getItem("deepanalyze.heywhaleApiKey");
+      if (savedApiKey) {
+        setHeywhaleApiKey(savedApiKey);
+      }
+
       const savedPromptPanel = localStorage.getItem("deepanalyze.showPromptPanel");
       if (savedPromptPanel !== null) {
         setShowPromptPanel(savedPromptPanel !== "false");
@@ -711,6 +726,9 @@ export function ThreePanelInterface() {
   const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [uiLanguage, setUiLanguage] = useState<UILanguage>("en");
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
+  const [llmProvider, setLlmProvider] = useState<"local" | "heywhale">("local");
+  const [modelTemperature, setModelTemperature] = useState("0.4");
+  const [heywhaleApiKey, setHeywhaleApiKey] = useState("");
   const [selectedPresetId, setSelectedPresetId] = useState(
     DATA_ANALYSIS_PROMPT_PRESETS[0]?.id || ""
   );
@@ -725,6 +743,21 @@ export function ThreePanelInterface() {
     if (typeof window === "undefined") return;
     localStorage.setItem("deepanalyze.systemPrompt", systemPrompt);
   }, [systemPrompt]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("deepanalyze.llmProvider", llmProvider);
+  }, [llmProvider]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("deepanalyze.modelTemperature", modelTemperature);
+  }, [modelTemperature]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem("deepanalyze.heywhaleApiKey", heywhaleApiKey);
+  }, [heywhaleApiKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1058,6 +1091,19 @@ export function ThreePanelInterface() {
         uiLanguage === "zh" ? "预设会同步到输入框" : "Presets sync to the input box",
       emptySystemPrompt:
         uiLanguage === "zh" ? "默认留空" : "Default empty",
+      modelProvider: uiLanguage === "zh" ? "模型来源" : "Model Provider",
+      providerLocal: uiLanguage === "zh" ? "本地" : "Local",
+      providerHeywhale: uiLanguage === "zh" ? "和鲸 API" : "HeyWhale API",
+      temperature: uiLanguage === "zh" ? "温度" : "Temperature",
+      temperatureHint:
+        uiLanguage === "zh"
+          ? "范围 0.0 - 2.0，默认 0.4"
+          : "Range 0.0 - 2.0, default 0.4",
+      heywhaleApiKey: uiLanguage === "zh" ? "和鲸 API Key" : "HeyWhale API Key",
+      heywhaleApiKeyPlaceholder:
+        uiLanguage === "zh"
+          ? "输入和鲸平台申请的 API Key"
+          : "Enter the API key issued by HeyWhale",
     }),
     [uiLanguage]
   );
@@ -1110,6 +1156,12 @@ export function ThreePanelInterface() {
 
     return result;
   }, [isGeneratedBundleFile, isGeneratedWorkspaceFile]);
+
+  const normalizedTemperature = useMemo(() => {
+    const parsed = Number.parseFloat(modelTemperature);
+    if (!Number.isFinite(parsed)) return 0.4;
+    return Math.min(2, Math.max(0, parsed));
+  }, [modelTemperature]);
 
   useEffect(() => {
     if (!selectedPresetPrompt) return;
@@ -3772,6 +3824,16 @@ export function ThreePanelInterface() {
       await handleStopMessage();
       return;
     }
+    if (llmProvider === "heywhale" && !heywhaleApiKey.trim()) {
+      toastRef.current({
+        description:
+          uiLanguage === "zh"
+            ? "请先填写和鲸 API Key"
+            : "Please provide a HeyWhale API key first.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!inputValue.trim() && attachments.length === 0) return;
     const baseMessageIndex = messages.length;
     const aiMessageIndex = baseMessageIndex + 1;
@@ -3801,6 +3863,9 @@ export function ThreePanelInterface() {
         },
         body: JSON.stringify({
           model: "DeepAnalyze-8B", // 修正模型名
+          provider: llmProvider,
+          api_key: llmProvider === "heywhale" ? heywhaleApiKey.trim() : "",
+          temperature: normalizedTemperature,
           messages: [
             ...(systemPrompt.trim()
               ? [
@@ -4194,6 +4259,61 @@ export function ThreePanelInterface() {
                         placeholder={textLabels.systemPromptPlaceholder}
                       />
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {textLabels.modelProvider}
+                        </div>
+                        <Select
+                          value={llmProvider}
+                          onValueChange={(value) =>
+                            setLlmProvider(value as "local" | "heywhale")
+                          }
+                        >
+                          <SelectTrigger className="w-full rounded-xl">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="local">{textLabels.providerLocal}</SelectItem>
+                            <SelectItem value="heywhale">{textLabels.providerHeywhale}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <div className="mb-1.5 flex items-center justify-between">
+                          <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {textLabels.temperature}
+                          </div>
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                            {normalizedTemperature.toFixed(1)}
+                          </div>
+                        </div>
+                        <Input
+                          value={modelTemperature}
+                          onChange={(e) => setModelTemperature(e.target.value)}
+                          inputMode="decimal"
+                          className="rounded-xl border-gray-200 dark:border-gray-800"
+                          placeholder="0.4"
+                        />
+                        <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                          {textLabels.temperatureHint}
+                        </div>
+                      </div>
+                    </div>
+                    {llmProvider === "heywhale" && (
+                      <div>
+                        <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {textLabels.heywhaleApiKey}
+                        </div>
+                        <Input
+                          type="password"
+                          value={heywhaleApiKey}
+                          onChange={(e) => setHeywhaleApiKey(e.target.value)}
+                          className="rounded-xl border-gray-200 dark:border-gray-800"
+                          placeholder={textLabels.heywhaleApiKeyPlaceholder}
+                        />
+                      </div>
+                    )}
                   </Card>
                 )}
 

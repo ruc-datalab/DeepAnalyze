@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import re
 import threading
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+import httpx
 import openai
 
 from .execution import (
@@ -21,6 +24,19 @@ from ..settings import CHINESE_MATPLOTLIB_BOOTSTRAP, settings
 client = openai.OpenAI(base_url=settings.api_base, api_key="dummy")
 _STOP_EVENTS: dict[str, threading.Event] = {}
 _STOP_EVENTS_LOCK = threading.Lock()
+HEYWHALE_API_BASE = (
+    "https://www.heywhale.com/api/model/services/691d42c36c6dda33df0bf645/app/v1"
+)
+REMOTE_STOP_SEQUENCES = ["</Code>", "</Answer>"]
+
+
+@dataclass(frozen=True)
+class ChatRuntimeConfig:
+    provider: str = "local"
+    temperature: float = 0.4
+    model: str = settings.model_path
+    api_key: str = ""
+    api_base: str = ""
 
 
 def _get_or_create_stop_event(session_id: str) -> threading.Event:
@@ -35,6 +51,113 @@ def _get_or_create_stop_event(session_id: str) -> threading.Event:
 
 def request_stop(session_id: str) -> None:
     _get_or_create_stop_event(session_id).set()
+
+
+def _normalize_temperature(value: Any) -> float:
+    try:
+        temperature = float(value)
+    except (TypeError, ValueError):
+        return 0.4
+    return max(0.0, min(2.0, temperature))
+
+
+def build_chat_runtime_config(payload: dict[str, Any] | None) -> ChatRuntimeConfig:
+    body = payload or {}
+    provider = str(body.get("provider") or "local").strip().lower() or "local"
+    if provider not in {"local", "heywhale"}:
+        provider = "local"
+
+    api_base = str(body.get("api_base") or "").strip()
+    if provider == "heywhale" and not api_base:
+        api_base = HEYWHALE_API_BASE
+
+    model = str(body.get("model") or settings.model_path).strip() or settings.model_path
+    api_key = str(body.get("api_key") or "").strip()
+
+    return ChatRuntimeConfig(
+        provider=provider,
+        temperature=_normalize_temperature(body.get("temperature")),
+        model=model,
+        api_key=api_key,
+        api_base=api_base,
+    )
+
+
+def _infer_missing_close_tag(content: str) -> str | None:
+    if "<Code>" in content and "</Code>" not in content:
+        return "</Code>"
+    if "<Answer>" in content and "</Answer>" not in content:
+        return "</Answer>"
+    return None
+
+
+def _iter_local_stream(
+    conversation: list[dict[str, Any]],
+    runtime_config: ChatRuntimeConfig,
+):
+    response = client.chat.completions.create(
+        model=runtime_config.model,
+        messages=conversation,
+        temperature=runtime_config.temperature,
+        stream=True,
+        extra_body={
+            "add_generation_prompt": False,
+            "stop_token_ids": [151676, 151645],
+            "max_new_tokens": 32768,
+        },
+    )
+    try:
+        for chunk in response:
+            yield chunk.choices[0].delta.content if chunk.choices else None, chunk
+    finally:
+        close = getattr(response, "close", None)
+        if callable(close):
+            close()
+
+
+def _iter_heywhale_stream(
+    conversation: list[dict[str, Any]],
+    runtime_config: ChatRuntimeConfig,
+):
+    if not runtime_config.api_key:
+        raise ValueError("HeyWhale API key is required")
+
+    request_body = {
+        "messages": conversation,
+        "temperature": runtime_config.temperature,
+        "stream": True,
+        "stop": REMOTE_STOP_SEQUENCES,
+    }
+
+    with httpx.Client(timeout=None) as http_client:
+        with http_client.stream(
+            "POST",
+            f"{runtime_config.api_base.rstrip('/')}/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {runtime_config.api_key}",
+            },
+            json=request_body,
+        ) as response:
+            response.raise_for_status()
+            for raw_line in response.iter_lines():
+                if not raw_line:
+                    continue
+                line = raw_line.strip()
+                if not line:
+                    continue
+                if line.startswith("data:"):
+                    line = line[5:].strip()
+                if line == "[DONE]":
+                    break
+                try:
+                    payload = json.loads(line)
+                except Exception:
+                    continue
+                choice = (payload.get("choices") or [{}])[0]
+                delta = (choice.get("delta") or {}).get("content")
+                finish_reason = choice.get("finish_reason")
+                yield delta, {"choices": [{"finish_reason": finish_reason}]}
 
 
 def _resolve_workspace_selection(
@@ -76,7 +199,13 @@ def _extract_code_to_execute(content: str) -> str | None:
     return CHINESE_MATPLOTLIB_BOOTSTRAP + "\n" + code_str
 
 
-def bot_stream(messages: list[dict[str, Any]], workspace: list[str], session_id: str = "default"):
+def bot_stream(
+    messages: list[dict[str, Any]],
+    workspace: list[str],
+    session_id: str = "default",
+    runtime_config: ChatRuntimeConfig | None = None,
+):
+    runtime_config = runtime_config or ChatRuntimeConfig()
     stop_event = _get_or_create_stop_event(session_id)
     stop_event.clear()
     conversation = deepcopy(messages or [])
@@ -100,51 +229,44 @@ def bot_stream(messages: list[dict[str, Any]], workspace: list[str], session_id:
             if stop_event.is_set():
                 break
 
-            response = client.chat.completions.create(
-                model=settings.model_path,
-                messages=conversation,
-                temperature=0.4,
-                stream=True,
-                extra_body={
-                    "add_generation_prompt": False,
-                    "stop_token_ids": [151676, 151645],
-                    "max_new_tokens": 32768,
-                },
-            )
-
             cur_res = ""
             last_chunk = None
+            stream_iter = (
+                _iter_heywhale_stream(conversation, runtime_config)
+                if runtime_config.provider == "heywhale"
+                else _iter_local_stream(conversation, runtime_config)
+            )
             try:
-                for chunk in response:
+                for delta, chunk in stream_iter:
                     if stop_event.is_set():
                         finished = True
                         break
                     last_chunk = chunk
-                    if chunk.choices and chunk.choices[0].delta.content is not None:
-                        delta = chunk.choices[0].delta.content
+                    if delta is not None:
                         cur_res += delta
                         yield delta
                     if "</Answer>" in cur_res:
                         finished = True
                         break
-            finally:
-                close = getattr(response, "close", None)
-                if callable(close):
-                    close()
+            except httpx.HTTPError as exc:
+                raise RuntimeError(f"HeyWhale request failed: {exc}") from exc
 
             if stop_event.is_set():
                 break
 
-            if (
-                last_chunk
-                and last_chunk.choices[0].finish_reason == "stop"
-                and not finished
-                and "<Code>" in cur_res
-                and "</Code>" not in cur_res
-            ):
-                missing_tag = "</Code>"
+            finish_reason = None
+            if last_chunk:
+                try:
+                    finish_reason = last_chunk["choices"][0]["finish_reason"]
+                except Exception:
+                    finish_reason = getattr(last_chunk.choices[0], "finish_reason", None)
+
+            missing_tag = _infer_missing_close_tag(cur_res)
+            if finish_reason == "stop" and not finished and missing_tag:
                 cur_res += missing_tag
                 yield missing_tag
+                if missing_tag == "</Answer>":
+                    finished = True
 
             if "</Code>" not in cur_res or finished:
                 continue
