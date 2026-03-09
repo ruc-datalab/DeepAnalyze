@@ -3102,11 +3102,11 @@ export function ThreePanelInterface() {
       if (previewType === "database" && previewPayload?.view === "table" && previewPayload) {
         return (
           <div className={compact ? "p-3 space-y-3" : "p-4 space-y-4"}>
-            {!compact && (
+            {(
               <Button
-                variant="outline"
+                variant={compact ? "ghost" : "outline"}
                 size="sm"
-                className="rounded-full"
+                className={compact ? "h-8 rounded-full px-2 text-xs" : "rounded-full"}
                 onClick={handlePreviewBackToTables}
               >
                 <ChevronLeft className="mr-1 h-3.5 w-3.5" />
@@ -3495,6 +3495,14 @@ export function ThreePanelInterface() {
     return null;
   }, [messages]);
 
+  const navigatorActiveSectionKey = useMemo(() => {
+    if (isTyping && latestAssistantMeta?.sections.length) {
+      return latestAssistantMeta.sections[latestAssistantMeta.sections.length - 1]
+        ?.sectionKey;
+    }
+    return activeSection;
+  }, [activeSection, isTyping, latestAssistantMeta]);
+
   const renderedMessages = useMemo(
     () =>
       messages.map((message, msgIdx) => (
@@ -3523,7 +3531,7 @@ export function ThreePanelInterface() {
 
     const allSections = latestAssistantMeta.sections;
     const activeIdx = allSections.findIndex(
-      (section) => section.sectionKey === activeSection
+      (section) => section.sectionKey === navigatorActiveSectionKey
     );
     const enableNavigatorAnimations = allSections.length <= 16;
 
@@ -3533,7 +3541,7 @@ export function ThreePanelInterface() {
         {latestAssistantMeta && latestAssistantMeta.sections.length > 0 && (() => {
           const allSections = latestAssistantMeta.sections;
           const activeIdx = allSections.findIndex(
-            (section) => section.sectionKey === activeSection
+            (section) => section.sectionKey === navigatorActiveSectionKey
           );
 
           return (
@@ -3546,7 +3554,7 @@ export function ThreePanelInterface() {
                 className="relative flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin"
               >
                 {allSections.map((section, idx) => {
-                  const isActive = activeSection === section.sectionKey;
+                  const isActive = navigatorActiveSectionKey === section.sectionKey;
                   const isCompleted = activeIdx > idx;
 
                   // 颜色映射
@@ -3650,7 +3658,7 @@ export function ThreePanelInterface() {
                     >
                       {/* 内容 */}
                       {isCompleted ? (
-                        <Check className="w-4 h-4 animate-in zoom-in duration-300" />
+                        <Check className="w-4 h-4" />
                       ) : (
                         <span
                           className={`text-base transition-transform duration-300 ${isActive
@@ -3732,7 +3740,7 @@ export function ThreePanelInterface() {
 
       </>
     );
-  }, [activeSection, latestAssistantMeta, scrollToSection]);
+  }, [latestAssistantMeta, navigatorActiveSectionKey, scrollToSection]);
 
   const handleStopMessage = useCallback(async () => {
     const controller = streamAbortControllerRef.current;
