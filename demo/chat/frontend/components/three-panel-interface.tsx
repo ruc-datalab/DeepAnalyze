@@ -1972,6 +1972,14 @@ export function ThreePanelInterface() {
     }
   };
 
+  const activePreviewFile = useMemo(() => {
+    if (!selectedWorkspacePath) return null;
+    return (
+      workspaceFiles.find((file) => file.path === selectedWorkspacePath) || null
+    );
+  }, [selectedWorkspacePath, workspaceFiles]);
+
+
   const handlePreviewPageChange = useCallback(
     async (nextPage: number) => {
       if (!activePreviewFile) return;
@@ -3249,13 +3257,6 @@ export function ThreePanelInterface() {
     }
     return null;
   }, [messages]);
-
-  const activePreviewFile = useMemo(() => {
-    if (!selectedWorkspacePath) return null;
-    return (
-      workspaceFiles.find((file) => file.path === selectedWorkspacePath) || null
-    );
-  }, [selectedWorkspacePath, workspaceFiles]);
 
   const renderedMessages = useMemo(
     () =>
