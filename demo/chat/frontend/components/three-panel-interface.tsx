@@ -88,6 +88,7 @@ import {
   FileImage,
   FileCode2,
   FileJson,
+  ChevronLeft,
 } from "lucide-react";
 import { Tree, NodeApi } from "react-arborist";
 import { useToast } from "@/hooks/use-toast";
@@ -139,13 +140,16 @@ interface WorkspaceFile {
 }
 
 interface PreviewTableData {
-  kind: "table" | "database";
+  kind?: "table" | "database";
   title?: string;
   columns: string[];
   rows: Array<Array<string | number | boolean>>;
   row_count?: number;
   column_count?: number;
   truncated?: boolean;
+  page?: number;
+  page_size?: number;
+  total_pages?: number;
   sheet_name?: string;
   sheet_names?: string[];
   table_name?: string;
@@ -154,6 +158,7 @@ interface PreviewTableData {
 
 interface PreviewPayload {
   kind: "text" | "markdown" | "table" | "database" | "image" | "pdf" | "binary";
+  view?: "tables" | "table";
   title?: string;
   content?: string;
   columns?: string[];
@@ -161,6 +166,9 @@ interface PreviewPayload {
   row_count?: number;
   column_count?: number;
   truncated?: boolean;
+  page?: number;
+  page_size?: number;
+  total_pages?: number;
   sheet_name?: string;
   sheet_names?: string[];
   tables?: PreviewTableData[];
@@ -728,6 +736,9 @@ export function ThreePanelInterface() {
   const [previewPayload, setPreviewPayload] = useState<PreviewPayload | null>(
     null
   );
+  const [previewPage, setPreviewPage] = useState(1);
+  const [previewTableName, setPreviewTableName] = useState("");
+  const [previewSheetName, setPreviewSheetName] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewDownloadUrl, setPreviewDownloadUrl] = useState<string>("");
   const previewScrollRef = useRef<HTMLDivElement>(null);
@@ -1783,67 +1794,113 @@ export function ThreePanelInterface() {
     }
   };
 
+  const loadPreview = useCallback(
+    async (
+      file: WorkspaceFile,
+      options?: {
+        openModal?: boolean;
+        page?: number;
+        tableName?: string;
+        sheetName?: string;
+      }
+    ) => {
+      const nextPage = options?.page ?? 1;
+      const nextTableName = options?.tableName ?? "";
+      const nextSheetName = options?.sheetName ?? "";
+
+      setPreviewTitle(file.name);
+      setPreviewDownloadUrl(file.download_url);
+      setPreviewPage(nextPage);
+      setPreviewTableName(nextTableName);
+      setPreviewSheetName(nextSheetName);
+      if (options?.openModal) {
+        setIsPreviewOpen(true);
+      }
+      setPreviewLoading(true);
+      setPreviewPayload(null);
+
+      const ext = (file.extension || "").replace(/^\./, "").toLowerCase();
+      if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) {
+        setPreviewType("image");
+        const correctedUrl = ensureGeneratedInUrl(
+          file.preview_url || file.download_url
+        );
+        setPreviewContent(correctedUrl);
+        setPreviewPayload({
+          kind: "image",
+          title: file.name,
+          content: correctedUrl,
+        });
+        setPreviewLoading(false);
+        return;
+      }
+      if (ext === "pdf") {
+        setPreviewType("pdf");
+        const correctedUrl = ensureGeneratedInUrl(
+          file.preview_url || file.download_url
+        );
+        setPreviewContent(correctedUrl);
+        setPreviewPayload({
+          kind: "pdf",
+          title: file.name,
+          content: correctedUrl,
+        });
+        setPreviewLoading(false);
+        return;
+      }
+
+      try {
+        const previewPath = file.path || file.name;
+        const res = await fetch(
+          buildApiUrlWithParams(API_CONFIG.ENDPOINTS.WORKSPACE_PREVIEW, {
+            path: previewPath,
+            session_id: sessionId,
+            page: nextPage,
+            page_size: 50,
+            table_name: nextTableName,
+            sheet_name: nextSheetName,
+          })
+        );
+        if (!res.ok) throw new Error("failed to fetch preview");
+        const payload = (await res.json()) as PreviewPayload;
+        setPreviewPayload(payload);
+        setPreviewType(payload.kind);
+        setPreviewContent(payload.content || "");
+      } catch (e) {
+        setPreviewType("binary");
+        setPreviewContent(file.download_url);
+        setPreviewPayload({
+          kind: "binary",
+          title: file.name,
+          content: file.download_url,
+        });
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [sessionId]
+  );
+
+  const openFullPreview = useCallback(
+    async (file: WorkspaceFile) => {
+      await loadPreview(file, {
+        openModal: true,
+        page: 1,
+        tableName: "",
+        sheetName: "",
+      });
+    },
+    [loadPreview]
+  );
+
   const openPreview = async (file: WorkspaceFile) => {
     setPreviewTitle(file.name);
-    setPreviewDownloadUrl(file.download_url);
-    setIsPreviewOpen(true);
-    setPreviewLoading(true);
-    setPreviewPayload(null);
-
-    const ext = (file.extension || "").replace(/^\./, "").toLowerCase();
-    if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) {
-      setPreviewType("image");
-      const correctedUrl = ensureGeneratedInUrl(
-        file.preview_url || file.download_url
-      );
-      setPreviewContent(correctedUrl);
-      setPreviewPayload({
-        kind: "image",
-        title: file.name,
-        content: correctedUrl,
-      });
-      setPreviewLoading(false);
-      return;
-    }
-    if (ext === "pdf") {
-      setPreviewType("pdf");
-      const correctedUrl = ensureGeneratedInUrl(
-        file.preview_url || file.download_url
-      );
-      setPreviewContent(correctedUrl);
-      setPreviewPayload({
-        kind: "pdf",
-        title: file.name,
-        content: correctedUrl,
-      });
-      setPreviewLoading(false);
-      return;
-    }
-
-    try {
-      const previewPath = file.path || file.name;
-      const res = await fetch(
-        buildApiUrlWithParams(API_CONFIG.ENDPOINTS.WORKSPACE_PREVIEW, {
-          path: previewPath,
-          session_id: sessionId,
-        })
-      );
-      if (!res.ok) throw new Error("failed to fetch preview");
-      const payload = (await res.json()) as PreviewPayload;
-      setPreviewPayload(payload);
-      setPreviewType(payload.kind);
-      setPreviewContent(payload.content || "");
-    } catch (e) {
-      setPreviewType("binary");
-      setPreviewContent(file.download_url);
-      setPreviewPayload({
-        kind: "binary",
-        title: file.name,
-        content: file.download_url,
-      });
-    } finally {
-      setPreviewLoading(false);
-    }
+    await loadPreview(file, {
+      openModal: false,
+      page: 1,
+      tableName: "",
+      sheetName: "",
+    });
   };
 
   useEffect(() => {
@@ -1924,7 +1981,10 @@ export function ThreePanelInterface() {
         row_count?: number;
         title?: string;
         sheet_name?: string;
+        sheet_names?: string[];
         total_rows?: number;
+        page?: number;
+        total_pages?: number;
       },
       options?: { compact?: boolean }
     ) => {
@@ -1934,9 +1994,28 @@ export function ThreePanelInterface() {
       return (
         <div className="space-y-2">
           {(payload.title || payload.sheet_name) && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              {payload.title}
-              {payload.sheet_name ? ` · ${payload.sheet_name}` : ""}
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {payload.title}
+                {payload.sheet_name ? ` · ${payload.sheet_name}` : ""}
+              </div>
+              {!compact && payload.sheet_names && payload.sheet_names.length > 1 && (
+                <Select
+                  value={payload.sheet_name}
+                  onValueChange={handlePreviewSheetChange}
+                >
+                  <SelectTrigger className="h-8 w-40 rounded-lg text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {payload.sheet_names.map((sheet) => (
+                      <SelectItem key={sheet} value={sheet}>
+                        {sheet}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           )}
           <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
@@ -1983,10 +2062,37 @@ export function ThreePanelInterface() {
                 : `Showing ${rows.length} row(s)${payload.total_rows || payload.row_count ? ` / ${payload.total_rows || payload.row_count} total` : ""}`}
             </div>
           )}
+          {!compact && (payload.total_pages || 1) > 1 && (
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                disabled={(payload.page || 1) <= 1}
+                onClick={() => handlePreviewPageChange((payload.page || 1) - 1)}
+              >
+                {uiLanguage === "zh" ? "上一页" : "Prev"}
+              </Button>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {uiLanguage === "zh"
+                  ? `第 ${payload.page || 1} / ${payload.total_pages || 1} 页`
+                  : `Page ${payload.page || 1} / ${payload.total_pages || 1}`}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                disabled={(payload.page || 1) >= (payload.total_pages || 1)}
+                onClick={() => handlePreviewPageChange((payload.page || 1) + 1)}
+              >
+                {uiLanguage === "zh" ? "下一页" : "Next"}
+              </Button>
+            </div>
+          )}
         </div>
       );
     },
-    [uiLanguage]
+    [handlePreviewPageChange, handlePreviewSheetChange, uiLanguage]
   );
 
   const renderPreviewContent = useCallback(
@@ -2036,15 +2142,51 @@ export function ThreePanelInterface() {
         );
       }
 
-      if (previewType === "database" && previewPayload?.tables) {
-        const tables = compact ? previewPayload.tables.slice(0, 1) : previewPayload.tables;
+      if (previewType === "database" && previewPayload?.view === "tables") {
+        const tables = compact ? (previewPayload.tables || []).slice(0, 5) : previewPayload.tables || [];
+        return (
+          <div className={compact ? "p-3 space-y-2" : "p-4 space-y-3"}>
+            {tables.map((table) => (
+              <button
+                key={table.table_name || table.title}
+                type="button"
+                className="flex w-full items-center justify-between rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-900/60"
+                onClick={() =>
+                  table.table_name && handlePreviewTableSelect(table.table_name)
+                }
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {table.table_name || table.title}
+                  </div>
+                  <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                    {uiLanguage === "zh"
+                      ? `${table.row_count || 0} 行 · ${table.column_count || 0} 列`
+                      : `${table.row_count || 0} rows · ${table.column_count || 0} cols`}
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+              </button>
+            ))}
+          </div>
+        );
+      }
+
+      if (previewType === "database" && previewPayload?.view === "table" && previewPayload) {
         return (
           <div className={compact ? "p-3 space-y-3" : "p-4 space-y-4"}>
-            {tables.map((table) => (
-              <div key={table.table_name || table.title}>
-                {renderPreviewTable(table, { compact })}
-              </div>
-            ))}
+            {!compact && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={handlePreviewBackToTables}
+              >
+                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                {uiLanguage === "zh" ? "返回表列表" : "Back to Tables"}
+              </Button>
+            )}
+            {renderPreviewTable(previewPayload, { compact })}
           </div>
         );
       }
@@ -2109,6 +2251,8 @@ export function ThreePanelInterface() {
       );
     },
     [
+      handlePreviewBackToTables,
+      handlePreviewTableSelect,
       isDarkMode,
       previewContent,
       previewDownloadUrl,
@@ -2428,6 +2572,55 @@ export function ThreePanelInterface() {
     );
   }, [selectedWorkspacePath, workspaceFiles]);
 
+  const handlePreviewPageChange = useCallback(
+    async (nextPage: number) => {
+      if (!activePreviewFile) return;
+      await loadPreview(activePreviewFile, {
+        page: nextPage,
+        tableName: previewTableName,
+        sheetName: previewSheetName,
+        openModal: isPreviewOpen,
+      });
+    },
+    [activePreviewFile, isPreviewOpen, loadPreview, previewSheetName, previewTableName]
+  );
+
+  const handlePreviewTableSelect = useCallback(
+    async (tableName: string) => {
+      if (!activePreviewFile) return;
+      await loadPreview(activePreviewFile, {
+        page: 1,
+        tableName,
+        sheetName: "",
+        openModal: isPreviewOpen,
+      });
+    },
+    [activePreviewFile, isPreviewOpen, loadPreview]
+  );
+
+  const handlePreviewBackToTables = useCallback(async () => {
+    if (!activePreviewFile) return;
+    await loadPreview(activePreviewFile, {
+      page: 1,
+      tableName: "",
+      sheetName: "",
+      openModal: isPreviewOpen,
+    });
+  }, [activePreviewFile, isPreviewOpen, loadPreview]);
+
+  const handlePreviewSheetChange = useCallback(
+    async (sheetName: string) => {
+      if (!activePreviewFile) return;
+      await loadPreview(activePreviewFile, {
+        page: 1,
+        tableName: "",
+        sheetName,
+        openModal: isPreviewOpen,
+      });
+    },
+    [activePreviewFile, isPreviewOpen, loadPreview]
+  );
+
   const recentGeneratedFiles = useMemo(
     () =>
       workspaceFiles
@@ -2440,6 +2633,18 @@ export function ThreePanelInterface() {
         .sort((left, right) => right.name.localeCompare(left.name))
         .slice(0, 8),
     [workspaceFiles]
+  );
+
+  const handleMessagesScroll = useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      const target = event.currentTarget;
+      const isBottom =
+        Math.abs(
+          target.scrollHeight - target.scrollTop - target.clientHeight
+        ) < 50;
+      stickToBottomRef.current = isBottom;
+    },
+    []
   );
 
   const updateActiveSectionFromScroll = useCallback(() => {
@@ -3051,6 +3256,244 @@ export function ThreePanelInterface() {
     [autoCollapseEnabled, manualLocks]
   );
 
+  const renderedMessages = useMemo(
+    () =>
+      messages.map((message, msgIdx) => (
+        <ChatMessageItem
+          key={message.id}
+          message={message}
+          messageIndex={msgIdx}
+          isStreaming={message.sender === "ai" && message.id === streamingMessageId}
+          renderAssistant={renderMessageWithSections}
+          renderAssistantStreaming={renderMessageWithSectionsStreaming}
+        />
+      )),
+    [
+      messages,
+      renderMessageWithSections,
+      renderMessageWithSectionsStreaming,
+      streamingMessageId,
+    ]
+  );
+
+
+  const renderedStepNavigator = useMemo(() => {
+    if (!latestAssistantMeta || latestAssistantMeta.sections.length === 0) {
+      return null;
+    }
+
+    const allSections = latestAssistantMeta.sections;
+    const activeIdx = allSections.findIndex(
+      (section) => section.sectionKey === activeSection
+    );
+
+    return (
+      <>
+        {/* Step Navigator - Top Horizontal */}
+        {latestAssistantMeta && latestAssistantMeta.sections.length > 0 && (() => {
+          const allSections = latestAssistantMeta.sections;
+          const activeIdx = allSections.findIndex(
+            (section) => section.sectionKey === activeSection
+          );
+
+          return (
+            <div className="relative border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 px-6 py-4 overflow-hidden">
+              {/* 背景装饰 */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-50/50 via-purple-50/30 to-pink-50/50 dark:from-blue-950/20 dark:via-purple-950/10 dark:to-pink-950/20 pointer-events-none" />
+
+              <div
+                ref={stepNavigatorRef}
+                className="relative flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin"
+              >
+                {allSections.map((section, idx) => {
+                  const isActive = activeSection === section.sectionKey;
+                  const isCompleted = activeIdx > idx;
+
+                  // 颜色映射
+                  const colorMap: Record<
+                    string,
+                    {
+                bg: string;
+                border: string;
+                glow: string;
+                text: string;
+                    }
+                  > = {
+                    "bg-blue-500": {
+                bg: "bg-blue-500",
+                border: "border-blue-400",
+                glow: "shadow-blue-500/50",
+                text: "text-blue-600",
+                    },
+                    "bg-cyan-500": {
+                bg: "bg-cyan-500",
+                border: "border-cyan-400",
+                glow: "shadow-cyan-500/50",
+                text: "text-cyan-600",
+                    },
+                    "bg-gray-500": {
+                bg: "bg-gray-500",
+                border: "border-gray-400",
+                glow: "shadow-gray-500/50",
+                text: "text-gray-600",
+                    },
+                    "bg-orange-500": {
+                bg: "bg-orange-500",
+                border: "border-orange-400",
+                glow: "shadow-orange-500/50",
+                text: "text-orange-600",
+                    },
+                    "bg-green-500": {
+                bg: "bg-green-500",
+                border: "border-green-400",
+                glow: "shadow-green-500/50",
+                text: "text-green-600",
+                    },
+                    "bg-purple-500": {
+                bg: "bg-purple-500",
+                border: "border-purple-400",
+                glow: "shadow-purple-500/50",
+                text: "text-purple-600",
+                    },
+                  };
+                  const colors =
+                    colorMap[section.config.color] ||
+                    colorMap["bg-gray-500"];
+
+                  return (
+                    <div
+                key={section.sectionKey}
+                className="flex items-center shrink-0"
+                ref={(el) => {
+                  if (el) {
+                    activeStepRefs.current.set(
+                      section.sectionKey,
+                      el
+                    );
+                  }
+                }}
+                    >
+                {/* 步骤节点 */}
+                <button
+                  onClick={() =>
+                    scrollToSection(section.sectionKey)
+                  }
+                  className={`group relative flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all duration-300 ${isActive
+                    ? "scale-105"
+                    : "hover:scale-102 hover:bg-gray-50 dark:hover:bg-gray-900/50"
+                    }`}
+                >
+                  {/* 圆圈容器 */}
+                  <div className="relative">
+                    {/* 脉动动画背景 */}
+                    {isActive && (
+                      <div
+                        className={`absolute inset-0 ${colors.bg} rounded-full animate-ping opacity-20`}
+                      />
+                    )}
+
+                    {/* 主圆圈 */}
+                    <div
+                      className={`relative w-9 h-9 rounded-full flex items-center justify-center font-semibold text-base transition-all duration-500 ${isActive
+                        ? `${colors.bg} text-white shadow-lg ${colors.glow
+                        } ring-2 ring-offset-1 ${colors.border.replace(
+                          "border-",
+                          "ring-"
+                        )} ring-opacity-30 dark:ring-offset-gray-950`
+                        : isCompleted
+                          ? "bg-gradient-to-br from-green-400 to-green-600 text-white shadow-md shadow-green-500/30"
+                          : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 border-2 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500"
+                        } ${!isActive &&
+                        !isCompleted &&
+                        "group-hover:border-gray-400 dark:group-hover:border-gray-500 group-hover:shadow-md"
+                        }`}
+                    >
+                      {/* 内容 */}
+                      {isCompleted ? (
+                        <Check className="w-4 h-4 animate-in zoom-in duration-300" />
+                      ) : (
+                        <span
+                          className={`text-base transition-transform duration-300 ${isActive
+                            ? "scale-110"
+                            : "group-hover:scale-105"
+                            }`}
+                        >
+                          {section.config.icon}
+                        </span>
+                      )}
+
+                      {/* 进度指示小点 */}
+                      {isActive && (
+                        <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-white dark:bg-gray-950 rounded-full flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 标签 */}
+                  <div
+                    className={`text-[11px] font-semibold whitespace-nowrap transition-all duration-300 ${isActive
+                      ? `${colors.text} dark:text-white scale-105`
+                      : isCompleted
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300"
+                      }`}
+                  >
+                    {section.type}
+                  </div>
+
+                  {/* 序号 */}
+                  <div
+                    className={`absolute top-0 left-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-all duration-300 ${isActive
+                      ? `${colors.bg} text-white shadow-sm`
+                      : isCompleted
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300"
+                      }`}
+                  >
+                    {idx + 1}
+                  </div>
+                </button>
+
+                {/* 连接线 */}
+                {idx < allSections.length - 1 && (
+                  <div className="relative w-16 h-1 mx-1">
+                    {/* 背景轨道 */}
+                    <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 rounded-full" />
+
+                    {/* 进度条 */}
+                    <div
+                      className={`absolute inset-0 rounded-full transition-all duration-700 ${isCompleted || isActive
+                        ? "bg-gradient-to-r from-green-400 to-green-500 shadow-sm shadow-green-500/30"
+                        : "bg-transparent"
+                        }`}
+                      style={{
+                        transform: isActive
+                          ? "scaleX(0.5)"
+                          : "scaleX(1)",
+                        transformOrigin: "left",
+                      }}
+                    />
+
+                    {/* 流动动画 */}
+                    {isActive && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-50 animate-shimmer" />
+                    )}
+                  </div>
+                )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+      </>
+    );
+  }, [activeSection, latestAssistantMeta, scrollToSection]);
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() && attachments.length === 0) return;
     const baseMessageIndex = messages.length;
@@ -3639,6 +4082,10 @@ export function ThreePanelInterface() {
                               setSelectedWorkspacePath(file.path);
                               openPreview(file);
                             }}
+                            onDoubleClick={() => {
+                              setSelectedWorkspacePath(file.path);
+                              openFullPreview(file);
+                            }}
                             type="button"
                           >
                             <div className="aspect-square overflow-hidden rounded-xl bg-white/80 dark:bg-gray-950/70 border border-white/60 dark:border-gray-800 flex items-center justify-center">
@@ -3682,7 +4129,11 @@ export function ThreePanelInterface() {
                               <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500 dark:text-gray-400">
                                 <span className="truncate">{formatFileSize(file.size)}</span>
                                 <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[10px]">
-                                  {file.is_generated ? textLabels.generated : textLabels.uploaded}
+                                  {(!!file.is_generated ||
+                                    file.path === "generated" ||
+                                    file.path.startsWith("generated/"))
+                                    ? textLabels.generated
+                                    : textLabels.uploaded}
                                 </Badge>
                               </div>
                             </div>
@@ -3773,232 +4224,15 @@ export function ThreePanelInterface() {
                 </div>
               </div>
 
-              {/* Step Navigator - Top Horizontal */}
-              {latestAssistantMeta && latestAssistantMeta.sections.length > 0 && (() => {
-                const allSections = latestAssistantMeta.sections;
-                const activeIdx = allSections.findIndex(
-                  (section) => section.sectionKey === activeSection
-                );
-
-                return (
-                  <div className="relative border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 px-6 py-4 overflow-hidden">
-                    {/* 背景装饰 */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-50/50 via-purple-50/30 to-pink-50/50 dark:from-blue-950/20 dark:via-purple-950/10 dark:to-pink-950/20 pointer-events-none" />
-
-                    <div
-                      ref={stepNavigatorRef}
-                      className="relative flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin"
-                    >
-                      {allSections.map((section, idx) => {
-                        const isActive = activeSection === section.sectionKey;
-                        const isCompleted = activeIdx > idx;
-
-                        // 颜色映射
-                        const colorMap: Record<
-                          string,
-                          {
-                            bg: string;
-                            border: string;
-                            glow: string;
-                            text: string;
-                          }
-                        > = {
-                          "bg-blue-500": {
-                            bg: "bg-blue-500",
-                            border: "border-blue-400",
-                            glow: "shadow-blue-500/50",
-                            text: "text-blue-600",
-                          },
-                          "bg-cyan-500": {
-                            bg: "bg-cyan-500",
-                            border: "border-cyan-400",
-                            glow: "shadow-cyan-500/50",
-                            text: "text-cyan-600",
-                          },
-                          "bg-gray-500": {
-                            bg: "bg-gray-500",
-                            border: "border-gray-400",
-                            glow: "shadow-gray-500/50",
-                            text: "text-gray-600",
-                          },
-                          "bg-orange-500": {
-                            bg: "bg-orange-500",
-                            border: "border-orange-400",
-                            glow: "shadow-orange-500/50",
-                            text: "text-orange-600",
-                          },
-                          "bg-green-500": {
-                            bg: "bg-green-500",
-                            border: "border-green-400",
-                            glow: "shadow-green-500/50",
-                            text: "text-green-600",
-                          },
-                          "bg-purple-500": {
-                            bg: "bg-purple-500",
-                            border: "border-purple-400",
-                            glow: "shadow-purple-500/50",
-                            text: "text-purple-600",
-                          },
-                        };
-                        const colors =
-                          colorMap[section.config.color] ||
-                          colorMap["bg-gray-500"];
-
-                        return (
-                          <div
-                            key={section.sectionKey}
-                            className="flex items-center shrink-0"
-                            ref={(el) => {
-                              if (el) {
-                                activeStepRefs.current.set(
-                                  section.sectionKey,
-                                  el
-                                );
-                              }
-                            }}
-                          >
-                            {/* 步骤节点 */}
-                            <button
-                              onClick={() =>
-                                scrollToSection(section.sectionKey)
-                              }
-                              className={`group relative flex flex-col items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all duration-300 ${isActive
-                                ? "scale-105"
-                                : "hover:scale-102 hover:bg-gray-50 dark:hover:bg-gray-900/50"
-                                }`}
-                            >
-                              {/* 圆圈容器 */}
-                              <div className="relative">
-                                {/* 脉动动画背景 */}
-                                {isActive && (
-                                  <div
-                                    className={`absolute inset-0 ${colors.bg} rounded-full animate-ping opacity-20`}
-                                  />
-                                )}
-
-                                {/* 主圆圈 */}
-                                <div
-                                  className={`relative w-9 h-9 rounded-full flex items-center justify-center font-semibold text-base transition-all duration-500 ${isActive
-                                    ? `${colors.bg} text-white shadow-lg ${colors.glow
-                                    } ring-2 ring-offset-1 ${colors.border.replace(
-                                      "border-",
-                                      "ring-"
-                                    )} ring-opacity-30 dark:ring-offset-gray-950`
-                                    : isCompleted
-                                      ? "bg-gradient-to-br from-green-400 to-green-600 text-white shadow-md shadow-green-500/30"
-                                      : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 border-2 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500"
-                                    } ${!isActive &&
-                                    !isCompleted &&
-                                    "group-hover:border-gray-400 dark:group-hover:border-gray-500 group-hover:shadow-md"
-                                    }`}
-                                >
-                                  {/* 内容 */}
-                                  {isCompleted ? (
-                                    <Check className="w-4 h-4 animate-in zoom-in duration-300" />
-                                  ) : (
-                                    <span
-                                      className={`text-base transition-transform duration-300 ${isActive
-                                        ? "scale-110"
-                                        : "group-hover:scale-105"
-                                        }`}
-                                    >
-                                      {section.config.icon}
-                                    </span>
-                                  )}
-
-                                  {/* 进度指示小点 */}
-                                  {isActive && (
-                                    <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-white dark:bg-gray-950 rounded-full flex items-center justify-center">
-                                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* 标签 */}
-                              <div
-                                className={`text-[11px] font-semibold whitespace-nowrap transition-all duration-300 ${isActive
-                                  ? `${colors.text} dark:text-white scale-105`
-                                  : isCompleted
-                                    ? "text-green-600 dark:text-green-400"
-                                    : "text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300"
-                                  }`}
-                              >
-                                {section.type}
-                              </div>
-
-                              {/* 序号 */}
-                              <div
-                                className={`absolute top-0 left-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-all duration-300 ${isActive
-                                  ? `${colors.bg} text-white shadow-sm`
-                                  : isCompleted
-                                    ? "bg-green-500 text-white"
-                                    : "bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300"
-                                  }`}
-                              >
-                                {idx + 1}
-                              </div>
-                            </button>
-
-                            {/* 连接线 */}
-                            {idx < allSections.length - 1 && (
-                              <div className="relative w-16 h-1 mx-1">
-                                {/* 背景轨道 */}
-                                <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 rounded-full" />
-
-                                {/* 进度条 */}
-                                <div
-                                  className={`absolute inset-0 rounded-full transition-all duration-700 ${isCompleted || isActive
-                                    ? "bg-gradient-to-r from-green-400 to-green-500 shadow-sm shadow-green-500/30"
-                                    : "bg-transparent"
-                                    }`}
-                                  style={{
-                                    transform: isActive
-                                      ? "scaleX(0.5)"
-                                      : "scaleX(1)",
-                                    transformOrigin: "left",
-                                  }}
-                                />
-
-                                {/* 流动动画 */}
-                                {isActive && (
-                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-50 animate-shimmer" />
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
+              {renderedStepNavigator}
 
               {/* Chat Messages */}
               <div
                 ref={messagesContainerRef}
-                onScroll={(e) => {
-                  const target = e.currentTarget;
-                  const isBottom =
-                    Math.abs(
-                      target.scrollHeight - target.scrollTop - target.clientHeight
-                    ) < 50;
-                  stickToBottomRef.current = isBottom;
-                }}
+                onScroll={handleMessagesScroll}
                 className="flex-1 min-h-0 min-w-0 overflow-y-scroll overflow-x-hidden px-4 py-4 pr-5 space-y-6 scrollbar-auto"
               >
-                {messages.map((message, msgIdx) => (
-                  <ChatMessageItem
-                    key={message.id}
-                    message={message}
-                    messageIndex={msgIdx}
-                    isStreaming={
-                      message.sender === "ai" && message.id === streamingMessageId
-                    }
-                    renderAssistant={renderMessageWithSections}
-                    renderAssistantStreaming={renderMessageWithSectionsStreaming}
-                  />
-                ))}
+                {renderedMessages}
                 {/* 加载气泡已移除，改为仅按钮态提示 */}
                 <div ref={messagesEndRef} />
               </div>
@@ -4140,7 +4374,7 @@ export function ThreePanelInterface() {
                           </div>
                         </div>
                         <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
-                          {renderPreviewContent({ compact: true })}
+                          {renderPreviewContent()}
                         </div>
                         <div className="flex gap-2">
                           <Button
@@ -4192,6 +4426,10 @@ export function ThreePanelInterface() {
                           onClick={() => {
                             setSelectedWorkspacePath(file.path);
                             openPreview(file);
+                          }}
+                          onDoubleClick={() => {
+                            setSelectedWorkspacePath(file.path);
+                            openFullPreview(file);
                           }}
                         >
                           <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-900">
@@ -4248,9 +4486,11 @@ export function ThreePanelInterface() {
             <SheetHeader className="border-b border-gray-200 dark:border-gray-800 px-5 py-4">
               <div className="flex items-center justify-between gap-3 pr-8">
                 <div>
-                  <SheetTitle className="text-base">代码工作台</SheetTitle>
+                  <SheetTitle className="text-base">{uiLanguage === "zh" ? "代码工作台" : "Code Lab"}</SheetTitle>
                   <SheetDescription>
-                    在这里修改生成代码、执行，并查看输出结果
+                    {uiLanguage === "zh"
+                      ? "在这里修改生成代码、执行，并查看输出结果"
+                      : "Edit generated code, run it, and inspect the output here."}
                   </SheetDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -4264,7 +4504,7 @@ export function ThreePanelInterface() {
                       setShowCodeEditor(false);
                     }}
                   >
-                    关闭
+                    {uiLanguage === "zh" ? "关闭" : "Close"}
                   </Button>
                   <Button
                     size="sm"
@@ -4272,7 +4512,13 @@ export function ThreePanelInterface() {
                     disabled={!codeEditorContent || isExecutingCode}
                     className="bg-black text-white dark:bg-white dark:text-black"
                   >
-                    {isExecutingCode ? "运行中..." : "运行代码"}
+                    {isExecutingCode
+                      ? uiLanguage === "zh"
+                        ? "运行中..."
+                        : "Running..."
+                      : uiLanguage === "zh"
+                        ? "运行代码"
+                        : "Run Code"}
                   </Button>
                 </div>
               </div>
@@ -4287,7 +4533,9 @@ export function ThreePanelInterface() {
                   <span className="text-xs text-gray-500 font-mono">python</span>
                   {selectedCodeSection && (
                     <span className="text-[11px] text-gray-400 truncate max-w-52">
-                      来自最近选中的代码块
+                      {uiLanguage === "zh"
+                        ? "来自最近选中的代码块"
+                        : "From the latest selected code block"}
                     </span>
                   )}
                 </div>
@@ -4332,7 +4580,9 @@ export function ThreePanelInterface() {
                       <div className="flex items-center justify-center h-full">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                          <span className="text-sm">加载编辑器...</span>
+                          <span className="text-sm">
+                            {uiLanguage === "zh" ? "加载编辑器..." : "Loading editor..."}
+                          </span>
                         </div>
                       </div>
                     }
@@ -4372,7 +4622,9 @@ export function ThreePanelInterface() {
                     </div>
                   ) : (
                     <div className="text-gray-400 dark:text-gray-500 italic">
-                      运行代码后将在这里显示输出结果...
+                      {uiLanguage === "zh"
+                        ? "运行代码后将在这里显示输出结果..."
+                        : "Run the code to see the output here..."}
                     </div>
                   )}
                 </div>

@@ -31,8 +31,19 @@ async def download_workspace_bundle(
 async def preview_workspace_file(
     path: str = Query(..., description="relative path under workspace"),
     session_id: str = Query("default"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    table_name: str = Query("", description="sqlite table name"),
+    sheet_name: str = Query("", description="excel sheet name"),
 ):
-    return workspace_service.preview_workspace_file(session_id, path)
+    return workspace_service.preview_workspace_file(
+        session_id,
+        path,
+        page=page,
+        page_size=page_size,
+        table_name=table_name,
+        sheet_name=sheet_name,
+    )
 
 
 @router.delete("/workspace/file")

@@ -217,7 +217,65 @@ def _build_dataframe_preview(
     return payload
 
 
-def preview_workspace_file(session_id: str, relative_path: str) -> dict:
+def _clamp_page(page: int, page_size: int) -> tuple[int, int]:
+    safe_page_size = max(1, min(page_size, 200))
+    safe_page = max(1, page)
+    return safe_page, safe_page_size
+
+
+def _build_paginated_preview(
+    dataframe: pd.DataFrame,
+    *,
+    title: str | None = None,
+    kind: str = "table",
+    page: int = 1,
+    page_size: int = 50,
+    max_cols: int = 30,
+    extra: dict | None = None,
+) -> dict:
+    safe_page, safe_page_size = _clamp_page(page, page_size)
+    total_rows = int(len(dataframe.index))
+    total_cols = int(len(dataframe.columns))
+    total_pages = max(1, (total_rows + safe_page_size - 1) // safe_page_size)
+    safe_page = min(safe_page, total_pages)
+
+    trimmed = dataframe.copy()
+    if total_cols > max_cols:
+        trimmed = trimmed.iloc[:, :max_cols]
+
+    start = (safe_page - 1) * safe_page_size
+    end = start + safe_page_size
+    page_df = trimmed.iloc[start:end].fillna("")
+    rows = [
+        [_json_safe_value(value) for value in row]
+        for row in page_df.astype(object).values.tolist()
+    ]
+    payload = {
+        "kind": kind,
+        "title": title,
+        "columns": [str(column) for column in page_df.columns.tolist()],
+        "rows": rows,
+        "row_count": total_rows,
+        "column_count": total_cols,
+        "page": safe_page,
+        "page_size": safe_page_size,
+        "total_pages": total_pages,
+        "truncated": total_cols > max_cols,
+    }
+    if extra:
+        payload.update(extra)
+    return payload
+
+
+def preview_workspace_file(
+    session_id: str,
+    relative_path: str,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+    table_name: str = "",
+    sheet_name: str = "",
+) -> dict:
     file_path = resolve_workspace_path(session_id, relative_path)
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
@@ -244,18 +302,27 @@ def preview_workspace_file(session_id: str, relative_path: str) -> dict:
 
     if ext in {".csv", ".tsv"}:
         separator = "\t" if ext == ".tsv" else ","
-        dataframe = pd.read_csv(file_path, sep=separator, nrows=100)
-        return _build_dataframe_preview(dataframe, title=file_path.name)
+        dataframe = pd.read_csv(file_path, sep=separator)
+        return _build_paginated_preview(
+            dataframe,
+            title=file_path.name,
+            page=page,
+            page_size=page_size,
+        )
 
     if ext in {".xlsx", ".xls"}:
         workbook = pd.ExcelFile(file_path)
-        sheet_name = workbook.sheet_names[0]
-        dataframe = workbook.parse(sheet_name=sheet_name, nrows=100)
-        return _build_dataframe_preview(
+        active_sheet = sheet_name or workbook.sheet_names[0]
+        if active_sheet not in workbook.sheet_names:
+            raise HTTPException(status_code=404, detail="Sheet not found")
+        dataframe = workbook.parse(sheet_name=active_sheet)
+        return _build_paginated_preview(
             dataframe,
             title=file_path.name,
+            page=page,
+            page_size=page_size,
             extra={
-                "sheet_name": sheet_name,
+                "sheet_name": active_sheet,
                 "sheet_names": workbook.sheet_names,
             },
         )
@@ -269,35 +336,58 @@ def preview_workspace_file(session_id: str, relative_path: str) -> dict:
                     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
                 ).fetchall()
             ]
-
-            tables: list[dict] = []
-            for table_name in table_names[:10]:
-                total_rows = cursor.execute(
-                    f'SELECT COUNT(*) FROM "{table_name}"'
-                ).fetchone()[0]
-                dataframe = pd.read_sql_query(
-                    f'SELECT * FROM "{table_name}" LIMIT 100',
-                    connection,
-                )
-                tables.append(
-                    _build_dataframe_preview(
-                        dataframe,
-                        title=table_name,
-                        kind="database",
-                        extra={
-                            "table_name": table_name,
-                            "total_rows": int(total_rows),
-                        },
+            if not table_name:
+                tables: list[dict] = []
+                for current_table in table_names:
+                    total_rows = cursor.execute(
+                        f'SELECT COUNT(*) FROM "{current_table.replace(chr(34), chr(34) * 2)}"'
+                    ).fetchone()[0]
+                    columns = [
+                        row[1]
+                        for row in cursor.execute(
+                            f'PRAGMA table_info("{current_table.replace(chr(34), chr(34) * 2)}")'
+                        ).fetchall()
+                    ]
+                    tables.append(
+                        {
+                            "table_name": current_table,
+                            "title": current_table,
+                            "row_count": int(total_rows),
+                            "column_count": len(columns),
+                            "columns": columns,
+                        }
                     )
-                )
 
-        return {
-            "kind": "database",
-            "title": file_path.name,
-            "tables": tables,
-            "table_names": table_names,
-            "truncated": len(table_names) > 10,
-        }
+                return {
+                    "kind": "database",
+                    "view": "tables",
+                    "title": file_path.name,
+                    "tables": tables,
+                    "table_names": table_names,
+                }
+
+            if table_name not in table_names:
+                raise HTTPException(status_code=404, detail="Table not found")
+
+            safe_table_name = table_name.replace('"', '""')
+            dataframe = pd.read_sql_query(
+                f'SELECT * FROM "{safe_table_name}"',
+                connection,
+            )
+            preview = _build_paginated_preview(
+                dataframe,
+                title=file_path.name,
+                kind="database",
+                page=page,
+                page_size=page_size,
+                extra={
+                    "view": "table",
+                    "table_name": table_name,
+                    "table_names": table_names,
+                },
+            )
+            preview["total_rows"] = preview["row_count"]
+            return preview
 
     raise HTTPException(status_code=415, detail="Preview not supported")
 
