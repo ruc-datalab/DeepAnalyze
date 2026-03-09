@@ -1,6 +1,7 @@
 # vllm>=0.8.5
 numpy
 pandas
+openpyxl
 scikit-learn
 seaborn
 torch

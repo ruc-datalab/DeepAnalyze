@@ -24,6 +24,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { API_URLS, API_CONFIG, buildApiUrlWithParams } from "@/lib/config";
@@ -128,6 +136,37 @@ interface WorkspaceFile {
   is_generated?: boolean;
   download_url: string;
   preview_url?: string;
+}
+
+interface PreviewTableData {
+  kind: "table" | "database";
+  title?: string;
+  columns: string[];
+  rows: Array<Array<string | number | boolean>>;
+  row_count?: number;
+  column_count?: number;
+  truncated?: boolean;
+  sheet_name?: string;
+  sheet_names?: string[];
+  table_name?: string;
+  total_rows?: number;
+}
+
+interface PreviewPayload {
+  kind: "text" | "markdown" | "table" | "database" | "image" | "pdf" | "binary";
+  title?: string;
+  content?: string;
+  columns?: string[];
+  rows?: Array<Array<string | number | boolean>>;
+  row_count?: number;
+  column_count?: number;
+  truncated?: boolean;
+  sheet_name?: string;
+  sheet_names?: string[];
+  tables?: PreviewTableData[];
+  table_names?: string[];
+  table_name?: string;
+  total_rows?: number;
 }
 
 type WorkspaceNode = {
@@ -684,8 +723,11 @@ export function ThreePanelInterface() {
   const [previewTitle, setPreviewTitle] = useState<string>("");
   const [previewContent, setPreviewContent] = useState<string>("");
   const [previewType, setPreviewType] = useState<
-    "text" | "image" | "pdf" | "binary"
+    "text" | "markdown" | "table" | "database" | "image" | "pdf" | "binary"
   >("text");
+  const [previewPayload, setPreviewPayload] = useState<PreviewPayload | null>(
+    null
+  );
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewDownloadUrl, setPreviewDownloadUrl] = useState<string>("");
   const previewScrollRef = useRef<HTMLDivElement>(null);
@@ -1051,12 +1093,24 @@ export function ThreePanelInterface() {
   }, [workspaceFiles, workspaceSearch, workspaceView]);
 
   const getLocalizedPreviewType = useCallback(
-    (type: "text" | "image" | "pdf" | "binary") => {
+    (
+      type:
+        | "text"
+        | "markdown"
+        | "table"
+        | "database"
+        | "image"
+        | "pdf"
+        | "binary"
+    ) => {
       if (uiLanguage === "zh") {
         return {
           image: "图片",
           pdf: "PDF",
           text: "文本",
+          markdown: "Markdown",
+          table: "表格",
+          database: "数据库",
           binary: "二进制文件",
         }[type];
       }
@@ -1064,6 +1118,9 @@ export function ThreePanelInterface() {
         image: "Image",
         pdf: "PDF",
         text: "Text",
+        markdown: "Markdown",
+        table: "Table",
+        database: "Database",
         binary: "Binary",
       }[type];
     },
@@ -1731,56 +1788,59 @@ export function ThreePanelInterface() {
     setPreviewDownloadUrl(file.download_url);
     setIsPreviewOpen(true);
     setPreviewLoading(true);
+    setPreviewPayload(null);
 
     const ext = (file.extension || "").replace(/^\./, "").toLowerCase();
     if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) {
       setPreviewType("image");
-      // 修正 URL
       const correctedUrl = ensureGeneratedInUrl(
         file.preview_url || file.download_url
       );
       setPreviewContent(correctedUrl);
+      setPreviewPayload({
+        kind: "image",
+        title: file.name,
+        content: correctedUrl,
+      });
       setPreviewLoading(false);
       return;
     }
     if (ext === "pdf") {
       setPreviewType("pdf");
-      // 修正 URL
       const correctedUrl = ensureGeneratedInUrl(
         file.preview_url || file.download_url
       );
       setPreviewContent(correctedUrl);
+      setPreviewPayload({
+        kind: "pdf",
+        title: file.name,
+        content: correctedUrl,
+      });
       setPreviewLoading(false);
       return;
     }
 
     try {
-      const normalized = normalizeToLocalFileUrl(
-        file.preview_url || file.download_url
-      );
-      const target = ensureGeneratedInUrl(normalized);
-      // 通过后端代理以避免 CORS
+      const previewPath = file.path || file.name;
       const res = await fetch(
-        `${API_CONFIG.BACKEND_BASE_URL}/proxy?url=${encodeURIComponent(target)}`
+        buildApiUrlWithParams(API_CONFIG.ENDPOINTS.WORKSPACE_PREVIEW, {
+          path: previewPath,
+          session_id: sessionId,
+        })
       );
-      const contentType = res.headers.get("content-type") || "";
       if (!res.ok) throw new Error("failed to fetch preview");
-      if (
-        contentType.startsWith("text/") ||
-        contentType.includes("json") ||
-        contentType.includes("xml")
-      ) {
-        const text = await res.text();
-        setPreviewType("text");
-        setPreviewContent(text);
-      } else {
-        // 非文本直接提示下载/打开
-        setPreviewType("binary");
-        setPreviewContent(file.download_url);
-      }
+      const payload = (await res.json()) as PreviewPayload;
+      setPreviewPayload(payload);
+      setPreviewType(payload.kind);
+      setPreviewContent(payload.content || "");
     } catch (e) {
       setPreviewType("binary");
       setPreviewContent(file.download_url);
+      setPreviewPayload({
+        kind: "binary",
+        title: file.name,
+        content: file.download_url,
+      });
     } finally {
       setPreviewLoading(false);
     }
@@ -1854,6 +1914,212 @@ export function ThreePanelInterface() {
       window.open(fallbackUrl, "_blank");
     }
   };
+
+  const renderPreviewTable = useCallback(
+    (
+      payload: {
+        columns?: string[];
+        rows?: Array<Array<string | number | boolean>>;
+        truncated?: boolean;
+        row_count?: number;
+        title?: string;
+        sheet_name?: string;
+        total_rows?: number;
+      },
+      options?: { compact?: boolean }
+    ) => {
+      const compact = options?.compact ?? false;
+      const columns = payload.columns || [];
+      const rows = compact ? (payload.rows || []).slice(0, 5) : payload.rows || [];
+      return (
+        <div className="space-y-2">
+          {(payload.title || payload.sheet_name) && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {payload.title}
+              {payload.sheet_name ? ` · ${payload.sheet_name}` : ""}
+            </div>
+          )}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {columns.map((column) => (
+                    <TableHead key={column}>{column}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.length ? (
+                  rows.map((row, rowIndex) => (
+                    <TableRow key={`${payload.title || "row"}-${rowIndex}`}>
+                      {row.map((cell, cellIndex) => (
+                        <TableCell
+                          key={`${payload.title || "cell"}-${rowIndex}-${cellIndex}`}
+                          className="max-w-56 truncate"
+                          title={String(cell ?? "")}
+                        >
+                          {String(cell ?? "")}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={Math.max(columns.length, 1)}
+                      className="text-center text-gray-500"
+                    >
+                      {uiLanguage === "zh" ? "暂无数据" : "No rows"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          {(payload.truncated || payload.row_count || payload.total_rows) && (
+            <div className="text-[11px] text-gray-500 dark:text-gray-400">
+              {uiLanguage === "zh"
+                ? `显示 ${rows.length} 行${payload.total_rows || payload.row_count ? ` / 共 ${payload.total_rows || payload.row_count} 行` : ""}`
+                : `Showing ${rows.length} row(s)${payload.total_rows || payload.row_count ? ` / ${payload.total_rows || payload.row_count} total` : ""}`}
+            </div>
+          )}
+        </div>
+      );
+    },
+    [uiLanguage]
+  );
+
+  const renderPreviewContent = useCallback(
+    (options?: { compact?: boolean }) => {
+      const compact = options?.compact ?? false;
+      if (previewLoading) {
+        return (
+          <div className="h-full flex items-center justify-center text-sm text-gray-500">
+            {uiLanguage === "zh" ? "加载中..." : "Loading..."}
+          </div>
+        );
+      }
+
+      if (previewType === "image") {
+        return (
+          <div className={compact ? "" : "p-4 h-full flex items-center justify-center"}>
+            <img
+              src={previewContent}
+              alt={previewTitle}
+              className={compact ? "h-48 w-full object-cover" : "max-w-full max-h-full object-contain"}
+            />
+          </div>
+        );
+      }
+
+      if (previewType === "pdf") {
+        return <iframe src={previewContent} className="w-full h-full min-h-[320px]" />;
+      }
+
+      if (previewType === "markdown") {
+        return (
+          <div className={compact ? "max-h-48 overflow-auto p-3" : "p-4"}>
+            <div className="prose prose-sm max-w-none dark:prose-invert">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {compact ? previewContent.slice(0, 1600) : previewContent}
+              </ReactMarkdown>
+            </div>
+          </div>
+        );
+      }
+
+      if (previewType === "table" && previewPayload) {
+        return (
+          <div className={compact ? "p-3" : "p-4"}>
+            {renderPreviewTable(previewPayload, { compact })}
+          </div>
+        );
+      }
+
+      if (previewType === "database" && previewPayload?.tables) {
+        const tables = compact ? previewPayload.tables.slice(0, 1) : previewPayload.tables;
+        return (
+          <div className={compact ? "p-3 space-y-3" : "p-4 space-y-4"}>
+            {tables.map((table) => (
+              <div key={table.table_name || table.title}>
+                {renderPreviewTable(table, { compact })}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      if (previewType === "text") {
+        if (compact) {
+          return (
+            <pre className="max-h-48 overflow-auto whitespace-pre-wrap p-3 text-xs text-gray-700 dark:text-gray-300">
+              {previewContent.slice(0, 1200)}
+            </pre>
+          );
+        }
+        return (
+          <div className="h-full min-h-0 p-2">
+            <div className="h-full min-h-0 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
+              <div className="h-full min-h-0">
+                <Editor
+                  height="100%"
+                  defaultLanguage={guessLanguageByExtension(
+                    previewTitle.split(".").pop() || "text"
+                  )}
+                  language={guessLanguageByExtension(
+                    previewTitle.split(".").pop() || "text"
+                  )}
+                  value={previewContent}
+                  theme={isDarkMode ? "vs-dark" : "light"}
+                  options={{
+                    readOnly: true,
+                    wordWrap: "on",
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    fontFamily: "var(--font-mono), 'Courier New', monospace",
+                    fontSize: 14,
+                    lineNumbers: "on",
+                    automaticLayout: true,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="p-4">
+          <div className="text-xs text-gray-500 mb-2">
+            {uiLanguage === "zh"
+              ? "暂不支持当前格式的结构化预览，可直接下载查看。"
+              : "Structured preview is not available for this file type yet. You can still download it."}
+          </div>
+          <div className="mt-3 text-xs text-gray-500">
+            <a
+              className="underline"
+              href={previewDownloadUrl || previewContent}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {uiLanguage === "zh" ? "点击下载/打开" : "Download / Open"}
+            </a>
+          </div>
+        </div>
+      );
+    },
+    [
+      isDarkMode,
+      previewContent,
+      previewDownloadUrl,
+      previewLoading,
+      previewPayload,
+      previewTitle,
+      previewType,
+      renderPreviewTable,
+      uiLanguage,
+    ]
+  );
 
   const executeCode = async () => {
     setIsExecutingCode(true);
@@ -3874,23 +4140,7 @@ export function ThreePanelInterface() {
                           </div>
                         </div>
                         <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
-                          {previewType === "image" ? (
-                            <img
-                              src={previewContent}
-                              alt={previewTitle}
-                              className="h-48 w-full object-cover"
-                            />
-                          ) : previewType === "text" ? (
-                            <pre className="max-h-48 overflow-auto whitespace-pre-wrap p-3 text-xs text-gray-700 dark:text-gray-300">
-                              {previewContent.slice(0, 1200)}
-                            </pre>
-                          ) : (
-                            <div className="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-                              {uiLanguage === "zh"
-                                ? "打开弹窗查看完整预览"
-                                : "Open the modal for a full preview"}
-                            </div>
-                          )}
+                          {renderPreviewContent({ compact: true })}
                         </div>
                         <div className="flex gap-2">
                           <Button
@@ -4277,84 +4527,7 @@ export function ThreePanelInterface() {
             ref={previewScrollRef}
             className="w-full flex-1 min-h-0 overflow-auto"
           >
-            {previewLoading ? (
-              <div className="h-full flex items-center justify-center text-sm text-gray-500">
-                Loading...
-              </div>
-            ) : previewType === "image" ? (
-              <div className="p-4 h-full flex items-center justify-center">
-                <img
-                  src={previewContent}
-                  alt={previewTitle}
-                  className="max-w-full max-h-full object-contain"
-                />
-              </div>
-            ) : previewType === "pdf" ? (
-              <iframe src={previewContent} className="w-full h-full" />
-            ) : previewType === "text" ? (
-              <div className="h-full min-h-0 p-2">
-                <div className="h-full min-h-0 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
-                  <div className="h-full min-h-0">
-                    <Editor
-                      height="100%"
-                      defaultLanguage={guessLanguageByExtension(
-                        previewTitle.split(".").pop() || "text"
-                      )}
-                      language={guessLanguageByExtension(
-                        previewTitle.split(".").pop() || "text"
-                      )}
-                      value={previewContent}
-                      theme={isDarkMode ? "vs-dark" : "light"}
-                      options={{
-                        readOnly: true,
-                        wordWrap: "on",
-                        minimap: { enabled: false },
-                        scrollBeyondLastLine: false,
-                        fontFamily:
-                          "var(--font-mono), 'Courier New', monospace",
-                        fontSize: 14,
-                        lineNumbers: "on",
-                        automaticLayout: true,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="p-4">
-                <div className="text-xs text-gray-500 mb-2">
-                  无法识别类型，尝试以文本方式预览：
-                </div>
-                <div className="border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
-                  <SyntaxHighlighter
-                    language={guessLanguageByExtension(
-                      previewTitle.split(".").pop() || "text"
-                    )}
-                    style={isDarkMode ? oneDark : oneLight}
-                    customStyle={{ margin: 0 }}
-                    codeTagProps={{
-                      style: {
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.875rem",
-                      },
-                    }}
-                  >
-                    {previewContent}
-                  </SyntaxHighlighter>
-                </div>
-                <div className="mt-3 text-xs text-gray-500">
-                  如显示异常，
-                  <a
-                    className="underline"
-                    href={previewDownloadUrl || previewContent}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    点击下载/打开
-                  </a>
-                </div>
-              </div>
-            )}
+            {renderPreviewContent()}
           </div>
           <div className="absolute bottom-4 right-4">
             <Button onClick={handleDownload} size="sm" variant="outline">

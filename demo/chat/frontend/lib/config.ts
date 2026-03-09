@@ -24,6 +24,7 @@ export const API_CONFIG = {
     // 文件管理
     WORKSPACE_FILES: "/workspace/files",
     WORKSPACE_TREE: "/workspace/tree",
+    WORKSPACE_PREVIEW: "/workspace/preview",
     WORKSPACE_DOWNLOAD_BUNDLE: "/workspace/download-bundle",
     WORKSPACE_UPLOAD: "/workspace/upload",
     WORKSPACE_CLEAR: "/workspace/clear",
@@ -73,6 +74,7 @@ export const API_URLS = {
   // 后端服务
   WORKSPACE_FILES: buildApiUrl(API_CONFIG.ENDPOINTS.WORKSPACE_FILES),
   WORKSPACE_TREE: buildApiUrl(API_CONFIG.ENDPOINTS.WORKSPACE_TREE),
+  WORKSPACE_PREVIEW: buildApiUrl(API_CONFIG.ENDPOINTS.WORKSPACE_PREVIEW),
   WORKSPACE_DOWNLOAD_BUNDLE: buildApiUrl(
     API_CONFIG.ENDPOINTS.WORKSPACE_DOWNLOAD_BUNDLE
   ),

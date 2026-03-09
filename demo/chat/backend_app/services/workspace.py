@@ -4,6 +4,7 @@ import http.server
 import json
 import re
 import shutil
+import sqlite3
 import socketserver
 import tempfile
 import threading
@@ -14,6 +15,7 @@ from typing import Iterable, Sequence
 from urllib.parse import quote
 
 import httpx
+import pandas as pd
 from fastapi import HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from starlette.background import BackgroundTask
@@ -141,6 +143,26 @@ IMAGE_EXTENSIONS = {
     ".bmp",
 }
 
+TEXT_PREVIEW_EXTENSIONS = {
+    ".txt",
+    ".log",
+    ".py",
+    ".sql",
+    ".json",
+    ".yaml",
+    ".yml",
+}
+
+MARKDOWN_PREVIEW_EXTENSIONS = {
+    ".md",
+    ".markdown",
+}
+
+SQLITE_PREVIEW_EXTENSIONS = {
+    ".sqlite",
+    ".db",
+}
+
 
 def classify_file_type(path: Path) -> str:
     ext = path.suffix.lower()
@@ -149,6 +171,135 @@ def classify_file_type(path: Path) -> str:
     if ext in IMAGE_EXTENSIONS:
         return "image"
     return "other"
+
+
+def _json_safe_value(value):
+    if value is None:
+        return ""
+    if isinstance(value, (int, float, bool)):
+        return value
+    text = str(value)
+    return text if len(text) <= 500 else f"{text[:500]}…"
+
+
+def _build_dataframe_preview(
+    dataframe: pd.DataFrame,
+    *,
+    title: str | None = None,
+    kind: str = "table",
+    max_rows: int = 100,
+    max_cols: int = 30,
+    extra: dict | None = None,
+) -> dict:
+    trimmed = dataframe.copy()
+    total_rows = int(len(trimmed.index))
+    total_cols = int(len(trimmed.columns))
+    if total_cols > max_cols:
+        trimmed = trimmed.iloc[:, :max_cols]
+    row_truncated = total_rows > max_rows
+    col_truncated = total_cols > max_cols
+    trimmed = trimmed.head(max_rows).fillna("")
+    rows = [
+        [_json_safe_value(value) for value in row]
+        for row in trimmed.astype(object).values.tolist()
+    ]
+    payload = {
+        "kind": kind,
+        "title": title,
+        "columns": [str(column) for column in trimmed.columns.tolist()],
+        "rows": rows,
+        "row_count": total_rows,
+        "column_count": total_cols,
+        "truncated": row_truncated or col_truncated,
+    }
+    if extra:
+        payload.update(extra)
+    return payload
+
+
+def preview_workspace_file(session_id: str, relative_path: str) -> dict:
+    file_path = resolve_workspace_path(session_id, relative_path)
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    ext = file_path.suffix.lower()
+
+    if ext in TEXT_PREVIEW_EXTENSIONS:
+        content = file_path.read_text(encoding="utf-8", errors="replace")
+        return {
+            "kind": "text",
+            "title": file_path.name,
+            "content": content[:50000],
+            "truncated": len(content) > 50000,
+        }
+
+    if ext in MARKDOWN_PREVIEW_EXTENSIONS:
+        content = file_path.read_text(encoding="utf-8", errors="replace")
+        return {
+            "kind": "markdown",
+            "title": file_path.name,
+            "content": content[:50000],
+            "truncated": len(content) > 50000,
+        }
+
+    if ext in {".csv", ".tsv"}:
+        separator = "\t" if ext == ".tsv" else ","
+        dataframe = pd.read_csv(file_path, sep=separator, nrows=100)
+        return _build_dataframe_preview(dataframe, title=file_path.name)
+
+    if ext in {".xlsx", ".xls"}:
+        workbook = pd.ExcelFile(file_path)
+        sheet_name = workbook.sheet_names[0]
+        dataframe = workbook.parse(sheet_name=sheet_name, nrows=100)
+        return _build_dataframe_preview(
+            dataframe,
+            title=file_path.name,
+            extra={
+                "sheet_name": sheet_name,
+                "sheet_names": workbook.sheet_names,
+            },
+        )
+
+    if ext in SQLITE_PREVIEW_EXTENSIONS:
+        with sqlite3.connect(file_path) as connection:
+            cursor = connection.cursor()
+            table_names = [
+                row[0]
+                for row in cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+                ).fetchall()
+            ]
+
+            tables: list[dict] = []
+            for table_name in table_names[:10]:
+                total_rows = cursor.execute(
+                    f'SELECT COUNT(*) FROM "{table_name}"'
+                ).fetchone()[0]
+                dataframe = pd.read_sql_query(
+                    f'SELECT * FROM "{table_name}" LIMIT 100',
+                    connection,
+                )
+                tables.append(
+                    _build_dataframe_preview(
+                        dataframe,
+                        title=table_name,
+                        kind="database",
+                        extra={
+                            "table_name": table_name,
+                            "total_rows": int(total_rows),
+                        },
+                    )
+                )
+
+        return {
+            "kind": "database",
+            "title": file_path.name,
+            "tables": tables,
+            "table_names": table_names,
+            "truncated": len(table_names) > 10,
+        }
+
+    raise HTTPException(status_code=415, detail="Preview not supported")
 
 
 def uniquify_path(target: Path) -> Path:

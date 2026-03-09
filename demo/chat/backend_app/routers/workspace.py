@@ -27,6 +27,14 @@ async def download_workspace_bundle(
     return workspace_service.download_generated_bundle(session_id, category)
 
 
+@router.get("/workspace/preview")
+async def preview_workspace_file(
+    path: str = Query(..., description="relative path under workspace"),
+    session_id: str = Query("default"),
+):
+    return workspace_service.preview_workspace_file(session_id, path)
+
+
 @router.delete("/workspace/file")
 async def delete_workspace_file(
     path: str = Query(..., description="relative path under workspace"),
