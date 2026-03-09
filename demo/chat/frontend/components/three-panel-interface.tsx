@@ -638,10 +638,6 @@ export function ThreePanelInterface() {
   );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const treeContainerRef = useRef<HTMLDivElement>(null);
-  const [treeSize, setTreeSize] = useState<{ w: number; h: number }>({
-    w: 0,
-    h: 0,
-  });
   const [selectedCodeSection, setSelectedCodeSection] = useState<string>("");
   const [codeEditorContent, setCodeEditorContent] = useState("");
   const [showCodeEditor, setShowCodeEditor] = useState(false);
@@ -862,43 +858,19 @@ export function ThreePanelInterface() {
   useEffect(() => {
     if (sessionId) {
       loadWorkspaceFiles();
-      loadWorkspaceTree();
     }
   }, [sessionId]);
 
   useEffect(() => {
     const id = setInterval(() => {
-      // 智能轮询：仅在页面可见且未上传时轮询
       const isVisible =
         typeof document !== "undefined" && document.visibilityState === "visible";
-      if (!isUploading && isVisible) {
-        loadWorkspaceTree();
+      if (!isUploading && !isTyping && isVisible) {
         loadWorkspaceFiles();
       }
-    }, 4000);
+    }, 10000);
     return () => clearInterval(id);
-  }, [isUploading]);
-
-  useEffect(() => {
-    const el = treeContainerRef.current;
-    if (!el) return;
-    const ro = new (window as any).ResizeObserver((entries: any) => {
-      for (const entry of entries) {
-        const cr = entry.contentRect as DOMRectReadOnly;
-        setTreeSize({
-          w: Math.max(0, Math.floor(cr.width)),
-          h: Math.max(0, Math.floor(cr.height)),
-        });
-      }
-    });
-    ro.observe(el);
-    const rect = el.getBoundingClientRect();
-    setTreeSize({
-      w: Math.max(0, Math.floor(rect.width)),
-      h: Math.max(0, Math.floor(rect.height)),
-    });
-    return () => ro.disconnect();
-  }, []);
+  }, [isTyping, isUploading]);
 
   const loadWorkspaceFiles = async () => {
     if (!sessionId) return;
@@ -908,7 +880,22 @@ export function ThreePanelInterface() {
       );
       if (response.ok) {
         const data = await response.json();
-        setWorkspaceFiles(data.files);
+        setWorkspaceFiles((prev) => {
+          const nextFiles = Array.isArray(data.files) ? data.files : [];
+          if (
+            prev.length === nextFiles.length &&
+            prev.every(
+              (item, index) =>
+                item.path === nextFiles[index]?.path &&
+                item.size === nextFiles[index]?.size &&
+                item.download_url === nextFiles[index]?.download_url &&
+                item.is_generated === nextFiles[index]?.is_generated
+            )
+          ) {
+            return prev;
+          }
+          return nextFiles;
+        });
       }
     } catch (error) {
       console.error("Failed to load workspace files:", error);
@@ -1027,7 +1014,12 @@ export function ThreePanelInterface() {
   }, [selectedPresetPrompt]);
 
   const generatedBundleCounts = useMemo(() => {
-    const generatedFiles = workspaceFiles.filter((file) => file.is_generated);
+    const generatedFiles = workspaceFiles.filter(
+      (file) =>
+        !!file.is_generated ||
+        file.path === "generated" ||
+        file.path.startsWith("generated/")
+    );
     return {
       all: generatedFiles.length,
       table: generatedFiles.filter((file) => file.category === "table").length,
@@ -1040,8 +1032,10 @@ export function ThreePanelInterface() {
     const query = workspaceSearch.trim().toLowerCase();
     return workspaceFiles
       .filter((file) => {
-        if (workspaceView === "generated" && !file.is_generated) return false;
-        if (workspaceView === "uploaded" && file.is_generated) return false;
+        const isGenerated =
+          !!file.is_generated || file.path === "generated" || file.path.startsWith("generated/");
+        if (workspaceView === "generated" && !isGenerated) return false;
+        if (workspaceView === "uploaded" && isGenerated) return false;
         if (!query) return true;
         return (
           file.name.toLowerCase().includes(query) ||
@@ -2146,6 +2140,41 @@ export function ThreePanelInterface() {
       setActiveSection(sectionKey);
     }, 150);
   };
+
+  const latestAssistantMeta = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index--) {
+      const message = messages[index];
+      if (message.sender !== "ai") continue;
+      const sections = extractSections(message.content, index);
+      return {
+        message,
+        index,
+        sections,
+      };
+    }
+    return null;
+  }, [messages]);
+
+  const activePreviewFile = useMemo(() => {
+    if (!selectedWorkspacePath) return null;
+    return (
+      workspaceFiles.find((file) => file.path === selectedWorkspacePath) || null
+    );
+  }, [selectedWorkspacePath, workspaceFiles]);
+
+  const recentGeneratedFiles = useMemo(
+    () =>
+      workspaceFiles
+        .filter(
+          (file) =>
+            !!file.is_generated ||
+            file.path === "generated" ||
+            file.path.startsWith("generated/")
+        )
+        .sort((left, right) => right.name.localeCompare(left.name))
+        .slice(0, 8),
+    [workspaceFiles]
+  );
 
   const updateActiveSectionFromScroll = useCallback(() => {
     const container = messagesContainerRef.current;
@@ -3479,27 +3508,11 @@ export function ThreePanelInterface() {
               </div>
 
               {/* Step Navigator - Top Horizontal */}
-              {(() => {
-                // 只显示最后一条 AI 消息的步骤
-                let lastAiMsgIndex = -1;
-                let lastAiMsg = null;
-
-                for (let i = messages.length - 1; i >= 0; i--) {
-                  if (messages[i].sender === "ai") {
-                    lastAiMsg = messages[i];
-                    lastAiMsgIndex = i;
-                    break;
-                  }
-                }
-
-                if (!lastAiMsg || lastAiMsgIndex === -1) return null;
-
-                const allSections = extractSections(
-                  lastAiMsg.content,
-                  lastAiMsgIndex
+              {latestAssistantMeta && latestAssistantMeta.sections.length > 0 && (() => {
+                const allSections = latestAssistantMeta.sections;
+                const activeIdx = allSections.findIndex(
+                  (section) => section.sectionKey === activeSection
                 );
-
-                if (allSections.length === 0) return null;
 
                 return (
                   <div className="relative border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 px-6 py-4 overflow-hidden">
@@ -3512,11 +3525,7 @@ export function ThreePanelInterface() {
                     >
                       {allSections.map((section, idx) => {
                         const isActive = activeSection === section.sectionKey;
-                        const activeIdx = allSections.findIndex(
-                          (s) => s.sectionKey === activeSection
-                        );
                         const isCompleted = activeIdx > idx;
-                        const isPending = activeIdx < idx;
 
                         // 颜色映射
                         const colorMap: Record<
@@ -3815,6 +3824,170 @@ export function ThreePanelInterface() {
                 </div>
               </div>
 
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Right Panel - Inspector */}
+          <ResizablePanel defaultSize={22} minSize={18}>
+            <div className="flex h-full min-h-0 flex-col bg-white/80 dark:bg-gray-950/80 border-l border-gray-200/70 dark:border-gray-800/70">
+              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-3 shrink-0">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {uiLanguage === "zh" ? "检查栏" : "Inspector"}
+                  </h2>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {uiLanguage === "zh"
+                      ? "预览当前文件、查看最近产物和快速进入代码工作台"
+                      : "Preview the current file, inspect recent artifacts, and jump into the code lab."}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-full"
+                  onClick={() => setShowCodeEditor(true)}
+                  disabled={!codeEditorContent.trim()}
+                >
+                  <Code2 className="mr-1 h-3.5 w-3.5" />
+                  {uiLanguage === "zh" ? "代码" : "Code"}
+                </Button>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
+                  <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-3">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {uiLanguage === "zh" ? "当前预览" : "Current Preview"}
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    {previewTitle ? (
+                      <div className="space-y-3">
+                        <div>
+                          <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {previewTitle}
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            {getLocalizedPreviewType(previewType)}
+                          </div>
+                        </div>
+                        <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
+                          {previewType === "image" ? (
+                            <img
+                              src={previewContent}
+                              alt={previewTitle}
+                              className="h-48 w-full object-cover"
+                            />
+                          ) : previewType === "text" ? (
+                            <pre className="max-h-48 overflow-auto whitespace-pre-wrap p-3 text-xs text-gray-700 dark:text-gray-300">
+                              {previewContent.slice(0, 1200)}
+                            </pre>
+                          ) : (
+                            <div className="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+                              {uiLanguage === "zh"
+                                ? "打开弹窗查看完整预览"
+                                : "Open the modal for a full preview"}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 rounded-full"
+                            onClick={() => setIsPreviewOpen(true)}
+                          >
+                            <Eye className="mr-1 h-3.5 w-3.5" />
+                            {uiLanguage === "zh" ? "完整预览" : "Open Preview"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
+                            onClick={handleDownload}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {uiLanguage === "zh"
+                          ? "从左侧文件卡片中选择一个文件开始预览。"
+                          : "Select a file card on the left to preview it here."}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
+                  <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-3">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {uiLanguage === "zh" ? "最近生成文件" : "Generated Files"}
+                    </div>
+                  </div>
+                  <div className="p-3 space-y-2">
+                    {recentGeneratedFiles.length ? (
+                      recentGeneratedFiles.map((file) => (
+                        <button
+                          key={`inspector-${file.path}`}
+                          type="button"
+                          className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-900/60 ${
+                            selectedWorkspacePath === file.path
+                              ? "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20"
+                              : "border-gray-200 dark:border-gray-800"
+                          }`}
+                          onClick={() => {
+                            setSelectedWorkspacePath(file.path);
+                            openPreview(file);
+                          }}
+                        >
+                          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-900">
+                            {file.category === "image" && file.preview_url ? (
+                              <img
+                                src={ensureGeneratedInUrl(
+                                  file.preview_url || file.download_url
+                                )}
+                                alt={file.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <FileText className="h-4 w-4 text-gray-500" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">
+                              {file.name}
+                            </div>
+                            <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                              {formatFileSize(file.size)}
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-1 py-2 text-sm text-gray-500 dark:text-gray-400">
+                        {uiLanguage === "zh"
+                          ? "还没有生成文件。"
+                          : "No generated files yet."}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                {activePreviewFile && (
+                  <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-4">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {uiLanguage === "zh" ? "当前选中路径" : "Selected Path"}
+                    </div>
+                    <div className="mt-2 break-all text-xs text-gray-500 dark:text-gray-400">
+                      {activePreviewFile.path}
+                    </div>
+                  </Card>
+                )}
+              </div>
             </div>
           </ResizablePanel>
 

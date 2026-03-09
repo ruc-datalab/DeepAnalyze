@@ -83,7 +83,7 @@ def collect_artifact_paths(
         try:
             if generated_root not in path.parents:
                 dest_path = uniquify_path(generated_root / path.name)
-                shutil.copy2(str(path), str(dest_path))
+                shutil.move(str(path), str(dest_path))
                 artifact_paths.append(dest_path.resolve())
             else:
                 artifact_paths.append(path)
