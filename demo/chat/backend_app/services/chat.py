@@ -91,6 +91,15 @@ def _infer_missing_close_tag(content: str) -> str | None:
     return None
 
 
+def _starts_with_structured_tag(content: str) -> bool:
+    return bool(
+        re.match(
+            r"^\s*<(Analyze|Understand|Code|Execute|Answer|File)>",
+            content or "",
+        )
+    )
+
+
 def _iter_local_stream(
     conversation: list[dict[str, Any]],
     runtime_config: ChatRuntimeConfig,
@@ -223,6 +232,9 @@ def bot_stream(
         path.resolve() for path in _resolve_workspace_selection(workspace_paths, workspace_dir)
     }
     finished = False
+    should_patch_first_assistant_message = not any(
+        str(message.get("role") or "") == "assistant" for message in conversation
+    )
 
     try:
         while not finished:
@@ -231,6 +243,8 @@ def bot_stream(
 
             cur_res = ""
             last_chunk = None
+            leading_chunks: list[str] = []
+            leading_decided = not should_patch_first_assistant_message
             stream_iter = (
                 _iter_heywhale_stream(conversation, runtime_config)
                 if runtime_config.provider == "heywhale"
@@ -243,6 +257,20 @@ def bot_stream(
                         break
                     last_chunk = chunk
                     if delta is not None:
+                        if not leading_decided:
+                            leading_chunks.append(delta)
+                            combined = "".join(leading_chunks)
+                            if not combined.strip():
+                                continue
+                            leading_decided = True
+                            should_prefix = not _starts_with_structured_tag(combined)
+                            if should_prefix:
+                                cur_res += "<Analyze>\n"
+                                yield "<Analyze>\n"
+                            cur_res += combined
+                            yield combined
+                            should_patch_first_assistant_message = False
+                            continue
                         cur_res += delta
                         yield delta
                     if "</Answer>" in cur_res:
