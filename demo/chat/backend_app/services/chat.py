@@ -205,7 +205,9 @@ def _extract_code_to_execute(content: str) -> str | None:
     code_content = code_match.group(1).strip()
     md_match = re.search(r"```(?:python)?(.*?)```", code_content, re.DOTALL)
     code_str = md_match.group(1).strip() if md_match else code_content
-    return CHINESE_MATPLOTLIB_BOOTSTRAP + "\n" + code_str
+    if re.search(r"(^|\W)(plt\.|matplotlib|sns\.|seaborn)", code_str, re.IGNORECASE):
+        return CHINESE_MATPLOTLIB_BOOTSTRAP + "\n" + code_str
+    return code_str
 
 
 def bot_stream(
