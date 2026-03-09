@@ -29,7 +29,7 @@ async def execute_code_api(request: dict):
         }
 
     try:
-        result = await run_in_threadpool(execute_code_safe, code, workspace_dir)
+        result = await run_in_threadpool(execute_code_safe, code, workspace_dir, session_id)
         return {
             "success": True,
             "result": result,

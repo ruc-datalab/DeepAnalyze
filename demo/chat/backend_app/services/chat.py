@@ -305,7 +305,7 @@ def bot_stream(
                 continue
 
             before_state = snapshot_workspace_files(workspace_dir)
-            exe_output = execute_code_safe(code_str, workspace_dir)
+            exe_output = execute_code_safe(code_str, workspace_dir, session_id)
             if stop_event.is_set():
                 break
             after_state = snapshot_workspace_files(workspace_dir)

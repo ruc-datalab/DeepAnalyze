@@ -75,6 +75,9 @@ class Settings:
         "DEEPANALYZE_DOCKER_CONTAINER_NAME",
         "deepanalyze-chat-exec",
     )
+    docker_session_idle_ttl_sec: int = int(
+        os.getenv("DEEPANALYZE_DOCKER_SESSION_IDLE_TTL_SEC", "1800")
+    )
     docker_workspace_dir: str = os.getenv("DEEPANALYZE_DOCKER_WORKSPACE_DIR", "/workspace")
     docker_python_bin: str = os.getenv("DEEPANALYZE_DOCKER_PYTHON_BIN", "python")
     docker_stop_on_shutdown: bool = _get_bool_env(

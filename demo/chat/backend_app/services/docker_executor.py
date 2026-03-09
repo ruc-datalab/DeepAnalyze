@@ -1,15 +1,30 @@
 from __future__ import annotations
 
+import re
 import subprocess
 import threading
+import time
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from ..settings import settings
 
 
+MANAGED_LABEL_KEY = "deepanalyze.managed"
+SESSION_LABEL_KEY = "deepanalyze.session"
+
+
+@dataclass
+class SessionContainerState:
+    session_id: str
+    container_name: str
+    created_by_app: bool
+    started_by_app: bool
+    last_used_at: float
+
+
 _DOCKER_LOCK = threading.Lock()
-_CONTAINER_STARTED_BY_APP = False
-_CONTAINER_CREATED_BY_APP = False
+_SESSION_CONTAINERS: dict[str, SessionContainerState] = {}
 
 
 def _run_docker_command(
@@ -29,6 +44,28 @@ def _run_docker_command(
     )
 
 
+def _workspace_root() -> Path:
+    root = Path(settings.workspace_base_dir).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _keepalive_command() -> list[str]:
+    return ["sh", "-c", "while true; do sleep 3600; done"]
+
+
+def _sanitize_session_id(session_id: str) -> str:
+    normalized = re.sub(r"[^a-zA-Z0-9_.-]+", "-", (session_id or "default").strip())
+    normalized = normalized.strip(".-") or "default"
+    return normalized[:48]
+
+
+def _container_name_for_session(session_id: str) -> str:
+    prefix = settings.docker_container_name.strip() or "deepanalyze-chat-exec"
+    suffix = _sanitize_session_id(session_id)
+    return f"{prefix}-{suffix}"[:120]
+
+
 def _container_exists(container_name: str) -> bool:
     completed = _run_docker_command(
         ["ps", "-a", "--filter", f"name=^{container_name}$", "--format", "{{.Names}}"],
@@ -45,39 +82,90 @@ def _container_is_running(container_name: str) -> bool:
     return (completed.returncode == 0) and (completed.stdout or "").strip().lower() == "true"
 
 
-def _workspace_root() -> Path:
-    root = Path(settings.workspace_base_dir).resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    return root
+def _touch_container(session_id: str, container_name: str, *, created_by_app: bool, started_by_app: bool) -> None:
+    state = _SESSION_CONTAINERS.get(session_id)
+    now = time.time()
+    if state is None:
+        _SESSION_CONTAINERS[session_id] = SessionContainerState(
+            session_id=session_id,
+            container_name=container_name,
+            created_by_app=created_by_app,
+            started_by_app=started_by_app,
+            last_used_at=now,
+        )
+        return
+    state.last_used_at = now
+    state.created_by_app = state.created_by_app or created_by_app
+    state.started_by_app = state.started_by_app or started_by_app
 
 
-def _keepalive_command() -> list[str]:
-    return ["sh", "-c", "while true; do sleep 3600; done"]
+def _remove_container(container_name: str, *, remove: bool) -> None:
+    if _container_is_running(container_name):
+        _run_docker_command(["stop", container_name], check=False, timeout=20)
+    if remove:
+        _run_docker_command(["rm", "-f", container_name], check=False, timeout=20)
 
 
-def ensure_execution_backend_ready() -> None:
-    global _CONTAINER_CREATED_BY_APP, _CONTAINER_STARTED_BY_APP
-
+def _cleanup_idle_session_containers(now: float | None = None) -> None:
     if not settings.use_docker_execution:
         return
 
-    container_name = settings.docker_container_name
+    ttl = max(0, settings.docker_session_idle_ttl_sec)
+    if ttl <= 0:
+        return
+
+    now = now or time.time()
+    expired_sessions = [
+        session_id
+        for session_id, state in _SESSION_CONTAINERS.items()
+        if now - state.last_used_at >= ttl
+    ]
+    for session_id in expired_sessions:
+        state = _SESSION_CONTAINERS.pop(session_id, None)
+        if state is None:
+            continue
+        _remove_container(state.container_name, remove=state.created_by_app)
+
+
+def ensure_execution_backend_ready(session_id: str | None = None) -> None:
+    if not settings.use_docker_execution or not session_id:
+        return
+
+    workspace_root = _workspace_root()
+    container_name = _container_name_for_session(session_id)
+
     with _DOCKER_LOCK:
+        _cleanup_idle_session_containers()
+
         if _container_is_running(container_name):
+            _touch_container(
+                session_id,
+                container_name,
+                created_by_app=False,
+                started_by_app=False,
+            )
             return
 
         if _container_exists(container_name):
             _run_docker_command(["start", container_name])
-            _CONTAINER_STARTED_BY_APP = True
+            _touch_container(
+                session_id,
+                container_name,
+                created_by_app=False,
+                started_by_app=True,
+            )
             return
 
-        workspace_root = _workspace_root()
         _run_docker_command(
             [
                 "run",
                 "-d",
                 "--name",
                 container_name,
+                "--label",
+                f"{MANAGED_LABEL_KEY}=true",
+                "--label",
+                f"{SESSION_LABEL_KEY}={session_id}",
                 "-v",
                 f"{workspace_root}:{settings.docker_workspace_dir}",
                 "-w",
@@ -86,28 +174,22 @@ def ensure_execution_backend_ready() -> None:
                 *_keepalive_command(),
             ]
         )
-        _CONTAINER_STARTED_BY_APP = True
-        _CONTAINER_CREATED_BY_APP = True
+        _touch_container(
+            session_id,
+            container_name,
+            created_by_app=True,
+            started_by_app=True,
+        )
 
 
 def shutdown_execution_backend() -> None:
-    global _CONTAINER_CREATED_BY_APP, _CONTAINER_STARTED_BY_APP
-
     if not settings.use_docker_execution or not settings.docker_stop_on_shutdown:
         return
 
-    container_name = settings.docker_container_name
     with _DOCKER_LOCK:
-        if not _CONTAINER_STARTED_BY_APP:
-            return
-
-        if _container_is_running(container_name):
-            _run_docker_command(["stop", container_name], check=False, timeout=20)
-        if _CONTAINER_CREATED_BY_APP:
-            _run_docker_command(["rm", "-f", container_name], check=False, timeout=20)
-
-        _CONTAINER_STARTED_BY_APP = False
-        _CONTAINER_CREATED_BY_APP = False
+        for session_id, state in list(_SESSION_CONTAINERS.items()):
+            _remove_container(state.container_name, remove=state.created_by_app)
+            _SESSION_CONTAINERS.pop(session_id, None)
 
 
 def _resolve_container_workdir(workspace_dir: str) -> str:
@@ -123,8 +205,10 @@ def execute_python_in_docker(
     script_path: str,
     workspace_dir: str,
     timeout_sec: int,
+    session_id: str,
 ) -> str:
-    ensure_execution_backend_ready()
+    ensure_execution_backend_ready(session_id)
+    container_name = _container_name_for_session(session_id)
     container_workdir = _resolve_container_workdir(workspace_dir)
     script_name = Path(script_path).name
 
@@ -138,12 +222,19 @@ def execute_python_in_docker(
                 "QT_QPA_PLATFORM=offscreen",
                 "-w",
                 container_workdir,
-                settings.docker_container_name,
+                container_name,
                 settings.docker_python_bin,
                 script_name,
             ],
             timeout=timeout_sec,
         )
+        with _DOCKER_LOCK:
+            _touch_container(
+                session_id,
+                container_name,
+                created_by_app=False,
+                started_by_app=False,
+            )
         return (completed.stdout or "") + (completed.stderr or "")
     except subprocess.TimeoutExpired:
         return f"[Timeout]: execution exceeded {timeout_sec} seconds"

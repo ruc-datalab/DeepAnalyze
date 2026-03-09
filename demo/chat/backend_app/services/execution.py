@@ -15,6 +15,7 @@ from ..settings import IMAGE_EXTENSIONS, settings
 def execute_code_safe(
     code_str: str,
     workspace_dir: str,
+    session_id: str = "default",
     timeout_sec: int | None = None,
 ) -> str:
     timeout_sec = timeout_sec or settings.execution_timeout_sec
@@ -23,14 +24,14 @@ def execute_code_safe(
     tmp_path: str | None = None
     try:
         if settings.use_docker_execution:
-            ensure_execution_backend_ready()
+            ensure_execution_backend_ready(session_id)
         fd, tmp_path = tempfile.mkstemp(suffix=".py", dir=exec_cwd)
         os.close(fd)
         with open(tmp_path, "w", encoding="utf-8") as file:
             file.write(code_str)
 
         if settings.use_docker_execution:
-            return execute_python_in_docker(tmp_path, exec_cwd, timeout_sec)
+            return execute_python_in_docker(tmp_path, exec_cwd, timeout_sec, session_id)
 
         child_env = os.environ.copy()
         child_env.setdefault("MPLBACKEND", "Agg")
