@@ -159,7 +159,12 @@ def bot_stream(messages: list[dict[str, Any]], workspace: list[str], session_id:
             if stop_event.is_set():
                 break
             after_state = snapshot_workspace_files(workspace_dir)
-            artifact_paths = collect_artifact_paths(before_state, after_state, generated_dir)
+            artifact_paths = collect_artifact_paths(
+                before_state,
+                after_state,
+                generated_dir,
+                session_id,
+            )
 
             exe_str = f"\n<Execute>\n```\n{exe_output}\n```\n</Execute>\n"
             file_block = build_file_block(artifact_paths, workspace_dir, session_id)

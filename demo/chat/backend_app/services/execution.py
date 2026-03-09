@@ -7,7 +7,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from .workspace import build_download_url, uniquify_path
+from .workspace import build_download_url, register_generated_paths, uniquify_path
 from ..settings import IMAGE_EXTENSIONS
 
 
@@ -68,11 +68,14 @@ def collect_artifact_paths(
     before_state: dict[Path, tuple[int, int]],
     after_state: dict[Path, tuple[int, int]],
     generated_dir: str,
+    session_id: str,
 ) -> list[Path]:
     generated_root = Path(generated_dir).resolve()
     generated_root.mkdir(parents=True, exist_ok=True)
+    workspace_root = generated_root.parent
 
     artifact_paths: list[Path] = []
+    generated_index_updates: set[str] = set()
     added_paths = sorted([path for path in after_state if path not in before_state], key=str)
     modified_paths = sorted(
         [path for path in after_state if path in before_state and after_state[path] != before_state[path]],
@@ -83,10 +86,13 @@ def collect_artifact_paths(
         try:
             if generated_root not in path.parents:
                 dest_path = uniquify_path(generated_root / path.name)
-                shutil.move(str(path), str(dest_path))
+                shutil.copy2(path, dest_path)
                 artifact_paths.append(dest_path.resolve())
+                generated_index_updates.add(path.resolve().relative_to(workspace_root).as_posix())
+                generated_index_updates.add(dest_path.resolve().relative_to(workspace_root).as_posix())
             else:
                 artifact_paths.append(path)
+                generated_index_updates.add(path.resolve().relative_to(workspace_root).as_posix())
         except Exception:
             artifact_paths.append(path)
 
@@ -96,8 +102,13 @@ def collect_artifact_paths(
             dest_path = uniquify_path(generated_root / dest_name)
             shutil.copy2(path, dest_path)
             artifact_paths.append(dest_path.resolve())
+            generated_index_updates.add(path.resolve().relative_to(workspace_root).as_posix())
+            generated_index_updates.add(dest_path.resolve().relative_to(workspace_root).as_posix())
         except Exception:
             continue
+
+    if generated_index_updates:
+        register_generated_paths(session_id, generated_index_updates)
 
     return artifact_paths
 

@@ -987,24 +987,6 @@ export function ThreePanelInterface() {
       );
       if (res.ok) {
         const data = await res.json();
-        // 标记 generated 文件夹及其内容
-        const markGenerated = (
-          node: WorkspaceNode,
-          parentIsGenerated = false
-        ) => {
-          const isGenerated =
-            parentIsGenerated ||
-            node.name === "generated" ||
-            node.path.startsWith("generated/") ||
-            node.path.startsWith("generated");
-          node.is_generated = isGenerated;
-          if (node.children) {
-            node.children.forEach((child) => markGenerated(child, isGenerated));
-          }
-        };
-        if (data) {
-          markGenerated(data);
-        }
         setWorkspaceTree(data);
         // 默认展开根与第一层，包括 generated 文件夹
         const init: Record<string, boolean> = { "": true };
@@ -1085,6 +1067,15 @@ export function ThreePanelInterface() {
   const selectedPresetLabel = selectedPreset?.label[uiLanguage] || "";
   const selectedPresetDescription = selectedPreset?.description[uiLanguage] || "";
 
+  const isGeneratedWorkspaceFile = useCallback((file?: Pick<WorkspaceFile, "is_generated"> | null) => {
+    return !!file?.is_generated;
+  }, []);
+
+  const isGeneratedBundleFile = useCallback((file?: Pick<WorkspaceFile, "path"> | null) => {
+    const path = file?.path || "";
+    return path === "generated" || path.startsWith("generated/");
+  }, []);
+
   useEffect(() => {
     if (!selectedPresetPrompt) return;
     setInputValue(selectedPresetPrompt);
@@ -1092,10 +1083,7 @@ export function ThreePanelInterface() {
 
   const generatedBundleCounts = useMemo(() => {
     const generatedFiles = workspaceFiles.filter(
-      (file) =>
-        !!file.is_generated ||
-        file.path === "generated" ||
-        file.path.startsWith("generated/")
+      (file) => isGeneratedBundleFile(file)
     );
     return {
       all: generatedFiles.length,
@@ -1103,14 +1091,13 @@ export function ThreePanelInterface() {
       image: generatedFiles.filter((file) => file.category === "image").length,
       other: generatedFiles.filter((file) => (file.category || "other") === "other").length,
     };
-  }, [workspaceFiles]);
+  }, [isGeneratedBundleFile, workspaceFiles]);
 
   const filteredWorkspaceFiles = useMemo(() => {
     const query = workspaceSearch.trim().toLowerCase();
     return workspaceFiles
       .filter((file) => {
-        const isGenerated =
-          !!file.is_generated || file.path === "generated" || file.path.startsWith("generated/");
+        const isGenerated = isGeneratedWorkspaceFile(file);
         if (workspaceView === "generated" && !isGenerated) return false;
         if (workspaceView === "uploaded" && isGenerated) return false;
         if (!query) return true;
@@ -1120,12 +1107,12 @@ export function ThreePanelInterface() {
         );
       })
       .sort((a, b) => {
-        if (!!a.is_generated !== !!b.is_generated) {
-          return a.is_generated ? 1 : -1;
+        if (isGeneratedWorkspaceFile(a) !== isGeneratedWorkspaceFile(b)) {
+          return isGeneratedWorkspaceFile(a) ? 1 : -1;
         }
         return a.name.localeCompare(b.name);
       });
-  }, [workspaceFiles, workspaceSearch, workspaceView]);
+  }, [isGeneratedWorkspaceFile, workspaceFiles, workspaceSearch, workspaceView]);
 
   const getLocalizedPreviewType = useCallback(
     (
@@ -1309,7 +1296,7 @@ export function ThreePanelInterface() {
     setSelectedWorkspacePath(node.path);
     const ext = (node.extension || "").replace(/^\./, "").toLowerCase();
     // 修正 URL，确保包含 generated 路径
-    const correctedUrl = ensureGeneratedInUrl(node.download_url || "");
+    const correctedUrl = resolveWorkspaceFileUrl(node.download_url || "");
     const mapped: WorkspaceFile = {
       name: node.name,
       path: node.path,
@@ -1776,6 +1763,10 @@ export function ThreePanelInterface() {
     return map[e] || "text";
   };
 
+  const resolveWorkspaceFileUrl = useCallback((rawUrl: string): string => {
+    return normalizeToLocalFileUrl(rawUrl || "");
+  }, []);
+
   const normalizeToLocalFileUrl = (rawUrl: string): string => {
     const base =
       (API_CONFIG as any).FILE_SERVER_BASE || "http://localhost:8100";
@@ -1873,7 +1864,7 @@ export function ThreePanelInterface() {
       const ext = (file.extension || "").replace(/^\./, "").toLowerCase();
       if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) {
         setPreviewType("image");
-        const correctedUrl = ensureGeneratedInUrl(
+        const correctedUrl = resolveWorkspaceFileUrl(
           file.preview_url || file.download_url
         );
         setPreviewContent(correctedUrl);
@@ -1887,7 +1878,7 @@ export function ThreePanelInterface() {
       }
       if (ext === "pdf") {
         setPreviewType("pdf");
-        const correctedUrl = ensureGeneratedInUrl(
+        const correctedUrl = resolveWorkspaceFileUrl(
           file.preview_url || file.download_url
         );
         setPreviewContent(correctedUrl);
@@ -1980,7 +1971,7 @@ export function ThreePanelInterface() {
       const normalized = normalizeToLocalFileUrl(
         previewDownloadUrl || previewContent
       );
-      const target = ensureGeneratedInUrl(normalized);
+      const target = resolveWorkspaceFileUrl(normalized);
       const res = await fetch(
         `${API_CONFIG.BACKEND_BASE_URL}/proxy?url=${encodeURIComponent(target)}`
       );
@@ -1995,7 +1986,7 @@ export function ThreePanelInterface() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e) {
-      const url = ensureGeneratedInUrl(previewDownloadUrl || previewContent);
+      const url = resolveWorkspaceFileUrl(previewDownloadUrl || previewContent);
       window.open(url, "_blank");
     }
   };
@@ -2003,7 +1994,7 @@ export function ThreePanelInterface() {
   const downloadFileByUrl = async (fileName: string, rawUrl: string) => {
     try {
       const normalized = normalizeToLocalFileUrl(rawUrl);
-      const target = ensureGeneratedInUrl(normalized);
+      const target = resolveWorkspaceFileUrl(normalized);
       const res = await fetch(
         `${API_CONFIG.BACKEND_BASE_URL}/proxy?url=${encodeURIComponent(target)}`
       );
@@ -2018,7 +2009,7 @@ export function ThreePanelInterface() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e) {
-      const fallbackUrl = ensureGeneratedInUrl(rawUrl);
+      const fallbackUrl = resolveWorkspaceFileUrl(rawUrl);
       window.open(fallbackUrl, "_blank");
     }
   };
@@ -2083,15 +2074,10 @@ export function ThreePanelInterface() {
   const recentGeneratedFiles = useMemo(
     () =>
       workspaceFiles
-        .filter(
-          (file) =>
-            !!file.is_generated ||
-            file.path === "generated" ||
-            file.path.startsWith("generated/")
-        )
+        .filter((file) => isGeneratedWorkspaceFile(file))
         .sort((left, right) => right.name.localeCompare(left.name))
         .slice(0, 8),
-    [workspaceFiles]
+    [isGeneratedWorkspaceFile, workspaceFiles]
   );
 
   const handleMessagesScroll = useCallback(
@@ -4318,7 +4304,7 @@ export function ThreePanelInterface() {
                     <div className="grid grid-cols-2 gap-3 p-3 xl:grid-cols-3">
                       {filteredWorkspaceFiles.map((file, index) => {
                         const isImage = file.category === "image" && !!file.preview_url;
-                        const imageUrl = ensureGeneratedInUrl(file.preview_url || file.download_url);
+                        const imageUrl = resolveWorkspaceFileUrl(file.preview_url || file.download_url);
                         const ext = (file.extension || "").replace(/^\./, "").toUpperCase() || "FILE";
                         return (
                           <button
@@ -4375,9 +4361,7 @@ export function ThreePanelInterface() {
                               <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500 dark:text-gray-400">
                                 <span className="truncate">{formatFileSize(file.size)}</span>
                                 <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[10px]">
-                                  {(!!file.is_generated ||
-                                    file.path === "generated" ||
-                                    file.path.startsWith("generated/"))
+                                  {isGeneratedWorkspaceFile(file)
                                     ? textLabels.generated
                                     : textLabels.uploaded}
                                 </Badge>
@@ -4687,7 +4671,7 @@ export function ThreePanelInterface() {
                           <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-900">
                             {file.category === "image" && file.preview_url ? (
                               <img
-                                src={ensureGeneratedInUrl(
+                                src={resolveWorkspaceFileUrl(
                                   file.preview_url || file.download_url
                                 )}
                                 alt={file.name}

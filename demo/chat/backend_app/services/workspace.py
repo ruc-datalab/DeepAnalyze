@@ -25,6 +25,7 @@ from ..settings import PREVIEWABLE_EXTENSIONS, settings
 
 _FILE_SERVER_LOCK = threading.Lock()
 _FILE_SERVER_STARTED = False
+GENERATED_INDEX_FILENAME = ".deepanalyze_generated.json"
 
 
 class ReusableTCPServer(socketserver.TCPServer):
@@ -44,6 +45,67 @@ def build_download_url(rel_path: str) -> str:
     except Exception:
         encoded = rel_path
     return f"{settings.file_server_base}/{encoded}"
+
+
+def _generated_index_path(workspace_root: Path) -> Path:
+    return workspace_root / GENERATED_INDEX_FILENAME
+
+
+def _normalize_generated_rel_path(path: str) -> str:
+    return str(path or "").replace("\\", "/").lstrip("./")
+
+
+def load_generated_index(session_id: str) -> set[str]:
+    workspace_root = resolve_workspace_root(session_id)
+    index_path = _generated_index_path(workspace_root)
+    if not index_path.exists():
+        return set()
+    try:
+        payload = json.loads(index_path.read_text(encoding="utf-8"))
+    except Exception:
+        return set()
+    if not isinstance(payload, list):
+        return set()
+    normalized = {
+        _normalize_generated_rel_path(str(item))
+        for item in payload
+        if str(item).strip()
+    }
+    existing: set[str] = set()
+    for rel_path in normalized:
+        candidate = workspace_root / rel_path
+        if candidate.exists() and candidate.is_file():
+            existing.add(rel_path)
+    if existing != normalized:
+        save_generated_index(session_id, existing)
+    return existing
+
+
+def save_generated_index(session_id: str, rel_paths: Iterable[str]) -> None:
+    workspace_root = resolve_workspace_root(session_id)
+    index_path = _generated_index_path(workspace_root)
+    normalized = sorted(
+        {
+            _normalize_generated_rel_path(str(path))
+            for path in rel_paths
+            if _normalize_generated_rel_path(str(path))
+        }
+    )
+    index_path.write_text(
+        json.dumps(normalized, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def register_generated_paths(session_id: str, rel_paths: Iterable[str]) -> set[str]:
+    generated = load_generated_index(session_id)
+    generated.update(
+        _normalize_generated_rel_path(str(path))
+        for path in rel_paths
+        if _normalize_generated_rel_path(str(path))
+    )
+    save_generated_index(session_id, generated)
+    return generated
 
 
 def start_http_server() -> None:
@@ -78,15 +140,25 @@ def collect_file_info(source: str | Path | Sequence[str | Path]) -> str:
             return ""
         if candidate.is_dir():
             file_paths = sorted(
-                [path for path in candidate.iterdir() if path.is_file()],
+                [
+                    path
+                    for path in candidate.iterdir()
+                    if path.is_file() and path.name != GENERATED_INDEX_FILENAME
+                ],
                 key=lambda path: path.name.lower(),
             )
         elif candidate.is_file():
+            if candidate.name == GENERATED_INDEX_FILENAME:
+                return ""
             file_paths = [candidate]
     else:
         for item in source or []:
             candidate = Path(item)
-            if not candidate.exists() or not candidate.is_file():
+            if (
+                not candidate.exists()
+                or not candidate.is_file()
+                or candidate.name == GENERATED_INDEX_FILENAME
+            ):
                 continue
             resolved = candidate.resolve()
             if resolved in seen:
@@ -433,10 +505,24 @@ def resolve_workspace_path(session_id: str, relative_path: str = "") -> Path:
     return target
 
 
+def _is_internal_workspace_file(path: Path) -> bool:
+    return path.name == GENERATED_INDEX_FILENAME
+
+
+def _is_generated_workspace_path(rel_path: str, generated_index: set[str]) -> bool:
+    normalized = _normalize_generated_rel_path(rel_path)
+    return normalized in generated_index or normalized == "generated" or normalized.startswith("generated/")
+
+
 def list_workspace_files(session_id: str) -> list[dict]:
     workspace_root = resolve_workspace_root(session_id)
+    generated_index = load_generated_index(session_id)
     files: list[dict] = []
-    all_files = [path for path in workspace_root.rglob("*") if path.is_file()]
+    all_files = [
+        path
+        for path in workspace_root.rglob("*")
+        if path.is_file() and not _is_internal_workspace_file(path)
+    ]
     for file_path in sorted(all_files, key=lambda path: _rel_path(path, workspace_root).lower()):
         rel = _rel_path(file_path, workspace_root)
         rel_path = f"{session_id}/{rel}"
@@ -448,7 +534,7 @@ def list_workspace_files(session_id: str) -> list[dict]:
                 "extension": file_path.suffix.lower(),
                 "icon": get_file_icon(file_path.suffix),
                 "category": classify_file_type(file_path),
-                "is_generated": rel == "generated" or rel.startswith("generated/"),
+                "is_generated": _is_generated_workspace_path(rel, generated_index),
                 "download_url": build_download_url(rel_path),
                 "preview_url": (
                     build_download_url(rel_path)
@@ -507,8 +593,14 @@ def _rel_path(path: Path, root: Path) -> str:
         return path.name
 
 
-def build_tree(path: Path, root: Path | None = None, session_id: str = "default") -> dict:
+def build_tree(
+    path: Path,
+    root: Path | None = None,
+    session_id: str = "default",
+    generated_index: set[str] | None = None,
+) -> dict:
     root = root or path
+    generated_index = generated_index if generated_index is not None else load_generated_index(session_id)
     node: dict = {
         "name": path.name or "workspace",
         "path": _rel_path(path, root),
@@ -520,16 +612,18 @@ def build_tree(path: Path, root: Path | None = None, session_id: str = "default"
             return (candidate.name == "generated", not candidate.is_dir(), candidate.name.lower())
 
         node["children"] = [
-            build_tree(child, root, session_id)
+            build_tree(child, root, session_id, generated_index)
             for child in sorted(path.iterdir(), key=sort_key)
-            if not child.name.startswith(".")
+            if not child.name.startswith(".") and not _is_internal_workspace_file(child)
         ]
+        node["is_generated"] = node["path"] == "generated" or node["path"].startswith("generated/")
         return node
 
     rel = _rel_path(path, root)
     node["size"] = path.stat().st_size
     node["extension"] = path.suffix.lower()
     node["icon"] = get_file_icon(path.suffix)
+    node["is_generated"] = _is_generated_workspace_path(rel, generated_index)
     node["download_url"] = build_download_url(f"{session_id}/{rel}")
     return node
 
