@@ -1972,606 +1972,6 @@ export function ThreePanelInterface() {
     }
   };
 
-  const renderPreviewTable = useCallback(
-    (
-      payload: {
-        columns?: string[];
-        rows?: Array<Array<string | number | boolean>>;
-        truncated?: boolean;
-        row_count?: number;
-        title?: string;
-        sheet_name?: string;
-        sheet_names?: string[];
-        total_rows?: number;
-        page?: number;
-        total_pages?: number;
-      },
-      options?: { compact?: boolean }
-    ) => {
-      const compact = options?.compact ?? false;
-      const columns = payload.columns || [];
-      const rows = compact ? (payload.rows || []).slice(0, 5) : payload.rows || [];
-      return (
-        <div className="space-y-2">
-          {(payload.title || payload.sheet_name) && (
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                {payload.title}
-                {payload.sheet_name ? ` · ${payload.sheet_name}` : ""}
-              </div>
-              {!compact && payload.sheet_names && payload.sheet_names.length > 1 && (
-                <Select
-                  value={payload.sheet_name}
-                  onValueChange={handlePreviewSheetChange}
-                >
-                  <SelectTrigger className="h-8 w-40 rounded-lg text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {payload.sheet_names.map((sheet) => (
-                      <SelectItem key={sheet} value={sheet}>
-                        {sheet}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          )}
-          <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {columns.map((column) => (
-                    <TableHead key={column}>{column}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.length ? (
-                  rows.map((row, rowIndex) => (
-                    <TableRow key={`${payload.title || "row"}-${rowIndex}`}>
-                      {row.map((cell, cellIndex) => (
-                        <TableCell
-                          key={`${payload.title || "cell"}-${rowIndex}-${cellIndex}`}
-                          className="max-w-56 truncate"
-                          title={String(cell ?? "")}
-                        >
-                          {String(cell ?? "")}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={Math.max(columns.length, 1)}
-                      className="text-center text-gray-500"
-                    >
-                      {uiLanguage === "zh" ? "暂无数据" : "No rows"}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          {(payload.truncated || payload.row_count || payload.total_rows) && (
-            <div className="text-[11px] text-gray-500 dark:text-gray-400">
-              {uiLanguage === "zh"
-                ? `显示 ${rows.length} 行${payload.total_rows || payload.row_count ? ` / 共 ${payload.total_rows || payload.row_count} 行` : ""}`
-                : `Showing ${rows.length} row(s)${payload.total_rows || payload.row_count ? ` / ${payload.total_rows || payload.row_count} total` : ""}`}
-            </div>
-          )}
-          {!compact && (payload.total_pages || 1) > 1 && (
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                disabled={(payload.page || 1) <= 1}
-                onClick={() => handlePreviewPageChange((payload.page || 1) - 1)}
-              >
-                {uiLanguage === "zh" ? "上一页" : "Prev"}
-              </Button>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                {uiLanguage === "zh"
-                  ? `第 ${payload.page || 1} / ${payload.total_pages || 1} 页`
-                  : `Page ${payload.page || 1} / ${payload.total_pages || 1}`}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                disabled={(payload.page || 1) >= (payload.total_pages || 1)}
-                onClick={() => handlePreviewPageChange((payload.page || 1) + 1)}
-              >
-                {uiLanguage === "zh" ? "下一页" : "Next"}
-              </Button>
-            </div>
-          )}
-        </div>
-      );
-    },
-    [handlePreviewPageChange, handlePreviewSheetChange, uiLanguage]
-  );
-
-  const renderPreviewContent = useCallback(
-    (options?: { compact?: boolean }) => {
-      const compact = options?.compact ?? false;
-      if (previewLoading) {
-        return (
-          <div className="h-full flex items-center justify-center text-sm text-gray-500">
-            {uiLanguage === "zh" ? "加载中..." : "Loading..."}
-          </div>
-        );
-      }
-
-      if (previewType === "image") {
-        return (
-          <div className={compact ? "" : "p-4 h-full flex items-center justify-center"}>
-            <img
-              src={previewContent}
-              alt={previewTitle}
-              className={compact ? "h-48 w-full object-cover" : "max-w-full max-h-full object-contain"}
-            />
-          </div>
-        );
-      }
-
-      if (previewType === "pdf") {
-        return <iframe src={previewContent} className="w-full h-full min-h-[320px]" />;
-      }
-
-      if (previewType === "markdown") {
-        return (
-          <div className={compact ? "max-h-48 overflow-auto p-3" : "p-4"}>
-            <div className="prose prose-sm max-w-none dark:prose-invert">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {compact ? previewContent.slice(0, 1600) : previewContent}
-              </ReactMarkdown>
-            </div>
-          </div>
-        );
-      }
-
-      if (previewType === "table" && previewPayload) {
-        return (
-          <div className={compact ? "p-3" : "p-4"}>
-            {renderPreviewTable(previewPayload, { compact })}
-          </div>
-        );
-      }
-
-      if (previewType === "database" && previewPayload?.view === "tables") {
-        const tables = compact ? (previewPayload.tables || []).slice(0, 5) : previewPayload.tables || [];
-        return (
-          <div className={compact ? "p-3 space-y-2" : "p-4 space-y-3"}>
-            {tables.map((table) => (
-              <button
-                key={table.table_name || table.title}
-                type="button"
-                className="flex w-full items-center justify-between rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-900/60"
-                onClick={() =>
-                  table.table_name && handlePreviewTableSelect(table.table_name)
-                }
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {table.table_name || table.title}
-                  </div>
-                  <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                    {uiLanguage === "zh"
-                      ? `${table.row_count || 0} 行 · ${table.column_count || 0} 列`
-                      : `${table.row_count || 0} rows · ${table.column_count || 0} cols`}
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-gray-400" />
-              </button>
-            ))}
-          </div>
-        );
-      }
-
-      if (previewType === "database" && previewPayload?.view === "table" && previewPayload) {
-        return (
-          <div className={compact ? "p-3 space-y-3" : "p-4 space-y-4"}>
-            {!compact && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                onClick={handlePreviewBackToTables}
-              >
-                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-                {uiLanguage === "zh" ? "返回表列表" : "Back to Tables"}
-              </Button>
-            )}
-            {renderPreviewTable(previewPayload, { compact })}
-          </div>
-        );
-      }
-
-      if (previewType === "text") {
-        if (compact) {
-          return (
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap p-3 text-xs text-gray-700 dark:text-gray-300">
-              {previewContent.slice(0, 1200)}
-            </pre>
-          );
-        }
-        return (
-          <div className="h-full min-h-0 p-2">
-            <div className="h-full min-h-0 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
-              <div className="h-full min-h-0">
-                <Editor
-                  height="100%"
-                  defaultLanguage={guessLanguageByExtension(
-                    previewTitle.split(".").pop() || "text"
-                  )}
-                  language={guessLanguageByExtension(
-                    previewTitle.split(".").pop() || "text"
-                  )}
-                  value={previewContent}
-                  theme={isDarkMode ? "vs-dark" : "light"}
-                  options={{
-                    readOnly: true,
-                    wordWrap: "on",
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    fontFamily: "var(--font-mono), 'Courier New', monospace",
-                    fontSize: 14,
-                    lineNumbers: "on",
-                    automaticLayout: true,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      return (
-        <div className="p-4">
-          <div className="text-xs text-gray-500 mb-2">
-            {uiLanguage === "zh"
-              ? "暂不支持当前格式的结构化预览，可直接下载查看。"
-              : "Structured preview is not available for this file type yet. You can still download it."}
-          </div>
-          <div className="mt-3 text-xs text-gray-500">
-            <a
-              className="underline"
-              href={previewDownloadUrl || previewContent}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {uiLanguage === "zh" ? "点击下载/打开" : "Download / Open"}
-            </a>
-          </div>
-        </div>
-      );
-    },
-    [
-      handlePreviewBackToTables,
-      handlePreviewTableSelect,
-      isDarkMode,
-      previewContent,
-      previewDownloadUrl,
-      previewLoading,
-      previewPayload,
-      previewTitle,
-      previewType,
-      renderPreviewTable,
-      uiLanguage,
-    ]
-  );
-
-  const executeCode = async () => {
-    setIsExecutingCode(true);
-    try {
-      const response = await fetch(API_URLS.EXECUTE_CODE, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          code: codeEditorContent,
-          session_id: sessionId,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setCodeExecutionResult(data.result);
-        await loadWorkspaceFiles(); // Refresh file list after execution
-      } else {
-        setCodeExecutionResult("Error: Failed to execute code");
-      }
-    } catch (error) {
-      setCodeExecutionResult(`Error: ${error}`);
-    } finally {
-      setIsExecutingCode(false);
-    }
-  };
-
-  const renderMarkdownContent = useCallback((
-    content: string,
-    options?: { withinSection?: boolean }
-  ) => {
-    const withinSection = options?.withinSection ?? false;
-    // 先处理代码块，将其分离出来
-    const parts = content.split(/(```[\w]*\n[\s\S]*?```)/g);
-
-    return (
-      <div className="prose prose-sm max-w-none dark:prose-invert break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5">
-        {parts.map((part, index) => {
-          // 检查是否是代码块
-          const codeBlockMatch = part.match(/```(\w+)?\n([\s\S]*?)```/);
-          if (codeBlockMatch) {
-            const [, language, code] = codeBlockMatch;
-            return (
-              <CodeBlockView
-                key={index}
-                language={language || "python"}
-                code={code}
-                showHeader={!withinSection}
-                isDarkMode={isDarkMode}
-                onEdit={(c) => {
-                  setCodeEditorContent(c);
-                  setSelectedCodeSection(c);
-                  setShowCodeEditor(true);
-                }}
-              />
-            );
-          }
-
-          // 处理普通 markdown 内容
-          if (part.trim()) {
-            return (
-              <ReactMarkdown
-                key={index}
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  code: ({ children, ...props }: any) => (
-                    <code
-                      className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono"
-                      {...props}
-                    >
-                      {children}
-                    </code>
-                  ),
-                  h1: ({ children }) => (
-                    <h1 className="text-2xl font-bold mt-4 mb-2">{children}</h1>
-                  ),
-                  h2: ({ children }) => (
-                    <h2 className="text-xl font-semibold mt-4 mb-2">
-                      {children}
-                    </h2>
-                  ),
-                  h3: ({ children }) => (
-                    <h3 className="text-lg font-semibold mt-4 mb-2">
-                      {children}
-                    </h3>
-                  ),
-                  a: ({ href, children }) => {
-                    const normalized = normalizeToLocalFileUrl(
-                      String(href || "")
-                    );
-                    const corrected = ensureGeneratedInUrl(normalized);
-                    const proxied = `${API_CONFIG.BACKEND_BASE_URL
-                      }/proxy?url=${encodeURIComponent(corrected)}`;
-                    return (
-                      <a
-                        href={proxied}
-                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {children}
-                      </a>
-                    );
-                  },
-                  img: ({ src, alt }: any) => {
-                    const normalizedSrc = normalizeToLocalFileUrl(src || "");
-                    const correctedSrc = ensureGeneratedInUrl(normalizedSrc);
-                    const proxiedSrc = `${API_CONFIG.BACKEND_BASE_URL
-                      }/proxy?url=${encodeURIComponent(correctedSrc)}`;
-                    return (
-                      <img
-                        src={proxiedSrc}
-                        alt={alt || ""}
-                        className="max-w-full h-auto rounded-lg my-2"
-                      />
-                    );
-                  },
-                  ol: ({ children }) => (
-                    <ol className="list-decimal pl-5 space-y-1">{children}</ol>
-                  ),
-                  ul: ({ children }) => (
-                    <ul className="list-disc pl-5 space-y-1">{children}</ul>
-                  ),
-                }}
-              >
-                {part}
-              </ReactMarkdown>
-            );
-          }
-
-          return null;
-        })}
-      </div>
-    );
-  }, [isDarkMode]);
-
-  const renderSectionContent = useCallback(
-    (content: string) => {
-      return renderMarkdownContent(content, { withinSection: true });
-    },
-    [renderMarkdownContent]
-  );
-
-  // 解析 Markdown 中的文件/图片链接，返回用于卡片渲染的数据
-  const parseGeneratedFiles = (
-    content: string
-  ): Array<{ name: string; url: string; isImage: boolean }> => {
-    const result: { name: string; url: string; isImage: boolean }[] = [];
-    let m: RegExpExecArray | null;
-    // 1) 列表形如: - [name](url)
-    const linkRe = /\- \[(.*?)\]\((.*?)\)/g;
-    while ((m = linkRe.exec(content)) !== null) {
-      const name = m[1];
-      const url = normalizeToLocalFileUrl(m[2]);
-      const isImage = /\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(url);
-      result.push({ name, url, isImage });
-    }
-    // 2) 图片 Markdown: ![name](url)
-    const imgRe = /!\[(.*?)\]\((.*?)\)/g;
-    while ((m = imgRe.exec(content)) !== null) {
-      const name = m[1];
-      const url = normalizeToLocalFileUrl(m[2]);
-      result.push({ name, url, isImage: true });
-    }
-    // 3) 兜底：文中出现的裸链接
-    const urlRe = /(https?:\/\/[^\s)]+)/g;
-    while ((m = urlRe.exec(content)) !== null) {
-      const url = normalizeToLocalFileUrl(m[1]);
-      const isImage = /\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(url);
-      if (isImage)
-        result.push({ name: url.split("/")?.pop() || "image", url, isImage });
-    }
-    // 去重同 url
-    const seen = new Set<string>();
-    return result.filter((f) =>
-      seen.has(f.url) ? false : (seen.add(f.url), true)
-    );
-  };
-
-  // 提取消息中的所有步骤
-  const extractSections = (content: string, messageIndex?: number) => {
-    const sectionConfigs = {
-      Analyze: { icon: "🔍", color: "bg-blue-500" },
-      Understand: { icon: "🧠", color: "bg-cyan-500" },
-      Code: { icon: "💻", color: "bg-gray-500" },
-      Execute: { icon: "⚡", color: "bg-orange-500" },
-      Answer: { icon: "✅", color: "bg-green-500" },
-      File: { icon: "📎", color: "bg-purple-500" }, // 添加 File 类型
-    };
-
-    const allMatches: Array<{
-      type: keyof typeof sectionConfigs;
-      position: number;
-    }> = [];
-
-    Object.keys(sectionConfigs).forEach((type) => {
-      const regex = new RegExp(`<${type}>([\\s\\S]*?)</${type}>`, "g");
-      let match;
-
-      while ((match = regex.exec(content)) !== null) {
-        allMatches.push({
-          type: type as keyof typeof sectionConfigs,
-          position: match.index,
-        });
-      }
-    });
-
-    // 按位置排序，然后生成 sectionKey（与 renderMessageWithSections 逻辑一致）
-    allMatches.sort((a, b) => a.position - b.position);
-
-    return allMatches.map((m, index) => ({
-      type: m.type,
-      sectionKey:
-        messageIndex !== undefined
-          ? `msg${messageIndex}-${m.type}-${index}` // 包含消息索引
-          : `${m.type}-${index}`, // 兼容旧逻辑
-      config: sectionConfigs[m.type],
-    }));
-  };
-
-  // 滚动到指定步骤
-  const scrollToSection = (sectionKey: string) => {
-    const container = messagesContainerRef.current;
-    if (!container) {
-      console.warn("Container not found");
-      return;
-    }
-
-    // 展开目标块（如果它是折叠的）
-    setCollapsedSections((prev) => {
-      const next = { ...prev };
-      // 提取 baseKey（去掉 msg{index}- 前缀）
-      const baseKey = sectionKey.replace(/^msg\d+-/, "");
-
-      // 如果该块是折叠的，则展开它（同时更新两种格式的 key）
-      if (prev[sectionKey] || prev[baseKey]) {
-        next[sectionKey] = false;
-        next[baseKey] = false;
-        return next;
-      }
-      return prev;
-    });
-
-    // 标记为手动操作，防止自动折叠覆盖
-    setManualLocks((prev) => {
-      const baseKey = sectionKey.replace(/^msg\d+-/, "");
-      return {
-        ...prev,
-        [sectionKey]: true,
-        [baseKey]: true,
-      };
-    });
-
-    // 使用延迟确保 DOM 已更新和展开动画完成
-    setTimeout(() => {
-      const element = document.querySelector(
-        `[data-section-key="${sectionKey}"]`
-      );
-
-      if (!element) {
-        console.warn(`Element with key ${sectionKey} not found`);
-        return;
-      }
-
-      const elementRect = element.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const scrollTop = container.scrollTop;
-
-      // 计算目标滚动位置（居中显示）
-      const targetScroll =
-        scrollTop +
-        elementRect.top -
-        containerRect.top -
-        containerRect.height / 2 +
-        elementRect.height / 2;
-
-      container.scrollTo({
-        top: Math.max(0, targetScroll),
-        behavior: "smooth",
-      });
-
-      setActiveSection(sectionKey);
-    }, 150);
-  };
-
-  const latestAssistantMeta = useMemo(() => {
-    for (let index = messages.length - 1; index >= 0; index--) {
-      const message = messages[index];
-      if (message.sender !== "ai") continue;
-      const sections = extractSections(message.content, index);
-      return {
-        message,
-        index,
-        sections,
-      };
-    }
-    return null;
-  }, [messages]);
-
-  const activePreviewFile = useMemo(() => {
-    if (!selectedWorkspacePath) return null;
-    return (
-      workspaceFiles.find((file) => file.path === selectedWorkspacePath) || null
-    );
-  }, [selectedWorkspacePath, workspaceFiles]);
-
   const handlePreviewPageChange = useCallback(
     async (nextPage: number) => {
       if (!activePreviewFile) return;
@@ -3255,6 +2655,607 @@ export function ThreePanelInterface() {
     },
     [autoCollapseEnabled, manualLocks]
   );
+
+
+  const renderPreviewTable = useCallback(
+    (
+      payload: {
+        columns?: string[];
+        rows?: Array<Array<string | number | boolean>>;
+        truncated?: boolean;
+        row_count?: number;
+        title?: string;
+        sheet_name?: string;
+        sheet_names?: string[];
+        total_rows?: number;
+        page?: number;
+        total_pages?: number;
+      },
+      options?: { compact?: boolean }
+    ) => {
+      const compact = options?.compact ?? false;
+      const columns = payload.columns || [];
+      const rows = compact ? (payload.rows || []).slice(0, 5) : payload.rows || [];
+      return (
+        <div className="space-y-2">
+          {(payload.title || payload.sheet_name) && (
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {payload.title}
+                {payload.sheet_name ? ` · ${payload.sheet_name}` : ""}
+              </div>
+              {!compact && payload.sheet_names && payload.sheet_names.length > 1 && (
+                <Select
+                  value={payload.sheet_name}
+                  onValueChange={handlePreviewSheetChange}
+                >
+                  <SelectTrigger className="h-8 w-40 rounded-lg text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {payload.sheet_names.map((sheet) => (
+                      <SelectItem key={sheet} value={sheet}>
+                        {sheet}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {columns.map((column) => (
+                    <TableHead key={column}>{column}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.length ? (
+                  rows.map((row, rowIndex) => (
+                    <TableRow key={`${payload.title || "row"}-${rowIndex}`}>
+                      {row.map((cell, cellIndex) => (
+                        <TableCell
+                          key={`${payload.title || "cell"}-${rowIndex}-${cellIndex}`}
+                          className="max-w-56 truncate"
+                          title={String(cell ?? "")}
+                        >
+                          {String(cell ?? "")}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={Math.max(columns.length, 1)}
+                      className="text-center text-gray-500"
+                    >
+                      {uiLanguage === "zh" ? "暂无数据" : "No rows"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          {(payload.truncated || payload.row_count || payload.total_rows) && (
+            <div className="text-[11px] text-gray-500 dark:text-gray-400">
+              {uiLanguage === "zh"
+                ? `显示 ${rows.length} 行${payload.total_rows || payload.row_count ? ` / 共 ${payload.total_rows || payload.row_count} 行` : ""}`
+                : `Showing ${rows.length} row(s)${payload.total_rows || payload.row_count ? ` / ${payload.total_rows || payload.row_count} total` : ""}`}
+            </div>
+          )}
+          {!compact && (payload.total_pages || 1) > 1 && (
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                disabled={(payload.page || 1) <= 1}
+                onClick={() => handlePreviewPageChange((payload.page || 1) - 1)}
+              >
+                {uiLanguage === "zh" ? "上一页" : "Prev"}
+              </Button>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {uiLanguage === "zh"
+                  ? `第 ${payload.page || 1} / ${payload.total_pages || 1} 页`
+                  : `Page ${payload.page || 1} / ${payload.total_pages || 1}`}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                disabled={(payload.page || 1) >= (payload.total_pages || 1)}
+                onClick={() => handlePreviewPageChange((payload.page || 1) + 1)}
+              >
+                {uiLanguage === "zh" ? "下一页" : "Next"}
+              </Button>
+            </div>
+          )}
+        </div>
+      );
+    },
+    [handlePreviewPageChange, handlePreviewSheetChange, uiLanguage]
+  );
+
+  const renderPreviewContent = useCallback(
+    (options?: { compact?: boolean }) => {
+      const compact = options?.compact ?? false;
+      if (previewLoading) {
+        return (
+          <div className="h-full flex items-center justify-center text-sm text-gray-500">
+            {uiLanguage === "zh" ? "加载中..." : "Loading..."}
+          </div>
+        );
+      }
+
+      if (previewType === "image") {
+        return (
+          <div className={compact ? "" : "p-4 h-full flex items-center justify-center"}>
+            <img
+              src={previewContent}
+              alt={previewTitle}
+              className={compact ? "h-48 w-full object-cover" : "max-w-full max-h-full object-contain"}
+            />
+          </div>
+        );
+      }
+
+      if (previewType === "pdf") {
+        return <iframe src={previewContent} className="w-full h-full min-h-[320px]" />;
+      }
+
+      if (previewType === "markdown") {
+        return (
+          <div className={compact ? "max-h-48 overflow-auto p-3" : "p-4"}>
+            <div className="prose prose-sm max-w-none dark:prose-invert">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {compact ? previewContent.slice(0, 1600) : previewContent}
+              </ReactMarkdown>
+            </div>
+          </div>
+        );
+      }
+
+      if (previewType === "table" && previewPayload) {
+        return (
+          <div className={compact ? "p-3" : "p-4"}>
+            {renderPreviewTable(previewPayload, { compact })}
+          </div>
+        );
+      }
+
+      if (previewType === "database" && previewPayload?.view === "tables") {
+        const tables = compact ? (previewPayload.tables || []).slice(0, 5) : previewPayload.tables || [];
+        return (
+          <div className={compact ? "p-3 space-y-2" : "p-4 space-y-3"}>
+            {tables.map((table) => (
+              <button
+                key={table.table_name || table.title}
+                type="button"
+                className="flex w-full items-center justify-between rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-900/60"
+                onClick={() =>
+                  table.table_name && handlePreviewTableSelect(table.table_name)
+                }
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {table.table_name || table.title}
+                  </div>
+                  <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                    {uiLanguage === "zh"
+                      ? `${table.row_count || 0} 行 · ${table.column_count || 0} 列`
+                      : `${table.row_count || 0} rows · ${table.column_count || 0} cols`}
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+              </button>
+            ))}
+          </div>
+        );
+      }
+
+      if (previewType === "database" && previewPayload?.view === "table" && previewPayload) {
+        return (
+          <div className={compact ? "p-3 space-y-3" : "p-4 space-y-4"}>
+            {!compact && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={handlePreviewBackToTables}
+              >
+                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                {uiLanguage === "zh" ? "返回表列表" : "Back to Tables"}
+              </Button>
+            )}
+            {renderPreviewTable(previewPayload, { compact })}
+          </div>
+        );
+      }
+
+      if (previewType === "text") {
+        if (compact) {
+          return (
+            <pre className="max-h-48 overflow-auto whitespace-pre-wrap p-3 text-xs text-gray-700 dark:text-gray-300">
+              {previewContent.slice(0, 1200)}
+            </pre>
+          );
+        }
+        return (
+          <div className="h-full min-h-0 p-2">
+            <div className="h-full min-h-0 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
+              <div className="h-full min-h-0">
+                <Editor
+                  height="100%"
+                  defaultLanguage={guessLanguageByExtension(
+                    previewTitle.split(".").pop() || "text"
+                  )}
+                  language={guessLanguageByExtension(
+                    previewTitle.split(".").pop() || "text"
+                  )}
+                  value={previewContent}
+                  theme={isDarkMode ? "vs-dark" : "light"}
+                  options={{
+                    readOnly: true,
+                    wordWrap: "on",
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    fontFamily: "var(--font-mono), 'Courier New', monospace",
+                    fontSize: 14,
+                    lineNumbers: "on",
+                    automaticLayout: true,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="p-4">
+          <div className="text-xs text-gray-500 mb-2">
+            {uiLanguage === "zh"
+              ? "暂不支持当前格式的结构化预览，可直接下载查看。"
+              : "Structured preview is not available for this file type yet. You can still download it."}
+          </div>
+          <div className="mt-3 text-xs text-gray-500">
+            <a
+              className="underline"
+              href={previewDownloadUrl || previewContent}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {uiLanguage === "zh" ? "点击下载/打开" : "Download / Open"}
+            </a>
+          </div>
+        </div>
+      );
+    },
+    [
+      handlePreviewBackToTables,
+      handlePreviewTableSelect,
+      isDarkMode,
+      previewContent,
+      previewDownloadUrl,
+      previewLoading,
+      previewPayload,
+      previewTitle,
+      previewType,
+      renderPreviewTable,
+      uiLanguage,
+    ]
+  );
+
+  const executeCode = async () => {
+    setIsExecutingCode(true);
+    try {
+      const response = await fetch(API_URLS.EXECUTE_CODE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code: codeEditorContent,
+          session_id: sessionId,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCodeExecutionResult(data.result);
+        await loadWorkspaceFiles(); // Refresh file list after execution
+      } else {
+        setCodeExecutionResult("Error: Failed to execute code");
+      }
+    } catch (error) {
+      setCodeExecutionResult(`Error: ${error}`);
+    } finally {
+      setIsExecutingCode(false);
+    }
+  };
+
+  const renderMarkdownContent = useCallback((
+    content: string,
+    options?: { withinSection?: boolean }
+  ) => {
+    const withinSection = options?.withinSection ?? false;
+    // 先处理代码块，将其分离出来
+    const parts = content.split(/(```[\w]*\n[\s\S]*?```)/g);
+
+    return (
+      <div className="prose prose-sm max-w-none dark:prose-invert break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5">
+        {parts.map((part, index) => {
+          // 检查是否是代码块
+          const codeBlockMatch = part.match(/```(\w+)?\n([\s\S]*?)```/);
+          if (codeBlockMatch) {
+            const [, language, code] = codeBlockMatch;
+            return (
+              <CodeBlockView
+                key={index}
+                language={language || "python"}
+                code={code}
+                showHeader={!withinSection}
+                isDarkMode={isDarkMode}
+                onEdit={(c) => {
+                  setCodeEditorContent(c);
+                  setSelectedCodeSection(c);
+                  setShowCodeEditor(true);
+                }}
+              />
+            );
+          }
+
+          // 处理普通 markdown 内容
+          if (part.trim()) {
+            return (
+              <ReactMarkdown
+                key={index}
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code: ({ children, ...props }: any) => (
+                    <code
+                      className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono"
+                      {...props}
+                    >
+                      {children}
+                    </code>
+                  ),
+                  h1: ({ children }) => (
+                    <h1 className="text-2xl font-bold mt-4 mb-2">{children}</h1>
+                  ),
+                  h2: ({ children }) => (
+                    <h2 className="text-xl font-semibold mt-4 mb-2">
+                      {children}
+                    </h2>
+                  ),
+                  h3: ({ children }) => (
+                    <h3 className="text-lg font-semibold mt-4 mb-2">
+                      {children}
+                    </h3>
+                  ),
+                  a: ({ href, children }) => {
+                    const normalized = normalizeToLocalFileUrl(
+                      String(href || "")
+                    );
+                    const corrected = ensureGeneratedInUrl(normalized);
+                    const proxied = `${API_CONFIG.BACKEND_BASE_URL
+                      }/proxy?url=${encodeURIComponent(corrected)}`;
+                    return (
+                      <a
+                        href={proxied}
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {children}
+                      </a>
+                    );
+                  },
+                  img: ({ src, alt }: any) => {
+                    const normalizedSrc = normalizeToLocalFileUrl(src || "");
+                    const correctedSrc = ensureGeneratedInUrl(normalizedSrc);
+                    const proxiedSrc = `${API_CONFIG.BACKEND_BASE_URL
+                      }/proxy?url=${encodeURIComponent(correctedSrc)}`;
+                    return (
+                      <img
+                        src={proxiedSrc}
+                        alt={alt || ""}
+                        className="max-w-full h-auto rounded-lg my-2"
+                      />
+                    );
+                  },
+                  ol: ({ children }) => (
+                    <ol className="list-decimal pl-5 space-y-1">{children}</ol>
+                  ),
+                  ul: ({ children }) => (
+                    <ul className="list-disc pl-5 space-y-1">{children}</ul>
+                  ),
+                }}
+              >
+                {part}
+              </ReactMarkdown>
+            );
+          }
+
+          return null;
+        })}
+      </div>
+    );
+  }, [isDarkMode]);
+
+  const renderSectionContent = useCallback(
+    (content: string) => {
+      return renderMarkdownContent(content, { withinSection: true });
+    },
+    [renderMarkdownContent]
+  );
+
+  // 解析 Markdown 中的文件/图片链接，返回用于卡片渲染的数据
+  const parseGeneratedFiles = (
+    content: string
+  ): Array<{ name: string; url: string; isImage: boolean }> => {
+    const result: { name: string; url: string; isImage: boolean }[] = [];
+    let m: RegExpExecArray | null;
+    // 1) 列表形如: - [name](url)
+    const linkRe = /\- \[(.*?)\]\((.*?)\)/g;
+    while ((m = linkRe.exec(content)) !== null) {
+      const name = m[1];
+      const url = normalizeToLocalFileUrl(m[2]);
+      const isImage = /\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(url);
+      result.push({ name, url, isImage });
+    }
+    // 2) 图片 Markdown: ![name](url)
+    const imgRe = /!\[(.*?)\]\((.*?)\)/g;
+    while ((m = imgRe.exec(content)) !== null) {
+      const name = m[1];
+      const url = normalizeToLocalFileUrl(m[2]);
+      result.push({ name, url, isImage: true });
+    }
+    // 3) 兜底：文中出现的裸链接
+    const urlRe = /(https?:\/\/[^\s)]+)/g;
+    while ((m = urlRe.exec(content)) !== null) {
+      const url = normalizeToLocalFileUrl(m[1]);
+      const isImage = /\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(url);
+      if (isImage)
+        result.push({ name: url.split("/")?.pop() || "image", url, isImage });
+    }
+    // 去重同 url
+    const seen = new Set<string>();
+    return result.filter((f) =>
+      seen.has(f.url) ? false : (seen.add(f.url), true)
+    );
+  };
+
+  // 提取消息中的所有步骤
+  const extractSections = (content: string, messageIndex?: number) => {
+    const sectionConfigs = {
+      Analyze: { icon: "🔍", color: "bg-blue-500" },
+      Understand: { icon: "🧠", color: "bg-cyan-500" },
+      Code: { icon: "💻", color: "bg-gray-500" },
+      Execute: { icon: "⚡", color: "bg-orange-500" },
+      Answer: { icon: "✅", color: "bg-green-500" },
+      File: { icon: "📎", color: "bg-purple-500" }, // 添加 File 类型
+    };
+
+    const allMatches: Array<{
+      type: keyof typeof sectionConfigs;
+      position: number;
+    }> = [];
+
+    Object.keys(sectionConfigs).forEach((type) => {
+      const regex = new RegExp(`<${type}>([\\s\\S]*?)</${type}>`, "g");
+      let match;
+
+      while ((match = regex.exec(content)) !== null) {
+        allMatches.push({
+          type: type as keyof typeof sectionConfigs,
+          position: match.index,
+        });
+      }
+    });
+
+    // 按位置排序，然后生成 sectionKey（与 renderMessageWithSections 逻辑一致）
+    allMatches.sort((a, b) => a.position - b.position);
+
+    return allMatches.map((m, index) => ({
+      type: m.type,
+      sectionKey:
+        messageIndex !== undefined
+          ? `msg${messageIndex}-${m.type}-${index}` // 包含消息索引
+          : `${m.type}-${index}`, // 兼容旧逻辑
+      config: sectionConfigs[m.type],
+    }));
+  };
+
+  // 滚动到指定步骤
+  const scrollToSection = (sectionKey: string) => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      console.warn("Container not found");
+      return;
+    }
+
+    // 展开目标块（如果它是折叠的）
+    setCollapsedSections((prev) => {
+      const next = { ...prev };
+      // 提取 baseKey（去掉 msg{index}- 前缀）
+      const baseKey = sectionKey.replace(/^msg\d+-/, "");
+
+      // 如果该块是折叠的，则展开它（同时更新两种格式的 key）
+      if (prev[sectionKey] || prev[baseKey]) {
+        next[sectionKey] = false;
+        next[baseKey] = false;
+        return next;
+      }
+      return prev;
+    });
+
+    // 标记为手动操作，防止自动折叠覆盖
+    setManualLocks((prev) => {
+      const baseKey = sectionKey.replace(/^msg\d+-/, "");
+      return {
+        ...prev,
+        [sectionKey]: true,
+        [baseKey]: true,
+      };
+    });
+
+    // 使用延迟确保 DOM 已更新和展开动画完成
+    setTimeout(() => {
+      const element = document.querySelector(
+        `[data-section-key="${sectionKey}"]`
+      );
+
+      if (!element) {
+        console.warn(`Element with key ${sectionKey} not found`);
+        return;
+      }
+
+      const elementRect = element.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const scrollTop = container.scrollTop;
+
+      // 计算目标滚动位置（居中显示）
+      const targetScroll =
+        scrollTop +
+        elementRect.top -
+        containerRect.top -
+        containerRect.height / 2 +
+        elementRect.height / 2;
+
+      container.scrollTo({
+        top: Math.max(0, targetScroll),
+        behavior: "smooth",
+      });
+
+      setActiveSection(sectionKey);
+    }, 150);
+  };
+
+  const latestAssistantMeta = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index--) {
+      const message = messages[index];
+      if (message.sender !== "ai") continue;
+      const sections = extractSections(message.content, index);
+      return {
+        message,
+        index,
+        sections,
+      };
+    }
+    return null;
+  }, [messages]);
+
+  const activePreviewFile = useMemo(() => {
+    if (!selectedWorkspacePath) return null;
+    return (
+      workspaceFiles.find((file) => file.path === selectedWorkspacePath) || null
+    );
+  }, [selectedWorkspacePath, workspaceFiles]);
 
   const renderedMessages = useMemo(
     () =>
