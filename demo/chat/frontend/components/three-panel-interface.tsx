@@ -177,6 +177,8 @@ interface PreviewPayload {
   total_rows?: number;
 }
 
+const PREVIEW_TABLE_PAGE_SIZE = 10;
+
 type WorkspaceNode = {
   name: string;
   path: string; // relative path
@@ -1856,7 +1858,7 @@ export function ThreePanelInterface() {
             path: previewPath,
             session_id: sessionId,
             page: nextPage,
-            page_size: 50,
+            page_size: PREVIEW_TABLE_PAGE_SIZE,
             table_name: nextTableName,
             sheet_name: nextSheetName,
           })
