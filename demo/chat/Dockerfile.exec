@@ -7,13 +7,26 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     QT_QPA_PLATFORM=offscreen
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        gcc \
-        g++ \
-        gfortran \
-        libgomp1 && \
+    apt-get install -y --fix-missing --no-install-recommends \
+        libgomp1 \
+        fontconfig \
+        fonts-wqy-zenhei && \
     rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /etc/fonts/conf.d && \
+    printf '%s\n' \
+    '<?xml version="1.0"?>' \
+    '<!DOCTYPE fontconfig SYSTEM "fonts.dtd">' \
+    '<fontconfig>' \
+    '  <alias>' \
+    '    <family>SimHei</family>' \
+    '    <prefer>' \
+    '      <family>WenQuanYi Zen Hei</family>' \
+    '    </prefer>' \
+    '  </alias>' \
+    '</fontconfig>' \
+    > /etc/fonts/conf.d/99-deepanalyze-simhei.conf && \
+    fc-cache -f
 
 RUN python -m pip install --no-cache-dir \
     numpy \
@@ -22,11 +35,42 @@ RUN python -m pip install --no-cache-dir \
     seaborn \
     scipy \
     scikit-learn \
+    statsmodels \
     openpyxl \
     pyarrow \
     xlrd \
     python-docx \
     pillow
+
+RUN mkdir -p /usr/share/fonts/truetype/deepanalyze && \
+    python - <<'PY'
+from fontTools.ttLib import TTCollection
+
+source = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
+target = "/usr/share/fonts/truetype/deepanalyze/SimHei.ttf"
+
+collection = TTCollection(source)
+font = collection.fonts[0]
+name_table = font["name"]
+
+for record in name_table.names:
+    if record.nameID == 1:
+        value = "SimHei"
+    elif record.nameID == 4:
+        value = "SimHei"
+    elif record.nameID == 6:
+        value = "SimHei-Regular"
+    else:
+        continue
+    if record.isUnicode():
+        record.string = value.encode("utf-16-be")
+    else:
+        record.string = value.encode("latin-1", errors="ignore")
+
+font.save(target)
+PY
+
+RUN fc-cache -f
 
 WORKDIR /workspace
 
