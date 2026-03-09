@@ -163,6 +163,10 @@ SQLITE_PREVIEW_EXTENSIONS = {
     ".db",
 }
 
+BLOCKED_UPLOAD_EXTENSIONS = {
+    ".py",
+}
+
 
 def classify_file_type(path: Path) -> str:
     ext = path.suffix.lower()
@@ -590,10 +594,16 @@ async def _save_uploads(
     workspace_root: Path,
     target_dir: Path,
     files: Iterable[UploadFile],
-) -> list[dict]:
+) -> tuple[list[dict], list[str]]:
     saved: list[dict] = []
+    rejected: list[str] = []
     for file in files:
-        dst = uniquify_path(target_dir / (file.filename or "untitled"))
+        filename = file.filename or "untitled"
+        ext = Path(filename).suffix.lower()
+        if ext in BLOCKED_UPLOAD_EXTENSIONS:
+            rejected.append(filename)
+            continue
+        dst = uniquify_path(target_dir / filename)
         content = await file.read()
         with open(dst, "wb") as buffer:
             buffer.write(content)
@@ -604,15 +614,16 @@ async def _save_uploads(
                 "path": dst.relative_to(workspace_root).as_posix(),
             }
         )
-    return saved
+    return saved, rejected
 
 
 async def upload_files_to_workspace(session_id: str, files: Iterable[UploadFile]) -> dict:
     workspace_root = resolve_workspace_root(session_id)
-    saved = await _save_uploads(workspace_root, workspace_root, files)
+    saved, rejected = await _save_uploads(workspace_root, workspace_root, files)
     return {
         "message": f"Successfully uploaded {len(saved)} files",
         "files": saved,
+        "rejected": rejected,
     }
 
 
@@ -620,8 +631,8 @@ async def upload_files_to_dir(session_id: str, directory: str, files: Iterable[U
     workspace_root = resolve_workspace_root(session_id)
     target_dir = resolve_workspace_path(session_id, directory)
     target_dir.mkdir(parents=True, exist_ok=True)
-    saved = await _save_uploads(workspace_root, target_dir, files)
-    return {"message": f"uploaded {len(saved)}", "files": saved}
+    saved, rejected = await _save_uploads(workspace_root, target_dir, files)
+    return {"message": f"uploaded {len(saved)}", "files": saved, "rejected": rejected}
 
 
 def clear_workspace(session_id: str) -> dict:

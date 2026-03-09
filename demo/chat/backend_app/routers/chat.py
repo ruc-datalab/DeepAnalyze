@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
-from ..services.chat import bot_stream
+from ..services.chat import bot_stream, request_stop
 from ..services.execution import execute_code_safe
 from ..services.workspace import get_session_workspace
 from ..settings import settings
@@ -76,3 +76,10 @@ async def chat(body: dict = Body(...)):
         yield json.dumps(end_chunk) + "\n"
 
     return StreamingResponse(generate(), media_type="text/plain")
+
+
+@router.post("/chat/stop")
+async def stop_chat(body: dict = Body(default={})):
+    session_id = body.get("session_id", "default")
+    request_stop(session_id)
+    return {"message": "stop requested", "session_id": session_id}

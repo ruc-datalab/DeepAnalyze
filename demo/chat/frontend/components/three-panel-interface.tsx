@@ -178,6 +178,10 @@ interface PreviewPayload {
 }
 
 const PREVIEW_TABLE_PAGE_SIZE = 10;
+const BLOCKED_UPLOAD_EXTENSIONS = new Set(["py"]);
+const ACTIVE_SECTION_UPDATE_INTERVAL_MS = 80;
+const UPLOAD_ACCEPT_TYPES =
+  ".csv,.tsv,.xlsx,.xls,.parquet,.sqlite,.db,.json,.txt,.log,.md,.markdown,.yml,.yaml,.pdf,image/*,.zip";
 
 type WorkspaceNode = {
   name: string;
@@ -680,6 +684,7 @@ export function ThreePanelInterface() {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([]);
   const [workspaceTree, setWorkspaceTree] = useState<WorkspaceNode | null>(
@@ -772,12 +777,29 @@ export function ThreePanelInterface() {
   const aiPendingContentRef = useRef<string>("");
   const aiDisplayedContentRef = useRef<string>("");
   const streamRafRef = useRef<number | null>(null);
+  const streamAbortControllerRef = useRef<AbortController | null>(null);
+  const isTypingRef = useRef(false);
+  const toastRef = useRef(toast);
+  const collapsedSectionsRef = useRef<Record<string, boolean>>({});
+  const lastActiveSectionUpdateAtRef = useRef(0);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
     null
   );
   // const [clearChatOpen, setClearChatOpen] = useState(false); // Removed redundant state
 
   // 节流滚动到底部
+
+  useEffect(() => {
+    isTypingRef.current = isTyping;
+  }, [isTyping]);
+
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
+  useEffect(() => {
+    collapsedSectionsRef.current = collapsedSections;
+  }, [collapsedSections]);
 
   const scrollToBottom = useCallback((force: boolean = false) => {
     const now = Date.now();
@@ -1238,21 +1260,48 @@ export function ThreePanelInterface() {
       setIsUploading(true);
       const form = new FormData();
       const arr: File[] = Array.from(files as File[]);
-      arr.forEach((f) => form.append("files", f));
+      const blockedFiles = arr.filter((file) => {
+        const ext = file.name?.split(".").pop()?.toLowerCase() || "";
+        return !!ext && BLOCKED_UPLOAD_EXTENSIONS.has(ext);
+      });
+      const uploadableFiles = arr.filter((file) => !blockedFiles.includes(file));
+      if (!uploadableFiles.length) {
+        setUploadMsg(
+          uiLanguage === "zh"
+            ? "已拦截 .py 文件，未执行上传"
+            : "Blocked .py files. No files uploaded."
+        );
+        setTimeout(() => setUploadMsg(""), 2500);
+        return;
+      }
+      uploadableFiles.forEach((f) => form.append("files", f));
       const url = `${API_URLS.WORKSPACE_UPLOAD_TO}?dir=${encodeURIComponent(
         dirPath || ""
       )}&session_id=${encodeURIComponent(sessionId)}`;
       await fetch(url, { method: "POST", body: form });
       await loadWorkspaceTree();
       await loadWorkspaceFiles();
-      setUploadMsg(`上传成功 ${arr.length} 个文件`);
+      if (blockedFiles.length) {
+        setUploadMsg(
+          uiLanguage === "zh"
+            ? `上传 ${uploadableFiles.length} 个文件，已忽略 ${blockedFiles.length} 个 .py 文件`
+            : `Uploaded ${uploadableFiles.length} file(s), ignored ${blockedFiles.length} .py file(s)`
+        );
+      } else {
+        setUploadMsg(
+          uiLanguage === "zh"
+            ? `上传成功 ${uploadableFiles.length} 个文件`
+            : `Uploaded ${uploadableFiles.length} file(s)`
+        );
+      }
       setTimeout(() => setUploadMsg(""), 2000);
     } catch (e) {
       console.error("upload to dir error", e);
-      setUploadMsg("上传失败");
+      setUploadMsg(uiLanguage === "zh" ? "上传失败" : "Upload failed");
       setTimeout(() => setUploadMsg(""), 2500);
+    } finally {
+      setIsUploading(false);
     }
-    setIsUploading(false);
   };
 
   const openNode = async (node: WorkspaceNode) => {
@@ -2061,24 +2110,25 @@ export function ThreePanelInterface() {
     const container = messagesContainerRef.current;
     if (!container) return;
 
-    const sections = document.querySelectorAll("[data-section-key]");
-    const containerRect = container.getBoundingClientRect();
-    const containerMiddle = containerRect.top + containerRect.height / 2;
+    const sections = container.querySelectorAll<HTMLElement>("[data-section-key]");
+    const viewportTop = container.scrollTop;
+    const viewportBottom = viewportTop + container.clientHeight;
+    const containerMiddle = viewportTop + container.clientHeight / 2;
 
     let closestSection = "";
     let closestDistance = Infinity;
 
     sections.forEach((section) => {
-      const rect = section.getBoundingClientRect();
-      const sectionMiddle = rect.top + rect.height / 2;
+      const sectionTop = section.offsetTop;
+      const sectionBottom = sectionTop + section.offsetHeight;
+      if (sectionBottom < viewportTop || sectionTop > viewportBottom) {
+        return;
+      }
+      const sectionMiddle = sectionTop + section.offsetHeight / 2;
       const distance = Math.abs(sectionMiddle - containerMiddle);
 
       // 找到离容器中心最近的 section
-      if (
-        distance < closestDistance &&
-        rect.top < containerRect.bottom &&
-        rect.bottom > containerRect.top
-      ) {
+      if (distance < closestDistance) {
         closestDistance = distance;
         closestSection = section.getAttribute("data-section-key") || "";
       }
@@ -2104,6 +2154,14 @@ export function ThreePanelInterface() {
       if (activeSectionRafRef.current) return;
       activeSectionRafRef.current = window.requestAnimationFrame(() => {
         activeSectionRafRef.current = null;
+        const now = performance.now();
+        if (
+          now - lastActiveSectionUpdateAtRef.current <
+          ACTIVE_SECTION_UPDATE_INTERVAL_MS
+        ) {
+          return;
+        }
+        lastActiveSectionUpdateAtRef.current = now;
         updateActiveSectionFromScroll();
       });
     };
@@ -2126,6 +2184,23 @@ export function ThreePanelInterface() {
   }, [messages.length, updateActiveSectionFromScroll]);
 
   // 流式阶段的轻量渲染：支持 <Analyze>/<Code> 等块，但避免高开销的 Markdown/高亮解析
+  const parseMessageIndexFromSectionKey = useCallback((sectionKey: string) => {
+    const match = sectionKey.match(/^msg(\d+)-/);
+    if (!match) return null;
+    const parsed = Number.parseInt(match[1], 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, []);
+
+  const touchMessageAt = useCallback((messageIndex?: number | null) => {
+    if (messageIndex === undefined || messageIndex === null) return;
+    setMessages((prev) => {
+      if (messageIndex < 0 || messageIndex >= prev.length) return prev;
+      const next = [...prev];
+      next[messageIndex] = { ...next[messageIndex] };
+      return next;
+    });
+  }, []);
+
   const renderMarkdownContent = useCallback((
     content: string,
     options?: { withinSection?: boolean }
@@ -2331,9 +2406,10 @@ export function ThreePanelInterface() {
         const msgKey =
           messageIndex !== undefined ? `msg${messageIndex}-${type}-${sectionIndex}` : baseKey;
         const sectionKey = msgKey;
+        const collapseState = collapsedSectionsRef.current;
         const isCollapsed =
-          (collapsedSections as any)[msgKey] ??
-          (collapsedSections as any)[baseKey] ??
+          (collapseState as any)[msgKey] ??
+          (collapseState as any)[baseKey] ??
           false;
 
         const toggleSection = () => {
@@ -2344,6 +2420,7 @@ export function ThreePanelInterface() {
             next[baseKey] = !current;
             return next;
           });
+          touchMessageAt(messageIndex);
         };
 
         parts.push(
@@ -2419,7 +2496,7 @@ export function ThreePanelInterface() {
 
       return <>{parts}</>;
     },
-    [collapsedSections, renderMarkdownContent, renderSectionContent]
+    [renderMarkdownContent, renderSectionContent, touchMessageAt]
   );
 
   const renderMessageWithSections = useCallback((
@@ -2516,9 +2593,10 @@ export function ThreePanelInterface() {
           ? `msg${messageIndex}-${match.type}-${index}`
           : baseKey;
       const sectionKey = msgKey;
+      const collapseState = collapsedSectionsRef.current;
       const isCollapsed =
-        (collapsedSections as any)[msgKey] ??
-        (collapsedSections as any)[baseKey] ??
+        (collapseState as any)[msgKey] ??
+        (collapseState as any)[baseKey] ??
         false;
 
       const toggleSection = () => {
@@ -2535,6 +2613,7 @@ export function ThreePanelInterface() {
           [msgKey]: true,
           [baseKey]: true,
         }));
+        touchMessageAt(messageIndex);
       };
 
       // 如果是 File 标签，解析其中的链接为卡片
@@ -2628,8 +2707,8 @@ export function ThreePanelInterface() {
                   variant="ghost"
                   size="sm"
                   onClick={async () => {
-                    if (isTyping) {
-                      toast({
+                    if (isTypingRef.current) {
+                      toastRef.current({
                         description: "执行中，暂时无法导出",
                         variant: "destructive",
                       });
@@ -2656,7 +2735,7 @@ export function ThreePanelInterface() {
                             ? extractCode(match.content)
                             : match.content;
                         const ok = await copyToClipboard(text.trim());
-                        toast({
+                        toastRef.current({
                           description: ok ? "已复制" : "复制失败",
                           variant: ok ? undefined : "destructive",
                         });
@@ -2692,9 +2771,9 @@ export function ThreePanelInterface() {
                         sectionBody || match.content || ""
                       );
                       const textToCopy = executionOutput || sectionBody || "";
-                      if (textToCopy.trim()) {
-                        const ok = await copyToClipboard(textToCopy.trim());
-                        toast({
+                        if (textToCopy.trim()) {
+                          const ok = await copyToClipboard(textToCopy.trim());
+                          toastRef.current({
                           description: ok ? "已复制" : "复制失败",
                           variant: ok ? undefined : "destructive",
                         });
@@ -2736,7 +2815,7 @@ export function ThreePanelInterface() {
     }
 
     return <>{parts}</>;
-  }, [collapsedSections, isTyping, renderMarkdownContent, renderSectionContent, toast]);
+  }, [renderMarkdownContent, renderSectionContent, touchMessageAt]);
 
   // 根据完整内容自动折叠：除最后一个块外全部折叠
   const autoCollapseForContent = useCallback(
@@ -3300,7 +3379,7 @@ export function ThreePanelInterface() {
   };
 
   // 滚动到指定步骤
-  const scrollToSection = (sectionKey: string) => {
+  const scrollToSection = useCallback((sectionKey: string) => {
     const container = messagesContainerRef.current;
     if (!container) {
       console.warn("Container not found");
@@ -3331,6 +3410,7 @@ export function ThreePanelInterface() {
         [baseKey]: true,
       };
     });
+    touchMessageAt(parseMessageIndexFromSectionKey(sectionKey));
 
     // 使用延迟确保 DOM 已更新和展开动画完成
     setTimeout(() => {
@@ -3362,7 +3442,7 @@ export function ThreePanelInterface() {
 
       setActiveSection(sectionKey);
     }, 150);
-  };
+  }, [parseMessageIndexFromSectionKey, touchMessageAt]);
 
   const latestAssistantMeta = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index--) {
@@ -3408,6 +3488,7 @@ export function ThreePanelInterface() {
     const activeIdx = allSections.findIndex(
       (section) => section.sectionKey === activeSection
     );
+    const enableNavigatorAnimations = allSections.length <= 16;
 
     return (
       <>
@@ -3508,7 +3589,7 @@ export function ThreePanelInterface() {
                   {/* 圆圈容器 */}
                   <div className="relative">
                     {/* 脉动动画背景 */}
-                    {isActive && (
+                    {isActive && enableNavigatorAnimations && (
                       <div
                         className={`absolute inset-0 ${colors.bg} rounded-full animate-ping opacity-20`}
                       />
@@ -3599,7 +3680,7 @@ export function ThreePanelInterface() {
                     />
 
                     {/* 流动动画 */}
-                    {isActive && (
+                    {isActive && enableNavigatorAnimations && (
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-50 animate-shimmer" />
                     )}
                   </div>
@@ -3616,7 +3697,36 @@ export function ThreePanelInterface() {
     );
   }, [activeSection, latestAssistantMeta, scrollToSection]);
 
+  const handleStopMessage = useCallback(async () => {
+    const controller = streamAbortControllerRef.current;
+    if (!controller && !isTypingRef.current) return;
+    setIsStopping(true);
+    controller?.abort();
+    streamAbortControllerRef.current = null;
+    setIsTyping(false);
+    setStreamingMessageId(null);
+    try {
+      if (sessionId) {
+        await fetch(API_URLS.CHAT_STOP, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ session_id: sessionId }),
+        });
+      }
+    } catch (error) {
+      console.warn("stop stream failed", error);
+    } finally {
+      setIsStopping(false);
+    }
+  }, [sessionId]);
+
   const handleSendMessage = async () => {
+    if (isTypingRef.current) {
+      await handleStopMessage();
+      return;
+    }
     if (!inputValue.trim() && attachments.length === 0) return;
     const baseMessageIndex = messages.length;
     const aiMessageIndex = baseMessageIndex + 1;
@@ -3633,10 +3743,14 @@ export function ThreePanelInterface() {
     setInputValue("");
     setAttachments([]);
     setIsTyping(true);
+    setIsStopping(false);
+    const abortController = new AbortController();
+    streamAbortControllerRef.current = abortController;
 
     try {
       const response = await fetch(API_URLS.CHAT_COMPLETIONS, {
         method: "POST",
+        signal: abortController.signal,
         headers: {
           "Content-Type": "application/json",
         },
@@ -3692,6 +3806,8 @@ export function ThreePanelInterface() {
           await loadWorkspaceTree();
           await loadWorkspaceFiles();
         }
+        streamAbortControllerRef.current = null;
+        setIsStopping(false);
         setIsTyping(false);
         return;
       }
@@ -3702,6 +3818,8 @@ export function ThreePanelInterface() {
       if (!reader) {
         setIsTyping(false);
         setStreamingMessageId(null);
+        streamAbortControllerRef.current = null;
+        setIsStopping(false);
         return;
       }
 
@@ -3839,11 +3957,17 @@ export function ThreePanelInterface() {
       await loadWorkspaceTree();
       setIsTyping(false); // 结束加载状态
       setStreamingMessageId(null);
+      streamAbortControllerRef.current = null;
+      setIsStopping(false);
 
     } catch (error) {
-      console.error("Error sending message:", error);
+      if ((error as Error)?.name !== "AbortError") {
+        console.error("Error sending message:", error);
+      }
       setIsTyping(false);
       setStreamingMessageId(null);
+      streamAbortControllerRef.current = null;
+      setIsStopping(false);
     }
   };
 
@@ -3894,7 +4018,7 @@ export function ThreePanelInterface() {
                     multiple
                     onChange={handleFileUpload}
                     className="hidden"
-                    accept="*"
+                    accept={UPLOAD_ACCEPT_TYPES}
                   />
                   <Button
                     variant="ghost"
@@ -4425,12 +4549,18 @@ export function ThreePanelInterface() {
                   </AlertDialog>
                   {isTyping ? (
                     <Button
+                      onClick={handleStopMessage}
                       size="sm"
-                      className="h-10 w-10 p-0 rounded-full bg-white text-black border border-blue-400/50 dark:bg-white dark:text-black"
+                      className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
                       title={uiLanguage === "zh" ? "正在生成" : "Generating"}
-                      disabled
+                      disabled={isStopping}
                     >
-                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      {isStopping ? (
+                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Square className="h-3.5 w-3.5 mr-1 fill-current" />
+                      )}
+                      {uiLanguage === "zh" ? "停止" : "Stop"}
                     </Button>
                   ) : (
                     <Button
