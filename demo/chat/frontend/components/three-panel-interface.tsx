@@ -2124,6 +2124,122 @@ export function ThreePanelInterface() {
   }, [messages.length, updateActiveSectionFromScroll]);
 
   // 流式阶段的轻量渲染：支持 <Analyze>/<Code> 等块，但避免高开销的 Markdown/高亮解析
+  const renderMarkdownContent = useCallback((
+    content: string,
+    options?: { withinSection?: boolean }
+  ) => {
+    const withinSection = options?.withinSection ?? false;
+    // 鍏堝鐞嗕唬鐮佸潡锛屽皢鍏跺垎绂诲嚭鏉?
+    const parts = content.split(/(```[\w]*\n[\s\S]*?```)/g);
+
+    return (
+      <div className="prose prose-sm max-w-none dark:prose-invert break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5">
+        {parts.map((part, index) => {
+          // 妫€鏌ユ槸鍚︽槸浠ｇ爜鍧?
+          const codeBlockMatch = part.match(/```(\w+)?\n([\s\S]*?)```/);
+          if (codeBlockMatch) {
+            const [, language, code] = codeBlockMatch;
+            return (
+              <CodeBlockView
+                key={index}
+                language={language || "python"}
+                code={code}
+                showHeader={!withinSection}
+                isDarkMode={isDarkMode}
+                onEdit={(c) => {
+                  setCodeEditorContent(c);
+                  setSelectedCodeSection(c);
+                  setShowCodeEditor(true);
+                }}
+              />
+            );
+          }
+
+          // 澶勭悊鏅€?markdown 鍐呭
+          if (part.trim()) {
+            return (
+              <ReactMarkdown
+                key={index}
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code: ({ children, ...props }: any) => (
+                    <code
+                      className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono"
+                      {...props}
+                    >
+                      {children}
+                    </code>
+                  ),
+                  h1: ({ children }) => (
+                    <h1 className="text-2xl font-bold mt-4 mb-2">{children}</h1>
+                  ),
+                  h2: ({ children }) => (
+                    <h2 className="text-xl font-semibold mt-4 mb-2">
+                      {children}
+                    </h2>
+                  ),
+                  h3: ({ children }) => (
+                    <h3 className="text-lg font-semibold mt-4 mb-2">
+                      {children}
+                    </h3>
+                  ),
+                  a: ({ href, children }) => {
+                    const normalized = normalizeToLocalFileUrl(
+                      String(href || "")
+                    );
+                    const corrected = ensureGeneratedInUrl(normalized);
+                    const proxied = `${API_CONFIG.BACKEND_BASE_URL
+                      }/proxy?url=${encodeURIComponent(corrected)}`;
+                    return (
+                      <a
+                        href={proxied}
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {children}
+                      </a>
+                    );
+                  },
+                  img: ({ src, alt }: any) => {
+                    const normalizedSrc = normalizeToLocalFileUrl(src || "");
+                    const correctedSrc = ensureGeneratedInUrl(normalizedSrc);
+                    const proxiedSrc = `${API_CONFIG.BACKEND_BASE_URL
+                      }/proxy?url=${encodeURIComponent(correctedSrc)}`;
+                    return (
+                      <img
+                        src={proxiedSrc}
+                        alt={alt || ""}
+                        className="max-w-full h-auto rounded-lg my-2"
+                      />
+                    );
+                  },
+                  ol: ({ children }) => (
+                    <ol className="list-decimal pl-5 space-y-1">{children}</ol>
+                  ),
+                  ul: ({ children }) => (
+                    <ul className="list-disc pl-5 space-y-1">{children}</ul>
+                  ),
+                }}
+              >
+                {part}
+              </ReactMarkdown>
+            );
+          }
+
+          return null;
+        })}
+      </div>
+    );
+  }, [isDarkMode]);
+
+  const renderSectionContent = useCallback(
+    (content: string) => {
+      return renderMarkdownContent(content, { withinSection: true });
+    },
+    [renderMarkdownContent]
+  );
+
   const renderMessageWithSectionsStreaming = useCallback(
     (content: string, messageIndex?: number) => {
       const sectionTypes = [
@@ -2986,7 +3102,8 @@ export function ThreePanelInterface() {
     }
   };
 
-  const renderMarkdownContent = useCallback((
+  /*
+  const renderMarkdownContentLegacy = useCallback((
     content: string,
     options?: { withinSection?: boolean }
   ) => {
@@ -3095,12 +3212,13 @@ export function ThreePanelInterface() {
     );
   }, [isDarkMode]);
 
-  const renderSectionContent = useCallback(
+  const renderSectionContentLegacy = useCallback(
     (content: string) => {
-      return renderMarkdownContent(content, { withinSection: true });
+      return renderMarkdownContentLegacy(content, { withinSection: true });
     },
-    [renderMarkdownContent]
+    [renderMarkdownContentLegacy]
   );
+  */
 
   // 解析 Markdown 中的文件/图片链接，返回用于卡片渲染的数据
   const parseGeneratedFiles = (
