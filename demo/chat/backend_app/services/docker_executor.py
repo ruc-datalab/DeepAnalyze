@@ -82,6 +82,15 @@ def _container_is_running(container_name: str) -> bool:
     return (completed.returncode == 0) and (completed.stdout or "").strip().lower() == "true"
 
 
+def _image_exists(image_name: str) -> bool:
+    completed = _run_docker_command(
+        ["image", "inspect", image_name],
+        check=False,
+        timeout=20,
+    )
+    return completed.returncode == 0
+
+
 def _touch_container(session_id: str, container_name: str, *, created_by_app: bool, started_by_app: bool) -> None:
     state = _SESSION_CONTAINERS.get(session_id)
     now = time.time()
@@ -155,6 +164,12 @@ def ensure_execution_backend_ready(session_id: str | None = None) -> None:
                 started_by_app=True,
             )
             return
+
+        if not _image_exists(settings.docker_image):
+            raise RuntimeError(
+                "Docker image not found. Build it first with "
+                "`docker build -t deepanalyze-chat-exec:latest -f Dockerfile.exec .`"
+            )
 
         _run_docker_command(
             [
@@ -238,5 +253,12 @@ def execute_python_in_docker(
         return (completed.stdout or "") + (completed.stderr or "")
     except subprocess.TimeoutExpired:
         return f"[Timeout]: execution exceeded {timeout_sec} seconds"
+    except subprocess.CalledProcessError as exc:
+        stdout = (exc.stdout or "").strip()
+        stderr = (exc.stderr or "").strip()
+        details = "\n".join(part for part in [stdout, stderr] if part).strip()
+        if details:
+            return f"[Error]: docker exec failed\n{details}"
+        return f"[Error]: docker exec failed with exit code {exc.returncode}"
     except Exception as exc:
         return f"[Error]: {exc}"

@@ -1,0 +1,33 @@
+FROM python:3.11-slim
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MPLBACKEND=Agg \
+    QT_QPA_PLATFORM=offscreen
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc \
+        g++ \
+        gfortran \
+        libgomp1 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --no-cache-dir \
+    numpy \
+    pandas \
+    matplotlib \
+    seaborn \
+    scipy \
+    scikit-learn \
+    openpyxl \
+    pyarrow \
+    xlrd \
+    python-docx \
+    pillow
+
+WORKDIR /workspace
+
+CMD ["sh", "-c", "while true; do sleep 3600; done"]
