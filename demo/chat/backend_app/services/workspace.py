@@ -48,7 +48,7 @@ def build_download_url(rel_path: str) -> str:
 
 
 def _generated_index_path(workspace_root: Path) -> Path:
-    return workspace_root / GENERATED_INDEX_FILENAME
+    return workspace_root / "generated" / GENERATED_INDEX_FILENAME
 
 
 def _normalize_generated_rel_path(path: str) -> str:
@@ -84,6 +84,7 @@ def load_generated_index(session_id: str) -> set[str]:
 def save_generated_index(session_id: str, rel_paths: Iterable[str]) -> None:
     workspace_root = resolve_workspace_root(session_id)
     index_path = _generated_index_path(workspace_root)
+    index_path.parent.mkdir(parents=True, exist_ok=True)
     normalized = sorted(
         {
             _normalize_generated_rel_path(str(path))
@@ -556,7 +557,11 @@ def download_generated_bundle(session_id: str, category: str = "all") -> FileRes
     if normalized_category not in {"all", "table", "image", "other"}:
         raise HTTPException(status_code=400, detail="invalid category")
 
-    files = [path for path in generated_root.rglob("*") if path.is_file()]
+    files = [
+        path
+        for path in generated_root.rglob("*")
+        if path.is_file() and not _is_internal_workspace_file(path)
+    ]
     if normalized_category != "all":
         files = [
             path for path in files if classify_file_type(path) == normalized_category

@@ -331,7 +331,13 @@ const ChatMessageItem = memo(
     renderAssistantStreaming,
   }: ChatMessageItemProps) {
     return (
-      <div className="space-y-2">
+      <div
+        className="space-y-2"
+        style={{
+          contentVisibility: "auto",
+          containIntrinsicSize: message.sender === "ai" ? "520px" : "96px",
+        }}
+      >
         {message.sender === "user" ? (
           <div className="flex items-start justify-end gap-2">
             <div className="max-w-[80%] bg-black text-white dark:bg-white dark:text-black rounded-lg px-4 py-3 message-bubble message-appear">
@@ -1076,6 +1082,35 @@ export function ThreePanelInterface() {
     return path === "generated" || path.startsWith("generated/");
   }, []);
 
+  const dedupeGeneratedDisplayFiles = useCallback((files: WorkspaceFile[]) => {
+    const result: WorkspaceFile[] = [];
+    const generatedSlotByKey = new Map<string, number>();
+
+    files.forEach((file) => {
+      if (!isGeneratedWorkspaceFile(file)) {
+        result.push(file);
+        return;
+      }
+
+      const dedupeKey = `${file.name}::${file.size}::${file.extension || ""}`;
+      const existingIndex = generatedSlotByKey.get(dedupeKey);
+      if (existingIndex === undefined) {
+        generatedSlotByKey.set(dedupeKey, result.length);
+        result.push(file);
+        return;
+      }
+
+      const existing = result[existingIndex];
+      const shouldReplace =
+        isGeneratedBundleFile(existing) && !isGeneratedBundleFile(file);
+      if (shouldReplace) {
+        result[existingIndex] = file;
+      }
+    });
+
+    return result;
+  }, [isGeneratedBundleFile, isGeneratedWorkspaceFile]);
+
   useEffect(() => {
     if (!selectedPresetPrompt) return;
     setInputValue(selectedPresetPrompt);
@@ -1095,7 +1130,7 @@ export function ThreePanelInterface() {
 
   const filteredWorkspaceFiles = useMemo(() => {
     const query = workspaceSearch.trim().toLowerCase();
-    return workspaceFiles
+    const filtered = workspaceFiles
       .filter((file) => {
         const isGenerated = isGeneratedWorkspaceFile(file);
         if (workspaceView === "generated" && !isGenerated) return false;
@@ -1112,7 +1147,14 @@ export function ThreePanelInterface() {
         }
         return a.name.localeCompare(b.name);
       });
-  }, [isGeneratedWorkspaceFile, workspaceFiles, workspaceSearch, workspaceView]);
+    return dedupeGeneratedDisplayFiles(filtered);
+  }, [
+    dedupeGeneratedDisplayFiles,
+    isGeneratedWorkspaceFile,
+    workspaceFiles,
+    workspaceSearch,
+    workspaceView,
+  ]);
 
   const getLocalizedPreviewType = useCallback(
     (
@@ -2073,11 +2115,12 @@ export function ThreePanelInterface() {
 
   const recentGeneratedFiles = useMemo(
     () =>
-      workspaceFiles
-        .filter((file) => isGeneratedWorkspaceFile(file))
-        .sort((left, right) => right.name.localeCompare(left.name))
-        .slice(0, 8),
-    [isGeneratedWorkspaceFile, workspaceFiles]
+      dedupeGeneratedDisplayFiles(
+        workspaceFiles
+          .filter((file) => isGeneratedWorkspaceFile(file))
+          .sort((left, right) => right.name.localeCompare(left.name))
+      ).slice(0, 8),
+    [dedupeGeneratedDisplayFiles, isGeneratedWorkspaceFile, workspaceFiles]
   );
 
   const handleMessagesScroll = useCallback(
@@ -2415,6 +2458,10 @@ export function ThreePanelInterface() {
             className={`mb-4 border rounded-lg overflow-hidden ${sectionConfigs[type].color}`}
             data-section={type}
             data-section-key={sectionKey}
+            style={{
+              contentVisibility: "auto",
+              containIntrinsicSize: isCollapsed ? "56px" : "220px",
+            }}
           >
             <div className="flex items-center justify-between px-3 py-2 bg-white/60 dark:bg-black/30 border-b border-black/5 dark:border-white/10">
               <div className="flex items-center gap-2 min-w-0">
@@ -2667,6 +2714,10 @@ export function ThreePanelInterface() {
           className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
           data-section={match.type}
           data-section-key={sectionKey}
+          style={{
+            contentVisibility: "auto",
+            containIntrinsicSize: isCollapsed ? "56px" : "240px",
+          }}
         >
           <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-2">
@@ -4610,7 +4661,7 @@ export function ThreePanelInterface() {
                           </div>
                         </div>
                         <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
-                          {renderPreviewContent()}
+                          {renderPreviewContent({ compact: true })}
                         </div>
                         <div className="flex gap-2">
                           <Button
