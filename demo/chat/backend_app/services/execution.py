@@ -7,23 +7,30 @@ import sys
 import tempfile
 from pathlib import Path
 
+from .docker_executor import ensure_execution_backend_ready, execute_python_in_docker
 from .workspace import build_download_url, register_generated_paths, uniquify_path
-from ..settings import IMAGE_EXTENSIONS
+from ..settings import IMAGE_EXTENSIONS, settings
 
 
 def execute_code_safe(
     code_str: str,
     workspace_dir: str,
-    timeout_sec: int = 120,
+    timeout_sec: int | None = None,
 ) -> str:
+    timeout_sec = timeout_sec or settings.execution_timeout_sec
     exec_cwd = os.path.abspath(workspace_dir)
     os.makedirs(exec_cwd, exist_ok=True)
     tmp_path: str | None = None
     try:
+        if settings.use_docker_execution:
+            ensure_execution_backend_ready()
         fd, tmp_path = tempfile.mkstemp(suffix=".py", dir=exec_cwd)
         os.close(fd)
         with open(tmp_path, "w", encoding="utf-8") as file:
             file.write(code_str)
+
+        if settings.use_docker_execution:
+            return execute_python_in_docker(tmp_path, exec_cwd, timeout_sec)
 
         child_env = os.environ.copy()
         child_env.setdefault("MPLBACKEND", "Agg")

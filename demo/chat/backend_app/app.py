@@ -8,13 +8,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers.chat import router as chat_router
 from .routers.export import router as export_router
 from .routers.workspace import router as workspace_router
+from .services.docker_executor import ensure_execution_backend_ready, shutdown_execution_backend
 from .services.workspace import ensure_http_server_started
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_http_server_started()
-    yield
+    ensure_execution_backend_ready()
+    try:
+        yield
+    finally:
+        shutdown_execution_backend()
 
 
 def create_app() -> FastAPI:
