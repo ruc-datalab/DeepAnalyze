@@ -2973,7 +2973,7 @@ export function ThreePanelInterface() {
                           {f.name}
                         </div>
                         <a
-                          href={proxiedUrl}
+                          href={resolvedUrl}
                           download
                           className="text-[10px] text-blue-600 hover:underline"
                         >
