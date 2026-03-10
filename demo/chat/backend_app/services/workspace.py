@@ -578,9 +578,19 @@ def download_generated_bundle(session_id: str, category: str = "all") -> FileRes
     temp_path = Path(temp_file.name)
     temp_file.close()
 
+    category_dirs = {
+        "table": "tables",
+        "image": "images",
+        "other": "others",
+    }
+
     with zipfile.ZipFile(temp_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for file_path in files:
-            archive.write(file_path, file_path.relative_to(generated_root))
+            archive_name = file_path.relative_to(generated_root)
+            if normalized_category == "all":
+                classified = classify_file_type(file_path)
+                archive_name = Path(category_dirs[classified]) / archive_name
+            archive.write(file_path, archive_name.as_posix())
 
     filename = f"generated_{normalized_category}.zip"
     return FileResponse(

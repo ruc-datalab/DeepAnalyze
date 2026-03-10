@@ -89,6 +89,7 @@ import {
   FileCode2,
   FileJson,
   ChevronLeft,
+  History,
 } from "lucide-react";
 import { Tree, NodeApi } from "react-arborist";
 import { useToast } from "@/hooks/use-toast";
@@ -177,11 +178,44 @@ interface PreviewPayload {
   total_rows?: number;
 }
 
+interface ExportedFileMeta {
+  name: string;
+  path: string;
+  download_url: string;
+}
+
+interface ExportResponsePayload {
+  message?: string;
+  md?: string | null;
+  pdf?: string | null;
+  json?: string | null;
+  files?: {
+    md?: ExportedFileMeta | null;
+    pdf?: ExportedFileMeta | null;
+    json?: ExportedFileMeta | null;
+  };
+  download_urls?: {
+    md?: string | null;
+    pdf?: string | null;
+    json?: string | null;
+  };
+}
+
+interface ExportHistoryRecord {
+  id: string;
+  kind: "report" | "history";
+  format: "md" | "pdf" | "json";
+  fileName: string;
+  createdAt: string;
+  downloadUrl: string;
+}
+
 const PREVIEW_TABLE_PAGE_SIZE = 10;
 const BLOCKED_UPLOAD_EXTENSIONS = new Set(["py"]);
 const ACTIVE_SECTION_UPDATE_INTERVAL_MS = 80;
 const UPLOAD_ACCEPT_TYPES =
   ".csv,.tsv,.xlsx,.xls,.parquet,.sqlite,.db,.json,.txt,.log,.md,.markdown,.yml,.yaml,.pdf,image/*,.zip";
+const MAX_EXPORT_HISTORY_RECORDS = 12;
 
 type WorkspaceNode = {
   name: string;
@@ -808,6 +842,9 @@ export function ThreePanelInterface() {
   const [dropActive, setDropActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string>("");
+  const [exportHistoryRecords, setExportHistoryRecords] = useState<
+    ExportHistoryRecord[]
+  >([]);
 
   const lastScrollTimeRef = useRef(0);
   const scrollRafRef = useRef<number | null>(null);
@@ -889,6 +926,9 @@ export function ThreePanelInterface() {
 
   // 聊天消息本地缓存：加载与保存
   const CHAT_STORAGE_KEY = "chat_messages_v1";
+  const exportHistoryStorageKey = sessionId
+    ? `deepanalyze.exportHistory:${sessionId}`
+    : "deepanalyze.exportHistory:default";
   const [chatLoaded, setChatLoaded] = useState(false);
 
   // 挂载后再次从本地覆盖加载，避免 SSR 初始状态覆盖缓存
@@ -948,6 +988,34 @@ export function ThreePanelInterface() {
       console.warn("save chat cache failed", e);
     }
   }, [messages, chatLoaded, isTyping]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(exportHistoryStorageKey);
+      if (!raw) {
+        setExportHistoryRecords([]);
+        return;
+      }
+      const parsed = JSON.parse(raw) as ExportHistoryRecord[];
+      setExportHistoryRecords(Array.isArray(parsed) ? parsed : []);
+    } catch (error) {
+      console.warn("load export history failed", error);
+      setExportHistoryRecords([]);
+    }
+  }, [exportHistoryStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        exportHistoryStorageKey,
+        JSON.stringify(exportHistoryRecords)
+      );
+    } catch (error) {
+      console.warn("save export history failed", error);
+    }
+  }, [exportHistoryRecords, exportHistoryStorageKey]);
 
   // 一键清空聊天：保留欢迎消息（仅本地显示）
   const clearChat = () => {
@@ -1104,6 +1172,33 @@ export function ThreePanelInterface() {
         uiLanguage === "zh"
           ? "输入和鲸平台申请的 API Key"
           : "Enter the API key issued by HeyWhale",
+      exportCenter: uiLanguage === "zh" ? "导出中心" : "Export Center",
+      exportHint:
+        uiLanguage === "zh"
+          ? "支持报告导出与历史记录归档，结果会同步写入 generated 目录"
+          : "Export reports and archive chat history into the generated folder.",
+      exportMarkdown: uiLanguage === "zh" ? "MD 报告" : "MD Report",
+      exportPdf: uiLanguage === "zh" ? "PDF 报告" : "PDF Report",
+      exportHistory: uiLanguage === "zh" ? "历史记录" : "History",
+      exportHistoryHint:
+        uiLanguage === "zh"
+          ? "会导出 JSON 历史和一份可读的 Markdown 转录"
+          : "Exports both JSON history and a readable Markdown transcript.",
+      recentExports: uiLanguage === "zh" ? "最近导出" : "Recent Exports",
+      noRecentExports:
+        uiLanguage === "zh" ? "还没有导出记录" : "No export history yet.",
+      reportLabel: uiLanguage === "zh" ? "报告" : "Report",
+      historyLabel: uiLanguage === "zh" ? "历史" : "History",
+      uploadPanelTitle:
+        uiLanguage === "zh" ? "上传文件到工作区" : "Upload files to workspace",
+      uploadPanelHint:
+        uiLanguage === "zh"
+          ? "支持拖拽上传，图片会自动显示缩略图。"
+          : "Drag and drop is supported, and image files show thumbnails automatically.",
+      uploadPanelMeta:
+        uiLanguage === "zh"
+          ? "数据、图片、日志与文档都可以直接丢到这里"
+          : "Drop datasets, images, logs, and documents here.",
     }),
     [uiLanguage]
   );
@@ -1179,6 +1274,20 @@ export function ThreePanelInterface() {
       other: generatedFiles.filter((file) => (file.category || "other") === "other").length,
     };
   }, [isGeneratedBundleFile, workspaceFiles]);
+
+  const workspaceStats = useMemo(() => {
+    const uploadedCount = workspaceFiles.filter(
+      (file) => !isGeneratedWorkspaceFile(file)
+    ).length;
+    const generatedCount = workspaceFiles.filter((file) =>
+      isGeneratedWorkspaceFile(file)
+    ).length;
+    return {
+      uploadedCount,
+      generatedCount,
+      totalCount: workspaceFiles.length,
+    };
+  }, [isGeneratedWorkspaceFile, workspaceFiles]);
 
   const filteredWorkspaceFiles = useMemo(() => {
     const query = workspaceSearch.trim().toLowerCase();
@@ -2107,6 +2216,190 @@ export function ThreePanelInterface() {
       window.open(fallbackUrl, "_blank");
     }
   };
+
+  const buildExportMessages = () =>
+    messages
+      .filter((message) => !message.localOnly)
+      .map((message) => ({
+        role: message.sender === "user" ? "user" : "assistant",
+        content: message.content,
+        timestamp:
+          message.timestamp instanceof Date
+            ? message.timestamp.toISOString()
+            : new Date(message.timestamp).toISOString(),
+        attachments: (message.attachments || []).map((attachment) => ({
+          id: attachment.id,
+          name: attachment.name,
+          size: attachment.size,
+          type: attachment.type,
+          url: attachment.url,
+        })),
+      }));
+
+  const appendExportHistoryRecord = (
+    record: Omit<ExportHistoryRecord, "id">
+  ) => {
+    setExportHistoryRecords((prev) =>
+      [
+        {
+          ...record,
+          id: `export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        },
+        ...prev,
+      ].slice(0, MAX_EXPORT_HISTORY_RECORDS)
+    );
+  };
+
+  const pickExportedFile = (
+    payload: ExportResponsePayload,
+    format: "md" | "pdf" | "json"
+  ): ExportedFileMeta | null => {
+    const exact = payload.files?.[format];
+    if (exact?.download_url) {
+      return exact;
+    }
+    const name = payload[format];
+    const downloadUrl = payload.download_urls?.[format];
+    if (name && downloadUrl) {
+      return {
+        name,
+        path: "",
+        download_url: downloadUrl,
+      };
+    }
+    return null;
+  };
+
+  const requestExport = async (
+    endpoint: string,
+    payload: Record<string, unknown>
+  ) => {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return (await response.json()) as ExportResponsePayload;
+  };
+
+  const handleReportExport = async (
+    format: "md" | "pdf" = "pdf",
+    options?: { download?: boolean }
+  ) => {
+    try {
+      void buildReportFilename(getPrevUserQuestionText(messages.length));
+      const payload = {
+        messages: buildExportMessages(),
+        title: getPrevUserQuestionText(messages.length),
+        session_id: sessionId,
+      };
+      const data = await requestExport(API_URLS.EXPORT_REPORT, payload);
+      const preferredFile =
+        pickExportedFile(data, format) ||
+        (format === "pdf"
+          ? pickExportedFile(data, "md")
+          : pickExportedFile(data, "pdf"));
+
+      if (!preferredFile?.download_url) {
+        throw new Error("missing exported report");
+      }
+
+      const resolvedFormat = preferredFile.name.toLowerCase().endsWith(".pdf")
+        ? "pdf"
+        : "md";
+
+      appendExportHistoryRecord({
+        kind: "report",
+        format: resolvedFormat,
+        fileName: preferredFile.name,
+        createdAt: new Date().toISOString(),
+        downloadUrl: preferredFile.download_url,
+      });
+
+      await loadWorkspaceFiles();
+      await loadWorkspaceTree();
+
+      if (options?.download !== false) {
+        await downloadFileByUrl(preferredFile.name, preferredFile.download_url);
+      }
+
+      toast({
+        description:
+          uiLanguage === "zh"
+            ? resolvedFormat !== format
+              ? `PDF 不可用，已导出 ${preferredFile.name}`
+              : `已导出报告：${preferredFile.name}`
+            : resolvedFormat !== format
+              ? `PDF is unavailable. Exported ${preferredFile.name} instead.`
+              : `Report exported: ${preferredFile.name}`,
+      });
+    } catch (error) {
+      console.error("report export error", error);
+      toast({
+        description: uiLanguage === "zh" ? "导出报告失败" : "Report export failed",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleHistoryExport = async (options?: { download?: boolean }) => {
+    try {
+      const payload = {
+        messages: buildExportMessages(),
+        title: getPrevUserQuestionText(messages.length),
+        session_id: sessionId,
+      };
+      const data = await requestExport(API_URLS.EXPORT_HISTORY, payload);
+      const historyFile =
+        pickExportedFile(data, "json") || pickExportedFile(data, "md");
+
+      if (!historyFile?.download_url) {
+        throw new Error("missing exported history");
+      }
+
+      const resolvedFormat = historyFile.name.toLowerCase().endsWith(".json")
+        ? "json"
+        : "md";
+
+      appendExportHistoryRecord({
+        kind: "history",
+        format: resolvedFormat,
+        fileName: historyFile.name,
+        createdAt: new Date().toISOString(),
+        downloadUrl: historyFile.download_url,
+      });
+
+      await loadWorkspaceFiles();
+      await loadWorkspaceTree();
+
+      if (options?.download !== false) {
+        await downloadFileByUrl(historyFile.name, historyFile.download_url);
+      }
+
+      toast({
+        description:
+          uiLanguage === "zh"
+            ? `已导出历史记录：${historyFile.name}`
+            : `History exported: ${historyFile.name}`,
+      });
+    } catch (error) {
+      console.error("history export error", error);
+      toast({
+        description:
+          uiLanguage === "zh" ? "导出历史记录失败" : "History export failed",
+        variant: "destructive",
+      });
+    }
+  };
+
+  useEffect(() => {
+    exportReportBackendRef.current = async () => {
+      await handleReportExport("pdf");
+    };
+  }, [handleReportExport]);
 
   const activePreviewFile = useMemo(() => {
     if (!selectedWorkspacePath) return null;
@@ -4318,7 +4611,7 @@ export function ThreePanelInterface() {
                 )}
 
                 <div
-                  className={`rounded-2xl border border-dashed px-4 py-4 text-sm select-none transition-colors ${dropActive
+                  className={`rounded-[28px] border border-dashed px-5 py-5 text-sm select-none transition-all shadow-[0_18px_40px_rgba(15,23,42,0.06)] ${dropActive
                     ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300"
                     : "bg-gray-50 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300"
                     }`}
@@ -4335,13 +4628,20 @@ export function ThreePanelInterface() {
                   }}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 rounded-xl bg-white/80 p-2 shadow-sm dark:bg-gray-950/80">
-                      <Upload className="h-4 w-4" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="font-medium">
+                  <div className="flex min-h-[168px] flex-col justify-between gap-5">
+                    <div className="flex items-start gap-4">
+                      <div className="mt-0.5 rounded-2xl bg-white/90 p-3 shadow-sm dark:bg-gray-950/90">
+                        <Upload className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="inline-flex rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm dark:border-gray-800 dark:bg-gray-950/80 dark:text-gray-300">
                         {uiLanguage === "zh" ? "上传文件到工作区" : "Upload files to workspace"}
+                      </div>
+                      <div className="text-base font-semibold text-slate-900 dark:text-white">
+                        {textLabels.uploadPanelTitle}
+                      </div>
+                      <div className="max-w-md text-sm leading-6 text-slate-600 dark:text-gray-300">
+                        {textLabels.uploadPanelMeta}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
                         {uiLanguage === "zh"
@@ -4349,8 +4649,117 @@ export function ThreePanelInterface() {
                           : "Drag and drop is supported, and image files show thumbnails automatically."}
                       </div>
                     </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-2xl border border-white/70 bg-white/85 px-3 py-2 shadow-sm dark:border-gray-800 dark:bg-gray-950/80">
+                        <div className="text-[11px] text-slate-500 dark:text-gray-400">
+                          {textLabels.uploaded}
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+                          {workspaceStats.uploadedCount}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-white/70 bg-white/85 px-3 py-2 shadow-sm dark:border-gray-800 dark:bg-gray-950/80">
+                        <div className="text-[11px] text-slate-500 dark:text-gray-400">
+                          {textLabels.generated}
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+                          {workspaceStats.generatedCount}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-white/70 bg-white/85 px-3 py-2 shadow-sm dark:border-gray-800 dark:bg-gray-950/80">
+                        <div className="text-[11px] text-slate-500 dark:text-gray-400">
+                          {textLabels.all}
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+                          {workspaceStats.totalCount}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-4 space-y-4">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {textLabels.exportCenter}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {textLabels.exportHint}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-auto flex-col gap-1 rounded-2xl py-3"
+                      onClick={() => handleReportExport("md")}
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span className="text-xs">{textLabels.exportMarkdown}</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-auto flex-col gap-1 rounded-2xl py-3"
+                      onClick={() => handleReportExport("pdf")}
+                    >
+                      <Download className="h-4 w-4" />
+                      <span className="text-xs">{textLabels.exportPdf}</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-auto flex-col gap-1 rounded-2xl py-3"
+                      onClick={() => handleHistoryExport()}
+                    >
+                      <History className="h-4 w-4" />
+                      <span className="text-xs">{textLabels.exportHistory}</span>
+                    </Button>
+                  </div>
+                  <div className="rounded-2xl bg-gray-50 px-3 py-2 text-[11px] text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
+                    {textLabels.exportHistoryHint}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      {textLabels.recentExports}
+                    </div>
+                    {exportHistoryRecords.length ? (
+                      exportHistoryRecords.slice(0, 4).map((record) => (
+                        <button
+                          key={record.id}
+                          type="button"
+                          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-gray-200 px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
+                          onClick={() =>
+                            downloadFileByUrl(record.fileName, record.downloadUrl)
+                          }
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px]">
+                                {record.kind === "report"
+                                  ? textLabels.reportLabel
+                                  : textLabels.historyLabel}
+                              </Badge>
+                              <span className="text-[10px] uppercase text-gray-500 dark:text-gray-400">
+                                {record.format}
+                              </span>
+                            </div>
+                            <div className="mt-1 truncate text-xs font-medium text-gray-900 dark:text-gray-100">
+                              {record.fileName}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-[10px] text-gray-400 dark:text-gray-500">
+                            {new Date(record.createdAt).toLocaleString()}
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-gray-200 px-3 py-4 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                        {textLabels.noRecentExports}
+                      </div>
+                    )}
+                  </div>
+                </Card>
 
                 {uploadMsg && (
                   <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400">
