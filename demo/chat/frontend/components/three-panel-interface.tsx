@@ -4967,6 +4967,7 @@ export function ThreePanelInterface() {
                 </Card>
               </div>
             </div>
+            </div>
           </ResizablePanel>
 
           <ResizableHandle withHandle />
