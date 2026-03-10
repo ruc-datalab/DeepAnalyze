@@ -122,6 +122,35 @@ def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> Path | None:
         return None
 
 
+def _sanitize_filename_component(
+    raw: str,
+    *,
+    fallback: str,
+    max_length: int = 80,
+) -> str:
+    text = str(raw or "").strip()
+    if not text:
+        return fallback
+
+    # Windows 禁止字符 + 控制字符（避免写文件时报错）
+    text = re.sub(r'[<>:"/\\|?*\x00-\x1F]+', "_", text)
+    text = re.sub(r"\s+", "_", text)
+    text = re.sub(r"_+", "_", text).strip(" ._")
+
+    if not text:
+        text = fallback
+
+    if len(text) > max_length:
+        text = text[:max_length].rstrip(" ._") or fallback
+
+    return text
+
+
+def _build_export_base_name(title: str, *, prefix: str, timestamp: str) -> str:
+    safe_title = _sanitize_filename_component(title, fallback=prefix, max_length=80)
+    return f"{safe_title}_{timestamp}"
+
+
 def _to_file_meta(
     session_id: str,
     workspace_root: Path,
@@ -152,8 +181,7 @@ def export_report_from_body(body: dict[str, Any]) -> dict[str, Any]:
         md_text = "(No <Analyze>/<Understand>/<Code>/<Execute>/<Answer> sections found.)"
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_title = re.sub(r"[^\w\-_.]+", "_", title) if title else "Report"
-    base_name = f"{safe_title}_{timestamp}" if title else f"Report_{timestamp}"
+    base_name = _build_export_base_name(title, prefix="Report", timestamp=timestamp)
 
     export_dir = workspace_root / "generated" / "reports"
     export_dir.mkdir(parents=True, exist_ok=True)
@@ -202,8 +230,7 @@ def export_history_from_body(body: dict[str, Any]) -> dict[str, Any]:
 
     exported_at = datetime.now().isoformat(timespec="seconds")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_title = re.sub(r"[^\w\-_.]+", "_", title) if title else "History"
-    base_name = f"{safe_title}_{timestamp}" if title else f"History_{timestamp}"
+    base_name = _build_export_base_name(title, prefix="History", timestamp=timestamp)
 
     export_dir = workspace_root / "generated" / "history"
     export_dir.mkdir(parents=True, exist_ok=True)

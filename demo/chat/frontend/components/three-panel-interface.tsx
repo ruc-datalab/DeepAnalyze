@@ -1275,20 +1275,6 @@ export function ThreePanelInterface() {
     };
   }, [isGeneratedBundleFile, workspaceFiles]);
 
-  const workspaceStats = useMemo(() => {
-    const uploadedCount = workspaceFiles.filter(
-      (file) => !isGeneratedWorkspaceFile(file)
-    ).length;
-    const generatedCount = workspaceFiles.filter((file) =>
-      isGeneratedWorkspaceFile(file)
-    ).length;
-    return {
-      uploadedCount,
-      generatedCount,
-      totalCount: workspaceFiles.length,
-    };
-  }, [isGeneratedWorkspaceFile, workspaceFiles]);
-
   const filteredWorkspaceFiles = useMemo(() => {
     const query = workspaceSearch.trim().toLowerCase();
     const filtered = workspaceFiles
@@ -4628,7 +4614,7 @@ export function ThreePanelInterface() {
                   }}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <div className="flex min-h-[168px] flex-col justify-between gap-5">
+                  <div className="flex min-h-[140px] flex-col gap-4">
                     <div className="flex items-start gap-4">
                       <div className="mt-0.5 rounded-2xl bg-white/90 p-3 shadow-sm dark:bg-gray-950/90">
                         <Upload className="h-5 w-5" />
@@ -4649,115 +4635,43 @@ export function ThreePanelInterface() {
                           : "Drag and drop is supported, and image files show thumbnails automatically."}
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-2xl border border-white/70 bg-white/85 px-3 py-2 shadow-sm dark:border-gray-800 dark:bg-gray-950/80">
-                        <div className="text-[11px] text-slate-500 dark:text-gray-400">
-                          {textLabels.uploaded}
-                        </div>
-                        <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-                          {workspaceStats.uploadedCount}
-                        </div>
-                      </div>
-                      <div className="rounded-2xl border border-white/70 bg-white/85 px-3 py-2 shadow-sm dark:border-gray-800 dark:bg-gray-950/80">
-                        <div className="text-[11px] text-slate-500 dark:text-gray-400">
-                          {textLabels.generated}
-                        </div>
-                        <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-                          {workspaceStats.generatedCount}
-                        </div>
-                      </div>
-                      <div className="rounded-2xl border border-white/70 bg-white/85 px-3 py-2 shadow-sm dark:border-gray-800 dark:bg-gray-950/80">
-                        <div className="text-[11px] text-slate-500 dark:text-gray-400">
-                          {textLabels.all}
-                        </div>
-                        <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-                          {workspaceStats.totalCount}
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
-                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-4 space-y-4">
-                  <div>
+                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {textLabels.exportCenter}
                     </div>
-                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {textLabels.exportHint}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-xl px-3"
+                        onClick={() => handleReportExport("md")}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        <span className="text-xs">{textLabels.exportMarkdown}</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-xl px-3"
+                        onClick={() => handleReportExport("pdf")}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        <span className="text-xs">{textLabels.exportPdf}</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-xl px-3"
+                        onClick={() => handleHistoryExport()}
+                      >
+                        <History className="mr-2 h-4 w-4" />
+                        <span className="text-xs">{textLabels.exportHistory}</span>
+                      </Button>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-auto flex-col gap-1 rounded-2xl py-3"
-                      onClick={() => handleReportExport("md")}
-                    >
-                      <FileText className="h-4 w-4" />
-                      <span className="text-xs">{textLabels.exportMarkdown}</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-auto flex-col gap-1 rounded-2xl py-3"
-                      onClick={() => handleReportExport("pdf")}
-                    >
-                      <Download className="h-4 w-4" />
-                      <span className="text-xs">{textLabels.exportPdf}</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-auto flex-col gap-1 rounded-2xl py-3"
-                      onClick={() => handleHistoryExport()}
-                    >
-                      <History className="h-4 w-4" />
-                      <span className="text-xs">{textLabels.exportHistory}</span>
-                    </Button>
-                  </div>
-                  <div className="rounded-2xl bg-gray-50 px-3 py-2 text-[11px] text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
-                    {textLabels.exportHistoryHint}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      {textLabels.recentExports}
-                    </div>
-                    {exportHistoryRecords.length ? (
-                      exportHistoryRecords.slice(0, 4).map((record) => (
-                        <button
-                          key={record.id}
-                          type="button"
-                          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-gray-200 px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
-                          onClick={() =>
-                            downloadFileByUrl(record.fileName, record.downloadUrl)
-                          }
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px]">
-                                {record.kind === "report"
-                                  ? textLabels.reportLabel
-                                  : textLabels.historyLabel}
-                              </Badge>
-                              <span className="text-[10px] uppercase text-gray-500 dark:text-gray-400">
-                                {record.format}
-                              </span>
-                            </div>
-                            <div className="mt-1 truncate text-xs font-medium text-gray-900 dark:text-gray-100">
-                              {record.fileName}
-                            </div>
-                          </div>
-                          <div className="shrink-0 text-[10px] text-gray-400 dark:text-gray-500">
-                            {new Date(record.createdAt).toLocaleString()}
-                          </div>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="rounded-2xl border border-dashed border-gray-200 px-3 py-4 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                        {textLabels.noRecentExports}
-                      </div>
-                    )}
                   </div>
                 </Card>
 
