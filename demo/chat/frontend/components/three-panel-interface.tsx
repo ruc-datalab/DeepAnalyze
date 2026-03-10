@@ -4596,25 +4596,34 @@ export function ThreePanelInterface() {
                   </Card>
                 )}
 
-                <div
-                  className={`rounded-[28px] border border-dashed px-5 py-5 text-sm select-none transition-all shadow-[0_18px_40px_rgba(15,23,42,0.06)] ${dropActive
-                    ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300"
-                    : "bg-gray-50 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300"
-                    }`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDropActive(true);
-                  }}
-                  onDragLeave={() => setDropActive(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDropActive(false);
-                    const files = e.dataTransfer.files;
-                    if (files && files.length) uploadToDir("", files);
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className="flex min-h-[140px] flex-col gap-4">
+                <div className="space-y-4">
+                  <div
+                    className={`rounded-[28px] border border-dashed px-5 py-5 text-sm select-none transition-all shadow-[0_18px_40px_rgba(15,23,42,0.06)] ${dropActive
+                      ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300"
+                      : "bg-gray-50 dark:bg-gray-900/40 border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300"
+                      }`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDropActive(true);
+                    }}
+                    onDragLeave={() => setDropActive(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDropActive(false);
+                      const files = e.dataTransfer.files;
+                      if (files && files.length) uploadToDir("", files);
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                  >
+                    <div className="flex min-h-[140px] flex-col gap-4">
                     <div className="flex items-start gap-4">
                       <div className="mt-0.5 rounded-2xl bg-white/90 p-3 shadow-sm dark:bg-gray-950/90">
                         <Upload className="h-5 w-5" />
@@ -4635,8 +4644,9 @@ export function ThreePanelInterface() {
                           : "Drag and drop is supported, and image files show thumbnails automatically."}
                       </div>
                     </div>
+                    </div>
                   </div>
-                </div>
+                  </div>
 
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3">
                   <div className="flex items-center justify-between gap-3">
@@ -4649,6 +4659,7 @@ export function ThreePanelInterface() {
                         size="sm"
                         className="h-8 rounded-xl px-3"
                         onClick={() => handleReportExport("md")}
+                        type="button"
                       >
                         <FileText className="mr-2 h-4 w-4" />
                         <span className="text-xs">{textLabels.exportMarkdown}</span>
@@ -4658,6 +4669,7 @@ export function ThreePanelInterface() {
                         size="sm"
                         className="h-8 rounded-xl px-3"
                         onClick={() => handleReportExport("pdf")}
+                        type="button"
                       >
                         <Download className="mr-2 h-4 w-4" />
                         <span className="text-xs">{textLabels.exportPdf}</span>
@@ -4667,6 +4679,7 @@ export function ThreePanelInterface() {
                         size="sm"
                         className="h-8 rounded-xl px-3"
                         onClick={() => handleHistoryExport()}
+                        type="button"
                       >
                         <History className="mr-2 h-4 w-4" />
                         <span className="text-xs">{textLabels.exportHistory}</span>
