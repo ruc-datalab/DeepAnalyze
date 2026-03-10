@@ -89,7 +89,6 @@ import {
   FileCode2,
   FileJson,
   ChevronLeft,
-  History,
 } from "lucide-react";
 import { Tree, NodeApi } from "react-arborist";
 import { useToast } from "@/hooks/use-toast";
@@ -188,26 +187,14 @@ interface ExportResponsePayload {
   message?: string;
   md?: string | null;
   pdf?: string | null;
-  json?: string | null;
   files?: {
     md?: ExportedFileMeta | null;
     pdf?: ExportedFileMeta | null;
-    json?: ExportedFileMeta | null;
   };
   download_urls?: {
     md?: string | null;
     pdf?: string | null;
-    json?: string | null;
   };
-}
-
-interface ExportHistoryRecord {
-  id: string;
-  kind: "report" | "history";
-  format: "md" | "pdf" | "json";
-  fileName: string;
-  createdAt: string;
-  downloadUrl: string;
 }
 
 const PREVIEW_TABLE_PAGE_SIZE = 10;
@@ -215,7 +202,6 @@ const BLOCKED_UPLOAD_EXTENSIONS = new Set(["py"]);
 const ACTIVE_SECTION_UPDATE_INTERVAL_MS = 80;
 const UPLOAD_ACCEPT_TYPES =
   ".csv,.tsv,.xlsx,.xls,.parquet,.sqlite,.db,.json,.txt,.log,.md,.markdown,.yml,.yaml,.pdf,image/*,.zip";
-const MAX_EXPORT_HISTORY_RECORDS = 12;
 
 type WorkspaceNode = {
   name: string;
@@ -225,6 +211,7 @@ type WorkspaceNode = {
   extension?: string;
   icon?: string;
   download_url?: string;
+  preview_url?: string;
   children?: WorkspaceNode[];
   is_generated?: boolean; // 标识是否为代码生成的文件或文件夹
 };
@@ -842,9 +829,6 @@ export function ThreePanelInterface() {
   const [dropActive, setDropActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string>("");
-  const [exportHistoryRecords, setExportHistoryRecords] = useState<
-    ExportHistoryRecord[]
-  >([]);
 
   const lastScrollTimeRef = useRef(0);
   const scrollRafRef = useRef<number | null>(null);
@@ -926,9 +910,6 @@ export function ThreePanelInterface() {
 
   // 聊天消息本地缓存：加载与保存
   const CHAT_STORAGE_KEY = "chat_messages_v1";
-  const exportHistoryStorageKey = sessionId
-    ? `deepanalyze.exportHistory:${sessionId}`
-    : "deepanalyze.exportHistory:default";
   const [chatLoaded, setChatLoaded] = useState(false);
 
   // 挂载后再次从本地覆盖加载，避免 SSR 初始状态覆盖缓存
@@ -988,34 +969,6 @@ export function ThreePanelInterface() {
       console.warn("save chat cache failed", e);
     }
   }, [messages, chatLoaded, isTyping]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(exportHistoryStorageKey);
-      if (!raw) {
-        setExportHistoryRecords([]);
-        return;
-      }
-      const parsed = JSON.parse(raw) as ExportHistoryRecord[];
-      setExportHistoryRecords(Array.isArray(parsed) ? parsed : []);
-    } catch (error) {
-      console.warn("load export history failed", error);
-      setExportHistoryRecords([]);
-    }
-  }, [exportHistoryStorageKey]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(
-        exportHistoryStorageKey,
-        JSON.stringify(exportHistoryRecords)
-      );
-    } catch (error) {
-      console.warn("save export history failed", error);
-    }
-  }, [exportHistoryRecords, exportHistoryStorageKey]);
 
   // 一键清空聊天：保留欢迎消息（仅本地显示）
   const clearChat = () => {
@@ -1175,20 +1128,10 @@ export function ThreePanelInterface() {
       exportCenter: uiLanguage === "zh" ? "导出中心" : "Export Center",
       exportHint:
         uiLanguage === "zh"
-          ? "支持报告导出与历史记录归档，结果会同步写入 generated 目录"
-          : "Export reports and archive chat history into the generated folder.",
+          ? "支持报告导出，结果会同步写入 generated 目录"
+          : "Export reports into the generated folder.",
       exportMarkdown: uiLanguage === "zh" ? "MD 报告" : "MD Report",
       exportPdf: uiLanguage === "zh" ? "PDF 报告" : "PDF Report",
-      exportHistory: uiLanguage === "zh" ? "历史记录" : "History",
-      exportHistoryHint:
-        uiLanguage === "zh"
-          ? "会导出 JSON 历史和一份可读的 Markdown 转录"
-          : "Exports both JSON history and a readable Markdown transcript.",
-      recentExports: uiLanguage === "zh" ? "最近导出" : "Recent Exports",
-      noRecentExports:
-        uiLanguage === "zh" ? "还没有导出记录" : "No export history yet.",
-      reportLabel: uiLanguage === "zh" ? "报告" : "Report",
-      historyLabel: uiLanguage === "zh" ? "历史" : "History",
       uploadPanelTitle:
         uiLanguage === "zh" ? "上传文件到工作区" : "Upload files to workspace",
       uploadPanelHint:
@@ -1484,8 +1427,13 @@ export function ThreePanelInterface() {
     if (node.is_dir) return;
     setSelectedWorkspacePath(node.path);
     const ext = (node.extension || "").replace(/^\./, "").toLowerCase();
-    // 修正 URL，确保包含 generated 路径
-    const correctedUrl = resolveWorkspaceFileUrl(node.download_url || "");
+    const correctedDownloadUrl = resolveWorkspaceFileUrl(node.download_url || "", {
+      download: true,
+    });
+    const correctedPreviewUrl = resolveWorkspaceFileUrl(
+      node.preview_url || node.download_url || "",
+      { download: false }
+    );
     const mapped: WorkspaceFile = {
       name: node.name,
       path: node.path,
@@ -1498,8 +1446,8 @@ export function ThreePanelInterface() {
           ? "image"
           : "other",
       is_generated: node.is_generated,
-      download_url: correctedUrl,
-      preview_url: correctedUrl,
+      download_url: correctedDownloadUrl,
+      preview_url: correctedPreviewUrl,
     };
     openPreview(mapped);
   };
@@ -1522,6 +1470,7 @@ export function ThreePanelInterface() {
     isDir: boolean;
     icon?: string;
     download_url?: string;
+    preview_url?: string;
     extension?: string;
     size?: number;
     children?: ArborNode[];
@@ -1534,6 +1483,7 @@ export function ThreePanelInterface() {
     isDir: node.is_dir,
     icon: node.icon,
     download_url: node.download_url,
+    preview_url: node.preview_url,
     extension: node.extension,
     size: node.size,
     isGenerated: node.is_generated,
@@ -1926,6 +1876,28 @@ export function ThreePanelInterface() {
     return codeBlockMatch ? codeBlockMatch[1].trim() : content;
   };
 
+  const getUrlFileName = useCallback((url: string): string => {
+    if (!url) return "";
+    try {
+      const parsed = new URL(url, "http://local");
+      if (parsed.pathname === "/workspace/download") {
+        const rawPath = parsed.searchParams.get("path") || "";
+        return decodeURIComponent(rawPath).split("/").pop() || "";
+      }
+      return decodeURIComponent(parsed.pathname.split("/").pop() || "");
+    } catch {
+      return url.split(/[/?#]/).pop() || "";
+    }
+  }, []);
+
+  const isImageAssetUrl = useCallback(
+    (url: string, fileName?: string): boolean => {
+      const target = fileName || getUrlFileName(url) || url;
+      return /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i.test(target);
+    },
+    [getUrlFileName]
+  );
+
   const guessLanguageByExtension = (ext: string): string => {
     const e = ext.toLowerCase();
     const map: Record<string, string> = {
@@ -1952,78 +1924,135 @@ export function ThreePanelInterface() {
     return map[e] || "text";
   };
 
-  const resolveWorkspaceFileUrl = useCallback((rawUrl: string): string => {
-    return normalizeToLocalFileUrl(rawUrl || "");
-  }, []);
+  const buildWorkspaceTransferUrl = useCallback(
+    (
+      relativePath: string,
+      options?: {
+        sessionId?: string;
+        download?: boolean;
+      }
+    ) => {
+      const params = new URLSearchParams();
+      params.set("session_id", options?.sessionId || sessionId || "default");
+      params.set("path", relativePath.replace(/^\/+/, ""));
+      if (options?.download) {
+        params.set("download", "1");
+      }
+      return `/workspace/download?${params.toString()}`;
+    },
+    [sessionId]
+  );
 
-  const normalizeToLocalFileUrl = (rawUrl: string): string => {
-    const base =
-      (API_CONFIG as any).FILE_SERVER_BASE || "http://localhost:8100";
-    const safeBase = base.replace(/\/$/, "");
+  const normalizeToLocalFileUrl = useCallback(
+    (
+      rawUrl: string,
+      options?: {
+        download?: boolean;
+      }
+    ): string => {
+      if (!rawUrl) {
+        return "";
+      }
 
-    if (!rawUrl) return safeBase;
-    const trimmed = String(rawUrl).trim();
+      const trimmed = String(rawUrl).trim();
+      const desiredDownload = options?.download ?? false;
 
-    // 绝对 http/https 链接：若是 localhost/127.* 或端口为 8100，则重写到 FILE_SERVER_BASE
-    if (/^https?:\/\//i.test(trimmed)) {
-      try {
-        const u = new URL(trimmed);
-        const needRewrite =
-          u.hostname === "localhost" ||
-          u.hostname.startsWith("127.") ||
-          u.port === "8100";
-        if (needRewrite) {
-          const b = new URL(safeBase + "/");
-          return `${b.origin}${b.pathname.replace(/\/$/, "")}${u.pathname}${u.search
-            }${u.hash}`;
+      if (/^\/\//.test(trimmed)) {
+        const proto =
+          typeof window !== "undefined" ? window.location.protocol : "http:";
+        return `${proto}${trimmed}`;
+      }
+
+      const parseCandidate = (value: string) => {
+        try {
+          if (/^https?:\/\//i.test(value)) {
+            return new URL(value);
+          }
+          return new URL(value, "http://local");
+        } catch {
+          return null;
         }
+      };
+
+      const parsed = parseCandidate(trimmed);
+      const isAbsoluteHttp = /^https?:\/\//i.test(trimmed);
+      const isLocalLikeHost =
+        !!parsed &&
+        (parsed.hostname === "local" ||
+          parsed.hostname === "localhost" ||
+          parsed.hostname.startsWith("127.") ||
+          parsed.origin === API_CONFIG.BACKEND_BASE_URL);
+
+      if (parsed && parsed.pathname === "/workspace/download") {
+        const nextUrl = new URL(parsed.pathname, "http://local");
+        const relativePath = parsed.searchParams.get("path") || "";
+        nextUrl.searchParams.set(
+          "session_id",
+          parsed.searchParams.get("session_id") || sessionId || "default"
+        );
+        nextUrl.searchParams.set("path", relativePath);
+        if (desiredDownload) {
+          nextUrl.searchParams.set("download", "1");
+        } else {
+          nextUrl.searchParams.delete("download");
+        }
+        return `${nextUrl.pathname}${nextUrl.search}`;
+      }
+
+      if (parsed && isLocalLikeHost) {
+        const normalizedPath = parsed.pathname.replace(/^\/+/, "");
+        const parts = normalizedPath.split("/").filter(Boolean);
+
+        if (parts[0] === "workspace" && parts.length >= 3) {
+          return buildWorkspaceTransferUrl(parts.slice(2).join("/"), {
+            sessionId: parts[1],
+            download: desiredDownload,
+          });
+        }
+
+        if (parts.length >= 2) {
+          return buildWorkspaceTransferUrl(parts.slice(1).join("/"), {
+            sessionId: parts[0],
+            download: desiredDownload,
+          });
+        }
+
+        if (parts.length === 1 && sessionId) {
+          return buildWorkspaceTransferUrl(parts[0], {
+            sessionId,
+            download: desiredDownload,
+          });
+        }
+      }
+
+      if (isAbsoluteHttp) {
         return trimmed;
-      } catch {
-        // fallthrough to relative handling
       }
-    }
 
-    // 处理以 // 开头的协议相对链接
-    if (/^\/\//.test(trimmed)) {
-      const proto =
-        typeof window !== "undefined" ? window.location.protocol : "http:";
-      return proto + trimmed;
-    }
-
-    // 去掉开头的 ./
-    const rel = trimmed.replace(/^\.\//, "");
-
-    // 如果以 /workspace/ 开头，接到文件服务器
-    if (/^\/workspace\//.test(rel)) return `${safeBase}${rel}`;
-    if (/^workspace\//.test(rel)) return `${safeBase}/${rel}`;
-
-    // 其它相对路径或文件名，也认为位于文件服务器根目录
-    return `${safeBase}/${rel.replace(/^\//, "")}`;
-  };
-
-  // 若 URL 缺少 generated 目录，则在 session 段后注入 /generated
-  const ensureGeneratedInUrl = (url: string): string => {
-    try {
-      const u = new URL(url);
-      // 仅处理指向文件服务器(8100)的链接
-      if (!(u.hostname === "localhost" || u.hostname.startsWith("127."))) {
-        return url;
+      const rel = trimmed.replace(/^\.\//, "").replace(/^\/+/, "");
+      if (!rel) {
+        return "";
       }
-      // 路径形如 /session_xxx/xxx.png，则插入 /generated
-      const parts = u.pathname.split("/").filter(Boolean);
-      if (parts.length >= 2) {
-        const [maybeSession, second] = parts;
-        if (maybeSession.startsWith("session_") && second !== "generated") {
-          const rest = parts.slice(1).join("/");
-          u.pathname = `/${maybeSession}/generated/${rest}`;
-          return u.toString();
-        }
+
+      return buildWorkspaceTransferUrl(rel, {
+        sessionId,
+        download: desiredDownload,
+      });
+    },
+    [buildWorkspaceTransferUrl, sessionId]
+  );
+
+  const resolveWorkspaceFileUrl = useCallback(
+    (
+      rawUrl: string,
+      options?: {
+        download?: boolean;
       }
-      return url;
-    } catch {
-      return url;
-    }
-  };
+    ): string => {
+      return normalizeToLocalFileUrl(rawUrl || "", options);
+    },
+    [normalizeToLocalFileUrl]
+  );
 
   const loadPreview = useCallback(
     async (
@@ -2040,7 +2069,11 @@ export function ThreePanelInterface() {
       const nextSheetName = options?.sheetName ?? "";
 
       setPreviewTitle(file.name);
-      setPreviewDownloadUrl(file.download_url);
+      setPreviewDownloadUrl(
+        resolveWorkspaceFileUrl(file.download_url || file.preview_url || "", {
+          download: true,
+        })
+      );
       setPreviewPage(nextPage);
       setPreviewTableName(nextTableName);
       setPreviewSheetName(nextSheetName);
@@ -2054,7 +2087,8 @@ export function ThreePanelInterface() {
       if (["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(ext)) {
         setPreviewType("image");
         const correctedUrl = resolveWorkspaceFileUrl(
-          file.preview_url || file.download_url
+          file.preview_url || file.download_url,
+          { download: false }
         );
         setPreviewContent(correctedUrl);
         setPreviewPayload({
@@ -2068,7 +2102,8 @@ export function ThreePanelInterface() {
       if (ext === "pdf") {
         setPreviewType("pdf");
         const correctedUrl = resolveWorkspaceFileUrl(
-          file.preview_url || file.download_url
+          file.preview_url || file.download_url,
+          { download: false }
         );
         setPreviewContent(correctedUrl);
         setPreviewPayload({
@@ -2157,48 +2192,40 @@ export function ThreePanelInterface() {
         return;
       }
 
-      const normalized = normalizeToLocalFileUrl(
-        previewDownloadUrl || previewContent
-      );
-      const target = resolveWorkspaceFileUrl(normalized);
-      const res = await fetch(
-        `${API_CONFIG.BACKEND_BASE_URL}/proxy?url=${encodeURIComponent(target)}`
-      );
-      if (!res.ok) throw new Error("download failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const target = resolveWorkspaceFileUrl(previewDownloadUrl || previewContent, {
+        download: true,
+      });
+      if (!target) {
+        throw new Error("download failed");
+      }
       const a = document.createElement("a");
-      a.href = url;
+      a.href = target;
       a.download = previewTitle || "download";
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
     } catch (e) {
-      const url = resolveWorkspaceFileUrl(previewDownloadUrl || previewContent);
+      const url = resolveWorkspaceFileUrl(previewDownloadUrl || previewContent, {
+        download: true,
+      });
       window.open(url, "_blank");
     }
   };
 
   const downloadFileByUrl = async (fileName: string, rawUrl: string) => {
     try {
-      const normalized = normalizeToLocalFileUrl(rawUrl);
-      const target = resolveWorkspaceFileUrl(normalized);
-      const res = await fetch(
-        `${API_CONFIG.BACKEND_BASE_URL}/proxy?url=${encodeURIComponent(target)}`
-      );
-      if (!res.ok) throw new Error("download failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const target = resolveWorkspaceFileUrl(rawUrl, { download: true });
+      if (!target) {
+        throw new Error("download failed");
+      }
       const a = document.createElement("a");
-      a.href = url;
+      a.href = target;
       a.download = fileName || "download";
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
     } catch (e) {
-      const fallbackUrl = resolveWorkspaceFileUrl(rawUrl);
+      const fallbackUrl = resolveWorkspaceFileUrl(rawUrl, { download: true });
       window.open(fallbackUrl, "_blank");
     }
   };
@@ -2222,23 +2249,9 @@ export function ThreePanelInterface() {
         })),
       }));
 
-  const appendExportHistoryRecord = (
-    record: Omit<ExportHistoryRecord, "id">
-  ) => {
-    setExportHistoryRecords((prev) =>
-      [
-        {
-          ...record,
-          id: `export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        },
-        ...prev,
-      ].slice(0, MAX_EXPORT_HISTORY_RECORDS)
-    );
-  };
-
   const pickExportedFile = (
     payload: ExportResponsePayload,
-    format: "md" | "pdf" | "json"
+    format: "md" | "pdf"
   ): ExportedFileMeta | null => {
     const exact = payload.files?.[format];
     if (exact?.download_url) {
@@ -2297,14 +2310,6 @@ export function ThreePanelInterface() {
         ? "pdf"
         : "md";
 
-      appendExportHistoryRecord({
-        kind: "report",
-        format: resolvedFormat,
-        fileName: preferredFile.name,
-        createdAt: new Date().toISOString(),
-        downloadUrl: preferredFile.download_url,
-      });
-
       await loadWorkspaceFiles();
       await loadWorkspaceTree();
 
@@ -2326,56 +2331,6 @@ export function ThreePanelInterface() {
       console.error("report export error", error);
       toast({
         description: uiLanguage === "zh" ? "导出报告失败" : "Report export failed",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleHistoryExport = async (options?: { download?: boolean }) => {
-    try {
-      const payload = {
-        messages: buildExportMessages(),
-        title: getPrevUserQuestionText(messages.length),
-        session_id: sessionId,
-      };
-      const data = await requestExport(API_URLS.EXPORT_HISTORY, payload);
-      const historyFile =
-        pickExportedFile(data, "json") || pickExportedFile(data, "md");
-
-      if (!historyFile?.download_url) {
-        throw new Error("missing exported history");
-      }
-
-      const resolvedFormat = historyFile.name.toLowerCase().endsWith(".json")
-        ? "json"
-        : "md";
-
-      appendExportHistoryRecord({
-        kind: "history",
-        format: resolvedFormat,
-        fileName: historyFile.name,
-        createdAt: new Date().toISOString(),
-        downloadUrl: historyFile.download_url,
-      });
-
-      await loadWorkspaceFiles();
-      await loadWorkspaceTree();
-
-      if (options?.download !== false) {
-        await downloadFileByUrl(historyFile.name, historyFile.download_url);
-      }
-
-      toast({
-        description:
-          uiLanguage === "zh"
-            ? `已导出历史记录：${historyFile.name}`
-            : `History exported: ${historyFile.name}`,
-      });
-    } catch (error) {
-      console.error("history export error", error);
-      toast({
-        description:
-          uiLanguage === "zh" ? "导出历史记录失败" : "History export failed",
         variant: "destructive",
       });
     }
@@ -2621,15 +2576,12 @@ export function ThreePanelInterface() {
                     </h3>
                   ),
                   a: ({ href, children }) => {
-                    const normalized = normalizeToLocalFileUrl(
-                      String(href || "")
-                    );
-                    const corrected = ensureGeneratedInUrl(normalized);
-                    const proxied = `${API_CONFIG.BACKEND_BASE_URL
-                      }/proxy?url=${encodeURIComponent(corrected)}`;
+                    const resolved = resolveWorkspaceFileUrl(String(href || ""), {
+                      download: true,
+                    });
                     return (
                       <a
-                        href={proxied}
+                        href={resolved}
                         className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
                         target="_blank"
                         rel="noopener noreferrer"
@@ -2639,13 +2591,12 @@ export function ThreePanelInterface() {
                     );
                   },
                   img: ({ src, alt }: any) => {
-                    const normalizedSrc = normalizeToLocalFileUrl(src || "");
-                    const correctedSrc = ensureGeneratedInUrl(normalizedSrc);
-                    const proxiedSrc = `${API_CONFIG.BACKEND_BASE_URL
-                      }/proxy?url=${encodeURIComponent(correctedSrc)}`;
+                    const resolvedSrc = resolveWorkspaceFileUrl(src || "", {
+                      download: false,
+                    });
                     return (
                       <img
-                        src={proxiedSrc}
+                        src={resolvedSrc}
                         alt={alt || ""}
                         className="max-w-full h-auto rounded-lg my-2"
                       />
@@ -2991,26 +2942,25 @@ export function ThreePanelInterface() {
               <div className="text-xs text-gray-500 mb-2">相关文件</div>
               <div className="grid grid-cols-2 gap-2">
                 {files.map((f, i) => {
-                  // 通过代理访问图片，并自动修正缺少 generated 的 URL
-                  const correctedUrl = ensureGeneratedInUrl(f.url);
-                  const proxiedUrl = `${API_CONFIG.BACKEND_BASE_URL
-                    }/proxy?url=${encodeURIComponent(correctedUrl)}`;
+                  const resolvedUrl = resolveWorkspaceFileUrl(f.url, {
+                    download: false,
+                  });
                   return (
                     <div
                       key={i}
                       className="border border-gray-200 dark:border-gray-700 rounded overflow-hidden bg-white dark:bg-black"
                     >
                       {f.isImage ? (
-                        <a href={proxiedUrl} target="_blank" rel="noreferrer">
+                        <a href={resolvedUrl} target="_blank" rel="noreferrer">
                           <img
-                            src={proxiedUrl}
+                            src={resolvedUrl}
                             alt={f.name}
                             className="w-full h-28 object-contain bg-white dark:bg-black"
                           />
                         </a>
                       ) : (
                         <a
-                          href={proxiedUrl}
+                          href={resolvedUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="block p-2 text-xs truncate hover:bg-gray-50 dark:hover:bg-gray-900"
@@ -3612,15 +3562,12 @@ export function ThreePanelInterface() {
                     </h3>
                   ),
                   a: ({ href, children }) => {
-                    const normalized = normalizeToLocalFileUrl(
-                      String(href || "")
-                    );
-                    const corrected = ensureGeneratedInUrl(normalized);
-                    const proxied = `${API_CONFIG.BACKEND_BASE_URL
-                      }/proxy?url=${encodeURIComponent(corrected)}`;
+                    const resolved = resolveWorkspaceFileUrl(String(href || ""), {
+                      download: true,
+                    });
                     return (
                       <a
-                        href={proxied}
+                        href={resolved}
                         className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
                         target="_blank"
                         rel="noopener noreferrer"
@@ -3630,13 +3577,12 @@ export function ThreePanelInterface() {
                     );
                   },
                   img: ({ src, alt }: any) => {
-                    const normalizedSrc = normalizeToLocalFileUrl(src || "");
-                    const correctedSrc = ensureGeneratedInUrl(normalizedSrc);
-                    const proxiedSrc = `${API_CONFIG.BACKEND_BASE_URL
-                      }/proxy?url=${encodeURIComponent(correctedSrc)}`;
+                    const resolvedSrc = resolveWorkspaceFileUrl(src || "", {
+                      download: false,
+                    });
                     return (
                       <img
-                        src={proxiedSrc}
+                        src={resolvedSrc}
                         alt={alt || ""}
                         className="max-w-full h-auto rounded-lg my-2"
                       />
@@ -3679,24 +3625,24 @@ export function ThreePanelInterface() {
     const linkRe = /\- \[(.*?)\]\((.*?)\)/g;
     while ((m = linkRe.exec(content)) !== null) {
       const name = m[1];
-      const url = normalizeToLocalFileUrl(m[2]);
-      const isImage = /\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(url);
+      const url = normalizeToLocalFileUrl(m[2], { download: false });
+      const isImage = isImageAssetUrl(url, name);
       result.push({ name, url, isImage });
     }
     // 2) 图片 Markdown: ![name](url)
     const imgRe = /!\[(.*?)\]\((.*?)\)/g;
     while ((m = imgRe.exec(content)) !== null) {
       const name = m[1];
-      const url = normalizeToLocalFileUrl(m[2]);
+      const url = normalizeToLocalFileUrl(m[2], { download: false });
       result.push({ name, url, isImage: true });
     }
     // 3) 兜底：文中出现的裸链接
     const urlRe = /(https?:\/\/[^\s)]+)/g;
     while ((m = urlRe.exec(content)) !== null) {
-      const url = normalizeToLocalFileUrl(m[1]);
-      const isImage = /\.(png|jpg|jpeg|gif|webp|svg)(\?.*)?$/i.test(url);
+      const url = normalizeToLocalFileUrl(m[1], { download: false });
+      const isImage = isImageAssetUrl(url);
       if (isImage)
-        result.push({ name: url.split("/")?.pop() || "image", url, isImage });
+        result.push({ name: getUrlFileName(url) || "image", url, isImage });
     }
     // 去重同 url
     const seen = new Set<string>();
@@ -4673,16 +4619,6 @@ export function ThreePanelInterface() {
                       >
                         <Download className="mr-2 h-4 w-4" />
                         <span className="text-xs">{textLabels.exportPdf}</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-xl px-3"
-                        onClick={() => handleHistoryExport()}
-                        type="button"
-                      >
-                        <History className="mr-2 h-4 w-4" />
-                        <span className="text-xs">{textLabels.exportHistory}</span>
                       </Button>
                     </div>
                   </div>

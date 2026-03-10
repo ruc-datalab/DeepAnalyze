@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .workspace import (
     build_download_url,
@@ -45,42 +45,6 @@ def extract_sections_from_messages(messages: list[dict[str, Any]]) -> str:
     return final_text
 
 
-def build_history_markdown(
-    messages: list[dict[str, Any]],
-    *,
-    title: str = "",
-    exported_at: str = "",
-) -> str:
-    lines: list[str] = []
-    heading = title.strip() or "Conversation History"
-    lines.append(f"# {heading}")
-    if exported_at:
-        lines.append("")
-        lines.append(f"- Exported at: {exported_at}")
-
-    for index, message in enumerate(messages, start=1):
-        role = str((message or {}).get("role") or "unknown").strip() or "unknown"
-        content = str((message or {}).get("content") or "").strip()
-        timestamp = str((message or {}).get("timestamp") or "").strip()
-        attachments = (message or {}).get("attachments") or []
-
-        lines.append("")
-        lines.append(f"## {index}. {role.title()}")
-        if timestamp:
-            lines.append("")
-            lines.append(f"- Timestamp: {timestamp}")
-        if attachments:
-            lines.append("")
-            lines.append("- Attachments:")
-            for attachment in attachments:
-                name = str((attachment or {}).get("name") or "unnamed")
-                lines.append(f"  - {name}")
-        lines.append("")
-        lines.append(content or "(empty)")
-
-    return "\n".join(lines).strip() + "\n"
-
-
 def save_md(md_text: str, base_name: str, workspace_dir: str) -> Path:
     target_dir = Path(workspace_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -89,15 +53,128 @@ def save_md(md_text: str, base_name: str, workspace_dir: str) -> Path:
     return md_path
 
 
-def save_json(payload: dict[str, Any], base_name: str, workspace_dir: str) -> Path:
-    target_dir = Path(workspace_dir)
-    target_dir.mkdir(parents=True, exist_ok=True)
-    json_path = uniquify_path(target_dir / f"{base_name}.json")
-    json_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    return json_path
+_MARKDOWN_LINK_RE = re.compile(r"^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$")
+_MARKDOWN_IMAGE_RE = re.compile(r"^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$")
+_LATEX_ESCAPE_MAP = {
+    "\\": r"\textbackslash{}",
+    "&": r"\&",
+    "%": r"\%",
+    "$": r"\$",
+    "#": r"\#",
+    "_": r"\_",
+    "{": r"\{",
+    "}": r"\}",
+    "~": r"\textasciitilde{}",
+    "^": r"\textasciicircum{}",
+}
+
+
+def _escape_latex_text(text: str) -> str:
+    return "".join(_LATEX_ESCAPE_MAP.get(char, char) for char in str(text or ""))
+
+
+def _is_workspace_child(candidate: Path, workspace_root: Path) -> bool:
+    try:
+        resolved = candidate.resolve()
+    except Exception:
+        return False
+    return resolved == workspace_root or workspace_root in resolved.parents
+
+
+def _resolve_pdf_asset_path(raw_target: str, workspace_root: Path) -> Path | None:
+    target = str(raw_target or "").strip()
+    if not target:
+        return None
+
+    parsed = None
+    if target.startswith("/workspace/download"):
+        parsed = urlparse(f"http://local{target}")
+    elif re.match(r"^https?://", target, re.IGNORECASE):
+        parsed = urlparse(target)
+
+    if parsed is not None:
+        if parsed.path == "/workspace/download":
+            relative_path = parse_qs(parsed.query).get("path", [""])[0]
+            if relative_path:
+                candidate = (workspace_root / unquote(relative_path)).resolve()
+                if candidate.exists() and candidate.is_file() and _is_workspace_child(
+                    candidate,
+                    workspace_root,
+                ):
+                    return candidate
+        else:
+            parts = Path(unquote(parsed.path.lstrip("/"))).parts
+            workspace_name = workspace_root.name
+            if workspace_name in parts:
+                workspace_index = parts.index(workspace_name)
+                relative_parts = parts[workspace_index + 1 :]
+                if relative_parts:
+                    candidate = (workspace_root / Path(*relative_parts)).resolve()
+                    if candidate.exists() and candidate.is_file() and _is_workspace_child(
+                        candidate,
+                        workspace_root,
+                    ):
+                        return candidate
+        return None
+
+    for candidate in (
+        (workspace_root / target).resolve(),
+        (workspace_root / "generated" / target).resolve(),
+    ):
+        if candidate.exists() and candidate.is_file() and _is_workspace_child(
+            candidate,
+            workspace_root,
+        ):
+            return candidate
+    return None
+
+
+def _build_pdf_figure_block(file_name: str, image_path: Path) -> list[str]:
+    image_target = image_path.resolve().as_posix()
+    caption = _escape_latex_text(file_name)
+    return [
+        "",
+        r"\begin{center}",
+        rf"\includegraphics[width=0.88\linewidth]{{\detokenize{{{image_target}}}}}",
+        "",
+        rf"\texttt{{{caption}}}",
+        r"\end{center}",
+        "",
+    ]
+
+
+def prepare_pdf_markdown(md_text: str, workspace_root: Path) -> str:
+    lines = md_text.splitlines()
+    rendered: list[str] = []
+    index = 0
+
+    while index < len(lines):
+        line = lines[index]
+        next_line = lines[index + 1] if index + 1 < len(lines) else ""
+        link_match = _MARKDOWN_LINK_RE.match(line)
+        image_match = _MARKDOWN_IMAGE_RE.match(next_line)
+
+        if link_match and image_match:
+            file_name = link_match.group(1).strip() or image_match.group(1).strip() or "image"
+            image_path = _resolve_pdf_asset_path(image_match.group(2), workspace_root)
+            if image_path is not None:
+                rendered.extend(_build_pdf_figure_block(file_name, image_path))
+                index += 2
+                continue
+
+        single_image_match = _MARKDOWN_IMAGE_RE.match(line)
+        if single_image_match:
+            image_path = _resolve_pdf_asset_path(single_image_match.group(2), workspace_root)
+            if image_path is not None:
+                alt = single_image_match.group(1)
+                rendered.append(f"![{alt}](<{image_path.resolve().as_posix()}>)")
+                index += 1
+                continue
+
+        rendered.append(line)
+        index += 1
+
+    return "\n".join(rendered).strip() + "\n"
 
 
 def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> Path | None:
@@ -107,11 +184,13 @@ def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> Path | None:
         return None
 
     target_dir = Path(workspace_dir)
+    workspace_root = target_dir.parent.parent
     target_dir.mkdir(parents=True, exist_ok=True)
     pdf_path = uniquify_path(target_dir / f"{base_name}.pdf")
+    pdf_markdown = prepare_pdf_markdown(md_text, workspace_root)
     try:
         pypandoc.convert_text(
-            md_text,
+            pdf_markdown,
             "pdf",
             format="md",
             outputfile=str(pdf_path),
@@ -214,63 +293,5 @@ def export_report_from_body(body: dict[str, Any]) -> dict[str, Any]:
         "download_urls": {
             "md": md_meta["download_url"] if md_meta else None,
             "pdf": pdf_meta["download_url"] if pdf_meta else None,
-        },
-    }
-
-
-def export_history_from_body(body: dict[str, Any]) -> dict[str, Any]:
-    messages = body.get("messages", [])
-    if not isinstance(messages, list):
-        raise ValueError("messages must be a list")
-
-    title = (body.get("title") or "").strip()
-    session_id = body.get("session_id", "default")
-    workspace_dir = get_session_workspace(session_id)
-    workspace_root = Path(workspace_dir)
-
-    exported_at = datetime.now().isoformat(timespec="seconds")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    base_name = _build_export_base_name(title, prefix="History", timestamp=timestamp)
-
-    export_dir = workspace_root / "generated" / "history"
-    export_dir.mkdir(parents=True, exist_ok=True)
-
-    payload = {
-        "title": title or "Conversation History",
-        "session_id": session_id,
-        "exported_at": exported_at,
-        "message_count": len(messages),
-        "messages": messages,
-    }
-    md_text = build_history_markdown(
-        messages,
-        title=title or "Conversation History",
-        exported_at=exported_at,
-    )
-
-    json_path = save_json(payload, base_name, str(export_dir))
-    md_path = save_md(md_text, base_name, str(export_dir))
-    register_generated_paths(
-        session_id,
-        [
-            json_path.relative_to(workspace_root).as_posix(),
-            md_path.relative_to(workspace_root).as_posix(),
-        ],
-    )
-
-    json_meta = _to_file_meta(session_id, workspace_root, json_path)
-    md_meta = _to_file_meta(session_id, workspace_root, md_path)
-
-    return {
-        "message": "exported",
-        "json": json_path.name,
-        "md": md_path.name,
-        "files": {
-            "json": json_meta,
-            "md": md_meta,
-        },
-        "download_urls": {
-            "json": json_meta["download_url"] if json_meta else None,
-            "md": md_meta["download_url"] if md_meta else None,
         },
     }

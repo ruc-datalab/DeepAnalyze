@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import JSONResponse
 
-from ..services.exporter import export_history_from_body, export_report_from_body
+from ..services.exporter import export_report_from_body
 
 
 router = APIRouter()
@@ -13,18 +13,6 @@ router = APIRouter()
 async def export_report(body: dict = Body(...)):
     try:
         return JSONResponse(export_report_from_body(body))
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@router.post("/export/history")
-async def export_history(body: dict = Body(...)):
-    try:
-        return JSONResponse(export_history_from_body(body))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except HTTPException:

@@ -1,18 +1,14 @@
 from __future__ import annotations
 
-import http.server
 import json
 import re
 import shutil
 import sqlite3
-import socketserver
 import tempfile
-import threading
 import zipfile
-from functools import partial
 from pathlib import Path
 from typing import Iterable, Sequence
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import httpx
 import pandas as pd
@@ -23,13 +19,7 @@ from starlette.background import BackgroundTask
 from ..settings import PREVIEWABLE_EXTENSIONS, settings
 
 
-_FILE_SERVER_LOCK = threading.Lock()
-_FILE_SERVER_STARTED = False
 GENERATED_INDEX_FILENAME = ".deepanalyze_generated.json"
-
-
-class ReusableTCPServer(socketserver.TCPServer):
-    allow_reuse_address = True
 
 
 def get_session_workspace(session_id: str) -> str:
@@ -39,12 +29,32 @@ def get_session_workspace(session_id: str) -> str:
     return str(session_dir)
 
 
+def _split_session_relative_path(rel_path: str) -> tuple[str, str]:
+    normalized = _normalize_generated_rel_path(rel_path)
+    if not normalized:
+        return "default", ""
+
+    session_id, _, workspace_rel_path = normalized.partition("/")
+    return (session_id or "default"), workspace_rel_path
+
+
+def _build_workspace_transfer_url(rel_path: str, *, download: bool) -> str:
+    session_id, workspace_rel_path = _split_session_relative_path(rel_path)
+    params = {
+        "session_id": session_id,
+        "path": workspace_rel_path,
+    }
+    if download:
+        params["download"] = "1"
+    return f"/workspace/download?{urlencode(params, quote_via=quote)}"
+
+
 def build_download_url(rel_path: str) -> str:
-    try:
-        encoded = quote(rel_path, safe="/")
-    except Exception:
-        encoded = rel_path
-    return f"{settings.file_server_base}/{encoded}"
+    return _build_workspace_transfer_url(rel_path, download=True)
+
+
+def build_preview_url(rel_path: str) -> str:
+    return _build_workspace_transfer_url(rel_path, download=False)
 
 
 def _generated_index_path(workspace_root: Path) -> Path:
@@ -107,28 +117,6 @@ def register_generated_paths(session_id: str, rel_paths: Iterable[str]) -> set[s
     )
     save_generated_index(session_id, generated)
     return generated
-
-
-def start_http_server() -> None:
-    Path(settings.workspace_base_dir).mkdir(parents=True, exist_ok=True)
-    handler = partial(
-        http.server.SimpleHTTPRequestHandler,
-        directory=settings.workspace_base_dir,
-    )
-    with ReusableTCPServer(("", settings.http_server_port), handler) as httpd:
-        print(
-            f"HTTP Server serving {settings.workspace_base_dir} at port {settings.http_server_port}"
-        )
-        httpd.serve_forever()
-
-
-def ensure_http_server_started() -> None:
-    global _FILE_SERVER_STARTED
-    with _FILE_SERVER_LOCK:
-        if _FILE_SERVER_STARTED:
-            return
-        threading.Thread(target=start_http_server, daemon=True).start()
-        _FILE_SERVER_STARTED = True
 
 
 def collect_file_info(source: str | Path | Sequence[str | Path]) -> str:
@@ -469,6 +457,25 @@ def preview_workspace_file(
     raise HTTPException(status_code=415, detail="Preview not supported")
 
 
+def get_workspace_file_response(
+    session_id: str,
+    relative_path: str,
+    *,
+    download: bool = False,
+) -> FileResponse:
+    file_path = resolve_workspace_path(session_id, relative_path)
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    response_kwargs = {
+        "path": file_path,
+        "content_disposition_type": "attachment" if download else "inline",
+    }
+    if download:
+        response_kwargs["filename"] = file_path.name
+    return FileResponse(**response_kwargs)
+
+
 def uniquify_path(target: Path) -> Path:
     if not target.exists():
         return target
@@ -538,7 +545,7 @@ def list_workspace_files(session_id: str) -> list[dict]:
                 "is_generated": _is_generated_workspace_path(rel, generated_index),
                 "download_url": build_download_url(rel_path),
                 "preview_url": (
-                    build_download_url(rel_path)
+                    build_preview_url(rel_path)
                     if file_path.suffix.lower() in PREVIEWABLE_EXTENSIONS
                     else None
                 ),
@@ -640,6 +647,8 @@ def build_tree(
     node["icon"] = get_file_icon(path.suffix)
     node["is_generated"] = _is_generated_workspace_path(rel, generated_index)
     node["download_url"] = build_download_url(f"{session_id}/{rel}")
+    if path.suffix.lower() in PREVIEWABLE_EXTENSIONS:
+        node["preview_url"] = build_preview_url(f"{session_id}/{rel}")
     return node
 
 
