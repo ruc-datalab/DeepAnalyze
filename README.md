@@ -67,7 +67,6 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
     
     # stop vllm if needed
     ```
-- Chat Demo 的详细配置、运行方式、功能说明和 Docker/本地执行模式差异，请参考 [./demo/chat/README.md](./demo/chat/README.md)
 - If you want to deploy under a specific IP, please replace localhost with your IP address in [./demo/chat/backend.py](./demo/chat/backend.py) and [./demo/chat/frontend/lib/config.ts](./demo/chat/frontend/lib/config.ts)
 
 ### JupyterUI

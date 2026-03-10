@@ -1,37 +1,39 @@
 # Chat Demo
 
-`demo/chat` 是 DeepAnalyze 的浏览器交互 Demo，包含后端 API、文件工作区、前端界面，以及本地/容器两种代码执行模式。
+`demo/chat` is the browser-based DeepAnalyze demo. It includes the backend API, the workspace/file layer, the frontend UI, and both local and Docker execution modes.
 
-## 功能概览
+[Chinese Version](./README_ZH.md)
 
-- 支持上传表格、数据库、文本等多种数据文件到 workspace
-- 支持图片、日志、文档等文件统一管理与预览
-- 支持流式展示 `<Analyze> / <Understand> / <Code> / <Execute> / <File> / <Answer>` 区块
-- 支持在 workspace 中执行 Python 分析代码
-- 支持本地执行模式和 Docker 执行模式
-- 支持导出 Markdown 报告和 PDF 报告
-- 支持中英文界面切换
+## Features
 
-## 运行前准备
+- Upload and manage tables, databases, text files, logs, and documents in the workspace
+- Preview common workspace files directly in the UI
+- Stream structured `<Analyze> / <Understand> / <Code> / <Execute> / <File> / <Answer>` blocks
+- Execute Python analysis code inside the workspace
+- Export Markdown and PDF reports
+- Switch between Chinese and English UI
+- Run code either locally or inside Docker
 
-### 1. 模型服务
+## Prerequisites
 
-先启动 DeepAnalyze 的模型服务，例如：
+### 1. Model service
+
+Start a DeepAnalyze model service first, for example:
 
 ```bash
 vllm serve DeepAnalyze-8B
 ```
 
-默认会连接 `http://localhost:8000` 附近的 OpenAI 风格接口。若你有自定义地址，请同步修改前端/后端配置。
+By default the chat demo connects to an OpenAI-compatible endpoint around `http://localhost:8000`.
 
-### 2. Python 与 Node 环境
+### 2. Python and Node.js
 
-建议：
+Recommended setup:
 
-- Python 使用项目已有环境，例如 `deepanalyze`
-- Node.js 使用可运行 Next.js 的版本
+- Python: use your existing DeepAnalyze environment, for example `deepanalyze`
+- Node.js: use a version that can run the bundled Next.js frontend
 
-前端首次运行前需要安装依赖：
+Install frontend dependencies once:
 
 ```bash
 cd demo/chat/frontend
@@ -39,11 +41,9 @@ npm install
 cd ..
 ```
 
-### 3. 配置环境变量
+### 3. Environment variables
 
-`demo/chat/.env.example` 提供了执行后端相关示例配置。
-
-可按需复制为本地配置文件：
+Use the sample config file:
 
 ```bash
 cd demo/chat
@@ -57,38 +57,38 @@ cd demo/chat
 Copy-Item .env.example .env
 ```
 
-## 执行模式说明
+## Execution Modes
 
-### local 模式
+### Local mode
 
-适合本机已经具备 Python 数据分析依赖的场景：
+Recommended as the default if the local machine already has the required Python data-analysis dependencies.
 
 ```env
 DEEPANALYZE_EXECUTION_MODE=local
 ```
 
-### docker 模式
+### Docker mode
 
-适合隔离执行环境的场景：
+Use this if you want an isolated execution environment.
 
 ```env
 DEEPANALYZE_EXECUTION_MODE=docker
 ```
 
-注意：
+Important:
 
-- 系统不会自动构建 Docker 镜像
-- 如果目标机器没有镜像，启动分析执行时会直接报错
-- 需要先手动构建镜像
+- The system does not auto-build the Docker image
+- If the target machine has no image, Docker execution will fail immediately
+- You must build the image manually first
 
-示例命令：
+Example:
 
 ```bash
 cd demo/chat
 docker build -t deepanalyze-chat-exec:latest -f Dockerfile.exec .
 ```
 
-## 如何运行
+## Run
 
 ### Linux / macOS
 
@@ -97,7 +97,7 @@ cd demo/chat
 bash start.sh
 ```
 
-停止：
+Stop:
 
 ```bash
 cd demo/chat
@@ -111,62 +111,34 @@ cd demo\chat
 start.bat
 ```
 
-停止：
+Stop:
 
 ```bat
 cd demo\chat
 stop.bat
 ```
 
-启动后默认地址：
+Default addresses after startup:
 
-- 前端：`http://localhost:4000`
-- 后端 API：`http://localhost:8200`
-- 文件服务：`http://localhost:8100`
+- Frontend: `http://localhost:4000`
+- Backend API: `http://localhost:8200`
+- File service: `http://localhost:8100`
 
-## PDF 导出说明
+## PDF Export
 
-PDF 导出依赖以下组件：
+PDF export depends on:
 
 - `pypandoc`
 - `pandoc`
 - `xelatex`
 
-如果缺少 `pandoc` 或 `xelatex`，界面会给出明确提示。当前不会自动安装这些依赖。
+If `pandoc` or `xelatex` is missing, the UI will show an explicit error message. The system does not install these dependencies automatically.
 
-## 目录说明
+## Directory Overview
 
-- `backend.py`：后端启动入口
-- `backend_app/`：FastAPI 后端实现
-- `frontend/`：Next.js 前端界面
-- `Dockerfile.exec`：Docker 执行镜像定义
-- `workspace/`：会话级工作区
-- `logs/`：运行日志
-
-## 常见问题
-
-### 1. 换到另一台机器后 Docker 模式不能直接运行
-
-这是当前设计行为。因为系统不会自动构建镜像，你需要先手动执行：
-
-```bash
-docker build -t deepanalyze-chat-exec:latest -f Dockerfile.exec .
-```
-
-### 2. PDF 导出失败
-
-优先检查：
-
-- 是否安装 `pandoc`
-- 是否安装 `xelatex`
-- 后端日志 `demo/chat/logs/backend.log`
-
-### 3. 只想快速体验，不想准备 Docker
-
-把 `.env` 中的执行模式改为：
-
-```env
-DEEPANALYZE_EXECUTION_MODE=local
-```
-
-前提是本机 Python 环境已经具备运行数据分析代码所需依赖。
+- `backend.py`: backend startup entry
+- `backend_app/`: FastAPI backend implementation
+- `frontend/`: Next.js frontend
+- `Dockerfile.exec`: Docker image for code execution
+- `workspace/`: per-session workspace
+- `logs/`: runtime logs
