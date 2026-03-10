@@ -187,6 +187,8 @@ interface ExportResponsePayload {
   message?: string;
   md?: string | null;
   pdf?: string | null;
+  pdf_status?: string | null;
+  pdf_error?: string | null;
   files?: {
     md?: ExportedFileMeta | null;
     pdf?: ExportedFileMeta | null;
@@ -829,6 +831,9 @@ export function ThreePanelInterface() {
   const [dropActive, setDropActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string>("");
+  const [exportingFormat, setExportingFormat] = useState<"md" | "pdf" | null>(
+    null
+  );
 
   const lastScrollTimeRef = useRef(0);
   const scrollRafRef = useRef<number | null>(null);
@@ -1104,6 +1109,8 @@ export function ThreePanelInterface() {
       filesUnit: uiLanguage === "zh" ? "个文件" : "files",
       clickToPreview:
         uiLanguage === "zh" ? "点击卡片预览" : "Click a card to preview",
+      relatedFiles:
+        uiLanguage === "zh" ? "\u76f8\u5173\u6587\u4ef6" : "Related Files",
       assistantHint:
         uiLanguage === "zh"
           ? "中间只保留对话、流式分析和快捷操作"
@@ -1132,16 +1139,56 @@ export function ThreePanelInterface() {
           : "Export reports into the generated folder.",
       exportMarkdown: uiLanguage === "zh" ? "MD 报告" : "MD Report",
       exportPdf: uiLanguage === "zh" ? "PDF 报告" : "PDF Report",
+      exportMarkdownBusy:
+        uiLanguage === "zh" ? "MD \u5bfc\u51fa\u4e2d..." : "Exporting MD...",
+      exportPdfBusy:
+        uiLanguage === "zh" ? "PDF \u7f16\u8bd1\u4e2d..." : "Compiling PDF...",
+      exportPdfPending:
+        uiLanguage === "zh"
+          ? "PDF \u6b63\u5728\u7f16\u8bd1\u4e2d\uff0c\u8bf7\u7a0d\u7b49\u7247\u523b\u3002"
+          : "PDF is compiling. Please wait for the download to start.",
+      exportPdfPendingHint:
+        uiLanguage === "zh"
+          ? "PDF \u7f16\u8bd1\u4e2d\uff0c\u8bf7\u7a0d\u7b49\u3002\u542b\u56fe\u7247\u7684\u62a5\u544a\u901a\u5e38\u4f1a\u66f4\u6162\u3002"
+          : "Compiling PDF. Please wait; reports with images usually take a bit longer.",
+      exportCompilerMissing:
+        uiLanguage === "zh"
+          ? "\u672a\u68c0\u6d4b\u5230 PDF \u7f16\u8bd1\u5668\u3002\u8bf7\u5b89\u88c5 Pandoc \u548c XeLaTeX \u540e\u518d\u8bd5\u3002"
+          : "PDF compiler not found. Install Pandoc and XeLaTeX, then try again.",
+      exportCompilerMissingFallback:
+        uiLanguage === "zh"
+          ? "\u672a\u68c0\u6d4b\u5230 PDF \u7f16\u8bd1\u5668\uff0c\u5df2\u6539\u4e3a Markdown \u5bfc\u51fa\u3002\u8bf7\u5b89\u88c5 Pandoc \u548c XeLaTeX \u540e\u518d\u8bd5\u3002"
+          : "PDF compiler not found. Exported Markdown instead. Install Pandoc and XeLaTeX, then try again.",
+      exportDependencyMissing:
+        uiLanguage === "zh"
+          ? "PDF \u5bfc\u51fa\u4f9d\u8d56\u7f3a\u5931\u3002\u8bf7\u68c0\u67e5 Pandoc / pypandoc \u540e\u518d\u8bd5\u3002"
+          : "PDF export dependency is missing. Check Pandoc / pypandoc and try again.",
+      exportDependencyMissingFallback:
+        uiLanguage === "zh"
+          ? "PDF \u5bfc\u51fa\u4f9d\u8d56\u7f3a\u5931\uff0c\u5df2\u6539\u4e3a Markdown \u5bfc\u51fa\u3002\u8bf7\u68c0\u67e5 Pandoc / pypandoc \u540e\u518d\u8bd5\u3002"
+          : "PDF export dependency is missing. Exported Markdown instead. Check Pandoc / pypandoc and try again.",
+      exportFailed:
+        uiLanguage === "zh" ? "\u5bfc\u51fa\u62a5\u544a\u5931\u8d25" : "Report export failed",
+      exportBlockedWhileStreaming:
+        uiLanguage === "zh"
+          ? "\u6267\u884c\u4e2d\uff0c\u6682\u65f6\u65e0\u6cd5\u5bfc\u51fa"
+          : "Export is unavailable while execution is still running.",
+      exportActionTitle:
+        uiLanguage === "zh"
+          ? "\u540e\u7aef\u5bfc\u51fa PDF/MD \u5230 workspace"
+          : "Export PDF/MD to the workspace from the backend",
+      sectionGenerating:
+        uiLanguage === "zh" ? "\uff08\u751f\u6210\u4e2d\uff09" : "(Generating)",
       uploadPanelTitle:
         uiLanguage === "zh" ? "上传文件到工作区" : "Upload files to workspace",
       uploadPanelHint:
         uiLanguage === "zh"
-          ? "支持拖拽上传，图片会自动显示缩略图。"
-          : "Drag and drop is supported, and image files show thumbnails automatically.",
+          ? "支持拖拽上传表格、数据库、文本，也可以一起添加图片、日志和文档。"
+          : "Drag and drop tables, databases, text files, images, logs, and documents.",
       uploadPanelMeta:
         uiLanguage === "zh"
-          ? "数据、图片、日志与文档都可以直接丢到这里"
-          : "Drop datasets, images, logs, and documents here.",
+          ? "例如 CSV / XLSX、SQLite / DB、TXT / MD / JSON、PDF、图片和 ZIP 均可上传。"
+          : "Examples: CSV / XLSX, SQLite / DB, TXT / MD / JSON, PDF, images, and ZIP archives.",
     }),
     [uiLanguage]
   );
@@ -2279,7 +2326,21 @@ export function ThreePanelInterface() {
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      let detail = `HTTP ${response.status}`;
+      try {
+        const errorPayload = await response.json();
+        if (typeof errorPayload?.detail === "string" && errorPayload.detail.trim()) {
+          detail = errorPayload.detail.trim();
+        } else if (
+          typeof errorPayload?.message === "string" &&
+          errorPayload.message.trim()
+        ) {
+          detail = errorPayload.message.trim();
+        }
+      } catch {
+        // ignore parse failures and keep fallback detail
+      }
+      throw new Error(detail);
     }
     return (await response.json()) as ExportResponsePayload;
   };
@@ -2288,6 +2349,13 @@ export function ThreePanelInterface() {
     format: "md" | "pdf" = "pdf",
     options?: { download?: boolean }
   ) => {
+    const isPdfRequest = format === "pdf";
+    setExportingFormat(format);
+    if (isPdfRequest) {
+      toast({
+        description: textLabels.exportPdfPending,
+      });
+    }
     try {
       void buildReportFilename(getPrevUserQuestionText(messages.length));
       const payload = {
@@ -2296,6 +2364,8 @@ export function ThreePanelInterface() {
         session_id: sessionId,
       };
       const data = await requestExport(API_URLS.EXPORT_REPORT, payload);
+      const pdfStatus = data.pdf_status || (data.files?.pdf ? "ok" : null);
+      const pdfError = (data.pdf_error || "").trim();
       const preferredFile =
         pickExportedFile(data, format) ||
         (format === "pdf"
@@ -2303,18 +2373,49 @@ export function ThreePanelInterface() {
           : pickExportedFile(data, "pdf"));
 
       if (!preferredFile?.download_url) {
-        throw new Error("missing exported report");
+        if (isPdfRequest && pdfStatus === "missing_compiler") {
+          throw new Error(textLabels.exportCompilerMissing);
+        }
+        if (isPdfRequest && pdfStatus === "missing_dependency") {
+          throw new Error(textLabels.exportDependencyMissing);
+        }
+        throw new Error(pdfError || "missing exported report");
       }
 
       const resolvedFormat = preferredFile.name.toLowerCase().endsWith(".pdf")
         ? "pdf"
         : "md";
+      const hasPdfCompilerIssue =
+        isPdfRequest &&
+        (pdfStatus === "missing_compiler" || pdfStatus === "missing_dependency");
 
       await loadWorkspaceFiles();
       await loadWorkspaceTree();
 
-      if (options?.download !== false) {
+      if (!hasPdfCompilerIssue && options?.download !== false) {
         await downloadFileByUrl(preferredFile.name, preferredFile.download_url);
+      }
+
+      if (isPdfRequest && pdfStatus === "missing_compiler") {
+        toast({
+          description:
+            resolvedFormat === "md"
+              ? textLabels.exportCompilerMissingFallback
+              : textLabels.exportCompilerMissing,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (isPdfRequest && pdfStatus === "missing_dependency") {
+        toast({
+          description:
+            resolvedFormat === "md"
+              ? textLabels.exportDependencyMissingFallback
+              : textLabels.exportDependencyMissing,
+          variant: "destructive",
+        });
+        return;
       }
 
       toast({
@@ -2329,10 +2430,16 @@ export function ThreePanelInterface() {
       });
     } catch (error) {
       console.error("report export error", error);
+      const detail =
+        error instanceof Error && error.message.trim()
+          ? error.message.trim()
+          : textLabels.exportFailed;
       toast({
-        description: uiLanguage === "zh" ? "导出报告失败" : "Report export failed",
+        description: detail,
         variant: "destructive",
       });
+    } finally {
+      setExportingFormat(null);
     }
   };
 
@@ -2765,7 +2872,7 @@ export function ThreePanelInterface() {
                 </span>
                 {!isComplete && (
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    （生成中）
+                    {textLabels.sectionGenerating}
                   </span>
                 )}
               </div>
@@ -2811,7 +2918,7 @@ export function ThreePanelInterface() {
 
       return <>{parts}</>;
     },
-    [renderMarkdownContent, renderSectionContent, touchMessageAt]
+    [renderMarkdownContent, renderSectionContent, textLabels.sectionGenerating, touchMessageAt]
   );
 
   const renderMessageWithSections = useCallback((
@@ -2939,7 +3046,7 @@ export function ThreePanelInterface() {
         if (files.length) {
           fileGallery = (
             <div className="mt-3">
-              <div className="text-xs text-gray-500 mb-2">相关文件</div>
+              <div className="text-xs text-gray-500 mb-2">{textLabels.relatedFiles}</div>
               <div className="grid grid-cols-2 gap-2">
                 {files.map((f, i) => {
                   const resolvedUrl = resolveWorkspaceFileUrl(f.url, {
@@ -3027,7 +3134,7 @@ export function ThreePanelInterface() {
                   onClick={async () => {
                     if (isTypingRef.current) {
                       toastRef.current({
-                        description: "执行中，暂时无法导出",
+                        description: textLabels.exportBlockedWhileStreaming,
                         variant: "destructive",
                       });
                       return;
@@ -3035,7 +3142,7 @@ export function ThreePanelInterface() {
                     await exportReportBackendRef.current();
                   }}
                   className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  title="后端导出 PDF/MD 到 workspace"
+                  title={textLabels.exportActionTitle}
                 >
                   <Download className="h-3 w-3" />
                 </Button>
@@ -3133,7 +3240,7 @@ export function ThreePanelInterface() {
     }
 
     return <>{parts}</>;
-  }, [renderMarkdownContent, renderSectionContent, touchMessageAt]);
+  }, [renderMarkdownContent, renderSectionContent, textLabels.exportActionTitle, textLabels.exportBlockedWhileStreaming, textLabels.relatedFiles, touchMessageAt]);
 
   // 根据完整内容自动折叠：除最后一个块外全部折叠
   const autoCollapseForContent = useCallback(
@@ -4570,28 +4677,26 @@ export function ThreePanelInterface() {
                     }}
                   >
                     <div className="flex min-h-[140px] flex-col gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className="mt-0.5 rounded-2xl bg-white/90 p-3 shadow-sm dark:bg-gray-950/90">
-                        <Upload className="h-5 w-5" />
-                      </div>
-                      <div className="space-y-2">
-                        <div className="inline-flex rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm dark:border-gray-800 dark:bg-gray-950/80 dark:text-gray-300">
-                        {uiLanguage === "zh" ? "上传文件到工作区" : "Upload files to workspace"}
-                      </div>
-                      <div className="text-base font-semibold text-slate-900 dark:text-white">
-                        {textLabels.uploadPanelTitle}
-                      </div>
-                      <div className="max-w-md text-sm leading-6 text-slate-600 dark:text-gray-300">
-                        {textLabels.uploadPanelMeta}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {uiLanguage === "zh"
-                          ? "支持拖拽上传，图片会自动显示缩略图。"
-                          : "Drag and drop is supported, and image files show thumbnails automatically."}
+                      <div className="flex items-start gap-4">
+                        <div className="mt-0.5 rounded-2xl bg-white/90 p-3 shadow-sm dark:bg-gray-950/90">
+                          <Upload className="h-5 w-5" />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="inline-flex rounded-full border border-white/70 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm dark:border-gray-800 dark:bg-gray-950/80 dark:text-gray-300">
+                            {textLabels.uploadPanelTitle}
+                          </div>
+                          <div className="text-base font-semibold text-slate-900 dark:text-white">
+                            {textLabels.uploadPanelTitle}
+                          </div>
+                          <div className="max-w-md text-sm leading-6 text-slate-600 dark:text-gray-300">
+                            {textLabels.uploadPanelMeta}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {textLabels.uploadPanelHint}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    </div>
-                  </div>
                   </div>
 
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3">
@@ -4606,9 +4711,18 @@ export function ThreePanelInterface() {
                         className="h-8 rounded-xl px-3"
                         onClick={() => handleReportExport("md")}
                         type="button"
+                        disabled={exportingFormat !== null}
                       >
-                        <FileText className="mr-2 h-4 w-4" />
-                        <span className="text-xs">{textLabels.exportMarkdown}</span>
+                        {exportingFormat === "md" ? (
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <FileText className="mr-2 h-4 w-4" />
+                        )}
+                        <span className="text-xs">
+                          {exportingFormat === "md"
+                            ? textLabels.exportMarkdownBusy
+                            : textLabels.exportMarkdown}
+                        </span>
                       </Button>
                       <Button
                         variant="outline"
@@ -4616,12 +4730,26 @@ export function ThreePanelInterface() {
                         className="h-8 rounded-xl px-3"
                         onClick={() => handleReportExport("pdf")}
                         type="button"
+                        disabled={exportingFormat !== null}
                       >
-                        <Download className="mr-2 h-4 w-4" />
-                        <span className="text-xs">{textLabels.exportPdf}</span>
+                        {exportingFormat === "pdf" ? (
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="mr-2 h-4 w-4" />
+                        )}
+                        <span className="text-xs">
+                          {exportingFormat === "pdf"
+                            ? textLabels.exportPdfBusy
+                            : textLabels.exportPdf}
+                        </span>
                       </Button>
                     </div>
                   </div>
+                  {exportingFormat === "pdf" && (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                      {textLabels.exportPdfPendingHint}
+                    </div>
+                  )}
                 </Card>
 
                 {uploadMsg && (

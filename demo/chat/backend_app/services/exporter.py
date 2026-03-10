@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -55,6 +56,8 @@ def save_md(md_text: str, base_name: str, workspace_dir: str) -> Path:
 
 _MARKDOWN_LINK_RE = re.compile(r"^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$")
 _MARKDOWN_IMAGE_RE = re.compile(r"^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$")
+
+
 def _is_workspace_child(candidate: Path, workspace_root: Path) -> bool:
     try:
         resolved = candidate.resolve()
@@ -157,11 +160,71 @@ def prepare_pdf_markdown(md_text: str, workspace_root: Path) -> str:
     return "\n".join(rendered).strip() + "\n"
 
 
-def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> Path | None:
+def _build_pdf_export_result(
+    *,
+    path: Path | None,
+    status: str,
+    error: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "path": path,
+        "status": status,
+        "error": error,
+    }
+
+
+def _classify_pdf_export_failure(exc: Exception) -> tuple[str, str]:
+    message = str(exc).strip() or exc.__class__.__name__
+    lowered = message.lower()
+
+    if "pandoc" in lowered and (
+        "not found" in lowered
+        or "couldn't find" in lowered
+        or "could not find" in lowered
+        or "no pandoc was found" in lowered
+    ):
+        return "missing_dependency", message
+
+    if any(
+        token in lowered
+        for token in (
+            "xelatex not found",
+            "could not find xelatex",
+            "couldn't find xelatex",
+            "latexmk not found",
+            "pdflatex not found",
+        )
+    ):
+        return "missing_compiler", message
+
+    return "failed", message
+
+
+def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> dict[str, Any]:
     try:
         import pypandoc
-    except Exception:
-        return None
+    except Exception as exc:
+        return _build_pdf_export_result(
+            path=None,
+            status="missing_dependency",
+            error=str(exc) or "pypandoc is not installed",
+        )
+
+    if shutil.which("xelatex") is None:
+        return _build_pdf_export_result(
+            path=None,
+            status="missing_compiler",
+            error="xelatex is not available in PATH",
+        )
+
+    try:
+        pypandoc.get_pandoc_version()
+    except Exception as exc:
+        return _build_pdf_export_result(
+            path=None,
+            status="missing_dependency",
+            error=str(exc) or "pandoc is not available",
+        )
 
     target_dir = Path(workspace_dir)
     workspace_root = target_dir.parent.parent.resolve()
@@ -176,9 +239,10 @@ def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> Path | None:
             outputfile=str(pdf_path),
             extra_args=["--standalone", "--pdf-engine=xelatex"],
         )
-        return pdf_path
-    except Exception:
-        return None
+        return _build_pdf_export_result(path=pdf_path, status="ok")
+    except Exception as exc:
+        status, error = _classify_pdf_export_failure(exc)
+        return _build_pdf_export_result(path=None, status=status, error=error)
 
 
 def _sanitize_filename_component(
@@ -246,7 +310,8 @@ def export_report_from_body(body: dict[str, Any]) -> dict[str, Any]:
     export_dir.mkdir(parents=True, exist_ok=True)
 
     md_path = save_md(md_text, base_name, str(export_dir))
-    pdf_path = save_pdf(md_text, base_name, str(export_dir))
+    pdf_result = save_pdf(md_text, base_name, str(export_dir))
+    pdf_path = pdf_result["path"]
     register_generated_paths(
         session_id,
         [
@@ -270,6 +335,8 @@ def export_report_from_body(body: dict[str, Any]) -> dict[str, Any]:
             "md": md_meta,
             "pdf": pdf_meta,
         },
+        "pdf_status": pdf_result["status"],
+        "pdf_error": pdf_result["error"],
         "download_urls": {
             "md": md_meta["download_url"] if md_meta else None,
             "pdf": pdf_meta["download_url"] if pdf_meta else None,

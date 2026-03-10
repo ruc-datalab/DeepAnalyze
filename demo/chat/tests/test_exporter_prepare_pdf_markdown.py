@@ -5,6 +5,7 @@ import types
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 
 def load_exporter_module():
@@ -98,6 +99,28 @@ class PreparePdfMarkdownTests(unittest.TestCase):
             self.assertNotIn("/workspace/download", rendered)
             self.assertIn(f"![plot.png](<{image_path.resolve().as_posix()}>)", rendered)
             self.assertIn("`plot.png`", rendered)
+
+    def test_save_pdf_reports_missing_compiler(self):
+        fake_pypandoc = types.SimpleNamespace(
+            get_pandoc_version=lambda: "3.0.0",
+            convert_text=lambda *args, **kwargs: None,
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            target_dir = Path(temp_dir) / "workspace" / "session_test" / "generated" / "reports"
+            target_dir.mkdir(parents=True, exist_ok=True)
+
+            with mock.patch.dict(sys.modules, {"pypandoc": fake_pypandoc}):
+                with mock.patch.object(self.exporter.shutil, "which", return_value=None):
+                    result = self.exporter.save_pdf(
+                        "# demo\n",
+                        "report",
+                        str(target_dir),
+                    )
+
+        self.assertIsNone(result["path"])
+        self.assertEqual(result["status"], "missing_compiler")
+        self.assertIn("xelatex", result["error"])
 
 
 if __name__ == "__main__":
