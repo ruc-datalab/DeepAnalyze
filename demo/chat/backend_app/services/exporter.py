@@ -55,24 +55,6 @@ def save_md(md_text: str, base_name: str, workspace_dir: str) -> Path:
 
 _MARKDOWN_LINK_RE = re.compile(r"^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$")
 _MARKDOWN_IMAGE_RE = re.compile(r"^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$")
-_LATEX_ESCAPE_MAP = {
-    "\\": r"\textbackslash{}",
-    "&": r"\&",
-    "%": r"\%",
-    "$": r"\$",
-    "#": r"\#",
-    "_": r"\_",
-    "{": r"\{",
-    "}": r"\}",
-    "~": r"\textasciitilde{}",
-    "^": r"\textasciicircum{}",
-}
-
-
-def _escape_latex_text(text: str) -> str:
-    return "".join(_LATEX_ESCAPE_MAP.get(char, char) for char in str(text or ""))
-
-
 def _is_workspace_child(candidate: Path, workspace_root: Path) -> bool:
     try:
         resolved = candidate.resolve()
@@ -129,16 +111,13 @@ def _resolve_pdf_asset_path(raw_target: str, workspace_root: Path) -> Path | Non
     return None
 
 
-def _build_pdf_figure_block(file_name: str, image_path: Path) -> list[str]:
+def _build_pdf_image_block(file_name: str, image_path: Path) -> list[str]:
     image_target = image_path.resolve().as_posix()
-    caption = _escape_latex_text(file_name)
     return [
         "",
-        r"\begin{center}",
-        rf"\includegraphics[width=0.88\linewidth]{{\detokenize{{{image_target}}}}}",
+        f"![{file_name}](<{image_target}>)",
         "",
-        rf"\texttt{{{caption}}}",
-        r"\end{center}",
+        f"`{file_name}`",
         "",
     ]
 
@@ -158,7 +137,7 @@ def prepare_pdf_markdown(md_text: str, workspace_root: Path) -> str:
             file_name = link_match.group(1).strip() or image_match.group(1).strip() or "image"
             image_path = _resolve_pdf_asset_path(image_match.group(2), workspace_root)
             if image_path is not None:
-                rendered.extend(_build_pdf_figure_block(file_name, image_path))
+                rendered.extend(_build_pdf_image_block(file_name, image_path))
                 index += 2
                 continue
 
@@ -166,8 +145,8 @@ def prepare_pdf_markdown(md_text: str, workspace_root: Path) -> str:
         if single_image_match:
             image_path = _resolve_pdf_asset_path(single_image_match.group(2), workspace_root)
             if image_path is not None:
-                alt = single_image_match.group(1)
-                rendered.append(f"![{alt}](<{image_path.resolve().as_posix()}>)")
+                alt = single_image_match.group(1).strip() or image_path.name
+                rendered.extend(_build_pdf_image_block(alt, image_path))
                 index += 1
                 continue
 
