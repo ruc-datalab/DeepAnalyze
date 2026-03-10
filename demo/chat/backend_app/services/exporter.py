@@ -58,9 +58,10 @@ _MARKDOWN_IMAGE_RE = re.compile(r"^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$")
 def _is_workspace_child(candidate: Path, workspace_root: Path) -> bool:
     try:
         resolved = candidate.resolve()
+        workspace_resolved = workspace_root.resolve()
     except Exception:
         return False
-    return resolved == workspace_root or workspace_root in resolved.parents
+    return resolved == workspace_resolved or workspace_resolved in resolved.parents
 
 
 def _resolve_pdf_asset_path(raw_target: str, workspace_root: Path) -> Path | None:
@@ -163,7 +164,7 @@ def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> Path | None:
         return None
 
     target_dir = Path(workspace_dir)
-    workspace_root = target_dir.parent.parent
+    workspace_root = target_dir.parent.parent.resolve()
     target_dir.mkdir(parents=True, exist_ok=True)
     pdf_path = uniquify_path(target_dir / f"{base_name}.pdf")
     pdf_markdown = prepare_pdf_markdown(md_text, workspace_root)

@@ -1,4 +1,5 @@
 import importlib.util
+import os
 import sys
 import types
 import unittest
@@ -70,6 +71,33 @@ class PreparePdfMarkdownTests(unittest.TestCase):
 
             self.assertIn(f"![chart](<{image_path.resolve().as_posix()}>)", rendered)
             self.assertIn("`chart`", rendered)
+
+    def test_localizes_workspace_download_image_pair_with_relative_workspace_root(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            workspace_root = temp_path / "workspace" / "session_rel"
+            image_path = workspace_root / "generated" / "plot.png"
+            image_path.parent.mkdir(parents=True, exist_ok=True)
+            image_path.write_bytes(b"png")
+
+            markdown = (
+                "- [plot.png](/workspace/download?session_id=session_rel&path=generated%2Fplot.png&download=1)\n"
+                "![plot.png](/workspace/download?session_id=session_rel&path=generated%2Fplot.png&download=1)\n"
+            )
+
+            previous_cwd = Path.cwd()
+            try:
+                os.chdir(temp_path)
+                rendered = self.exporter.prepare_pdf_markdown(
+                    markdown,
+                    Path("workspace") / "session_rel",
+                )
+            finally:
+                os.chdir(previous_cwd)
+
+            self.assertNotIn("/workspace/download", rendered)
+            self.assertIn(f"![plot.png](<{image_path.resolve().as_posix()}>)", rendered)
+            self.assertIn("`plot.png`", rendered)
 
 
 if __name__ == "__main__":
