@@ -1990,6 +1990,68 @@ export function ThreePanelInterface() {
     [sessionId]
   );
 
+  const resolveWorkspaceRelativePath = useCallback(
+    (rawPath: string): string => {
+      const normalizedRawPath = String(rawPath || "")
+        .trim()
+        .replace(/\\/g, "/")
+        .replace(/^\.\//, "")
+        .replace(/^\/+/, "");
+
+      if (!normalizedRawPath) {
+        return "";
+      }
+
+      const [pathWithoutQuery] = normalizedRawPath.split(/[?#]/, 1);
+      if (!pathWithoutQuery || pathWithoutQuery.includes("/")) {
+        return normalizedRawPath;
+      }
+
+      let decodedName = pathWithoutQuery;
+      try {
+        decodedName = decodeURIComponent(pathWithoutQuery);
+      } catch {
+        decodedName = pathWithoutQuery;
+      }
+
+      const normalizedName = decodedName.toLowerCase();
+      const matchedFile = workspaceFiles
+        .filter((file) => {
+          const filePath = String(file.path || "")
+            .replace(/\\/g, "/")
+            .replace(/^\/+/, "");
+          if (!filePath) {
+            return false;
+          }
+          const lowerFilePath = filePath.toLowerCase();
+          const lowerFileName = String(file.name || "").toLowerCase();
+          return (
+            lowerFilePath === normalizedName ||
+            lowerFileName === normalizedName ||
+            lowerFilePath.endsWith(`/${normalizedName}`)
+          );
+        })
+        .sort((left, right) => {
+          const score = (file: WorkspaceFile) => {
+            const filePath = String(file.path || "")
+              .replace(/\\/g, "/")
+              .replace(/^\/+/, "")
+              .toLowerCase();
+            let current = 0;
+            if (filePath === normalizedName) current += 100;
+            if (String(file.name || "").toLowerCase() === normalizedName) current += 20;
+            if (filePath.startsWith("generated/")) current += 10;
+            if (file.category === "image") current += 5;
+            return current;
+          };
+          return score(right) - score(left);
+        })[0];
+
+      return matchedFile?.path || normalizedRawPath;
+    },
+    [workspaceFiles]
+  );
+
   const normalizeToLocalFileUrl = useCallback(
     (
       rawUrl: string,
@@ -2032,7 +2094,9 @@ export function ThreePanelInterface() {
 
       if (parsed && parsed.pathname === "/workspace/download") {
         const nextUrl = new URL(parsed.pathname, "http://local");
-        const relativePath = parsed.searchParams.get("path") || "";
+        const relativePath = resolveWorkspaceRelativePath(
+          parsed.searchParams.get("path") || ""
+        );
         nextUrl.searchParams.set(
           "session_id",
           parsed.searchParams.get("session_id") || sessionId || "default"
@@ -2051,21 +2115,27 @@ export function ThreePanelInterface() {
         const parts = normalizedPath.split("/").filter(Boolean);
 
         if (parts[0] === "workspace" && parts.length >= 3) {
-          return buildWorkspaceTransferUrl(parts.slice(2).join("/"), {
+          return buildWorkspaceTransferUrl(
+            resolveWorkspaceRelativePath(parts.slice(2).join("/")),
+            {
             sessionId: parts[1],
             download: desiredDownload,
-          });
+            }
+          );
         }
 
         if (parts.length >= 2) {
-          return buildWorkspaceTransferUrl(parts.slice(1).join("/"), {
+          return buildWorkspaceTransferUrl(
+            resolveWorkspaceRelativePath(parts.slice(1).join("/")),
+            {
             sessionId: parts[0],
             download: desiredDownload,
-          });
+            }
+          );
         }
 
         if (parts.length === 1 && sessionId) {
-          return buildWorkspaceTransferUrl(parts[0], {
+          return buildWorkspaceTransferUrl(resolveWorkspaceRelativePath(parts[0]), {
             sessionId,
             download: desiredDownload,
           });
@@ -2081,12 +2151,12 @@ export function ThreePanelInterface() {
         return "";
       }
 
-      return buildWorkspaceTransferUrl(rel, {
+      return buildWorkspaceTransferUrl(resolveWorkspaceRelativePath(rel), {
         sessionId,
         download: desiredDownload,
       });
     },
-    [buildWorkspaceTransferUrl, sessionId]
+    [buildWorkspaceTransferUrl, resolveWorkspaceRelativePath, sessionId]
   );
 
   const resolveWorkspaceFileUrl = useCallback(
