@@ -56,6 +56,12 @@ def save_md(md_text: str, base_name: str, workspace_dir: str) -> Path:
 
 _MARKDOWN_LINK_RE = re.compile(r"^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$")
 _MARKDOWN_IMAGE_RE = re.compile(r"^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$")
+PDF_EXPORT_EXTRA_ARGS = [
+    "--standalone",
+    "--pdf-engine=xelatex",
+    "-V",
+    "geometry:top=1.5cm,bottom=1.6cm,left=1.6cm,right=1.6cm",
+]
 
 
 def _is_workspace_child(candidate: Path, workspace_root: Path) -> bool:
@@ -237,7 +243,7 @@ def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> dict[str, Any]
             "pdf",
             format="md",
             outputfile=str(pdf_path),
-            extra_args=["--standalone", "--pdf-engine=xelatex"],
+            extra_args=PDF_EXPORT_EXTRA_ARGS,
         )
         return _build_pdf_export_result(path=pdf_path, status="ok")
     except Exception as exc:
