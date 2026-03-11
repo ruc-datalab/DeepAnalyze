@@ -1183,12 +1183,12 @@ export function ThreePanelInterface() {
         uiLanguage === "zh" ? "上传文件到工作区" : "Upload files to workspace",
       uploadPanelHint:
         uiLanguage === "zh"
-          ? "支持拖拽上传表格、数据库、文本，也可以一起添加图片、日志和文档。"
-          : "Drag and drop tables, databases, text files, images, logs, and documents.",
+          ? "支持拖拽上传表格、数据库、文本。"
+          : "Drag and drop tables, databases and text files.",
       uploadPanelMeta:
         uiLanguage === "zh"
-          ? "例如 CSV / XLSX、SQLite / DB、TXT / MD / JSON、PDF、图片和 ZIP 均可上传。"
-          : "Examples: CSV / XLSX, SQLite / DB, TXT / MD / JSON, PDF, images, and ZIP archives.",
+          ? "例如 CSV / XLSX、SQLite / DB、TXT / MD 均可上传。"
+          : "Examples: CSV / XLSX, SQLite / DB, TXT / MD .",
     }),
     [uiLanguage]
   );
