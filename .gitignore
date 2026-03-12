@@ -25,3 +25,8 @@ wheels/
 **/workspace/
 **/CLAUDE.md
 **/logs/
+*.env
+*.env.local
+*.env.development
+*.env.production
+*.env.test
