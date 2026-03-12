@@ -60,7 +60,7 @@ PDF_EXPORT_EXTRA_ARGS = [
     "--standalone",
     "--pdf-engine=xelatex",
     "-V",
-    "geometry:top=1.5cm,bottom=1.6cm,left=1.6cm,right=1.6cm",
+    "geometry:top=2cm,bottom=2.1cm,left=2.1cm,right=2.1cm",
 ]
 
 
