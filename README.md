@@ -1,4 +1,4 @@
-<p align="center" width="100%">
+﻿<p align="center" width="100%">
 <img src="assets/logo.png" alt="DeepAnalyze" style="width: 60%; min-width: 300px; display: block; margin: auto;">
 </p>
 
@@ -29,6 +29,9 @@
 
 
 ## 🔥 News
+
+- **[2026.03.16] ** Updated **WebUI v2**, featuring a smoother UI, support for the **HeyWhale API**, and support for **Docker-based sandboxed code execution**.
+
 
 - **[2025.12.28] ANNOUNCEMENT: DeepAnalyze API Keys Are Now Available 🎉🎉🎉**  You can now apply for your API key via this [Google Form](https://forms.gle/YxVkCzczqq8jeciw9) or this [Feishu Form](https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg). For full details and usage instructions, please refer to the [Guide](./docs/DeepAnalyze_API_Key_Usage_Guide.md) or the [Feishu Wiki](https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg).
 
@@ -67,6 +70,30 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
     # stop vllm if needed
     ```
 - If you want to deploy under a specific IP, please replace localhost with your IP address in [./demo/chat/backend.py](./demo/chat/backend.py) and [./demo/chat/frontend/lib/config.ts](./demo/chat/frontend/lib/config.ts)
+
+### WebUI v2
+
+https://github.com/user-attachments/assets/2dd1d2aa-6fb9-4202-bc8d-cbe874844725
+<p align="center" width="100%">
+Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 🛠
+</p> 
+
+- A more streamlined UI
+- Added support for HeyWhale API keys
+- Added support for a Docker-based sandbox code execution environment.
+- The usage method is the same as WebUI.
+
+    ```bash
+    cd demo/chat/frontend
+    npm install
+    cd ..
+    cp .env.example .env 
+    bash start.sh
+    # stop the api and interface
+    bash stop.sh
+    
+    # stop vllm if needed
+    ```
 
 ### JupyterUI
 
