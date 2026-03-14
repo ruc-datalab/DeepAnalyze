@@ -1,6 +1,6 @@
 # Chat Demo
 
-`demo/chat` 是 DeepAnalyze 的浏览器交互 Demo，包含后端 API、workspace 文件层、前端界面，以及本地和 Docker 两种执行模式。
+`demo/chat_v2` 是 DeepAnalyze 的浏览器交互 Demo，包含后端 API、workspace 文件层、前端界面，以及本地和 Docker 两种执行模式。
 
 [English README](./README.md)
 
@@ -36,7 +36,7 @@ vllm serve DeepAnalyze-8B
 首次运行前端前先安装依赖：
 
 ```bash
-cd demo/chat/frontend
+cd demo/chat_v2/frontend
 npm install
 cd ..
 ```
@@ -46,14 +46,14 @@ cd ..
 使用示例配置文件：
 
 ```bash
-cd demo/chat
+cd demo/chat_v2
 cp .env.example .env
 ```
 
 Windows：
 
 ```powershell
-cd demo/chat
+cd demo/chat_v2
 Copy-Item .env.example .env
 ```
 
@@ -84,7 +84,7 @@ DEEPANALYZE_EXECUTION_MODE=docker
 示例：
 
 ```bash
-cd demo/chat
+cd demo/chat_v2
 docker build -t deepanalyze-chat-exec:latest -f Dockerfile.exec .
 ```
 
@@ -93,14 +93,14 @@ docker build -t deepanalyze-chat-exec:latest -f Dockerfile.exec .
 ### Linux / macOS
 
 ```bash
-cd demo/chat
+cd demo/chat_v2
 bash start.sh
 ```
 
 停止：
 
 ```bash
-cd demo/chat
+cd demo/chat_v2
 bash stop.sh
 ```
 
@@ -142,4 +142,3 @@ PDF 导出依赖：
 - `Dockerfile.exec`：执行镜像定义
 - `workspace/`：按 session 隔离的工作区
 - `logs/`：运行日志
-

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
+from ..settings import settings
 from .workspace import (
     build_download_url,
     get_session_workspace,
@@ -56,12 +57,44 @@ def save_md(md_text: str, base_name: str, workspace_dir: str) -> Path:
 
 _MARKDOWN_LINK_RE = re.compile(r"^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$")
 _MARKDOWN_IMAGE_RE = re.compile(r"^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$")
-PDF_EXPORT_EXTRA_ARGS = [
+_CJK_CHAR_RE = re.compile(r"[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]")
+PDF_EXPORT_BASE_ARGS = [
     "--standalone",
     "--pdf-engine=xelatex",
     "-V",
-    "geometry:top=2cm,bottom=2.1cm,left=2.1cm,right=2.1cm",
+    "geometry=top=2cm,bottom=2.1cm,left=2.1cm,right=2.1cm",
 ]
+PDF_CJK_FONT_CANDIDATES = [
+    "SimHei",
+    "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    "Source Han Sans SC",
+    "WenQuanYi Zen Hei",
+    "SimSun",
+    "PingFang SC",
+]
+
+
+def _contains_cjk(text: str) -> bool:
+    return bool(_CJK_CHAR_RE.search(text or ""))
+
+
+def _build_pdf_export_args(cjk_font: str | None = None) -> list[str]:
+    args = list(PDF_EXPORT_BASE_ARGS)
+    if cjk_font:
+        args.extend(["-V", f"CJKmainfont={cjk_font}"])
+    return args
+
+
+def _resolve_cjk_font_candidates() -> list[str]:
+    candidates: list[str] = []
+    configured_font = settings.pdf_cjk_mainfont.strip()
+    if configured_font:
+        candidates.append(configured_font)
+    for font in PDF_CJK_FONT_CANDIDATES:
+        if font not in candidates:
+            candidates.append(font)
+    return candidates
 
 
 def _is_workspace_child(candidate: Path, workspace_root: Path) -> bool:
@@ -237,18 +270,51 @@ def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> dict[str, Any]
     target_dir.mkdir(parents=True, exist_ok=True)
     pdf_path = uniquify_path(target_dir / f"{base_name}.pdf")
     pdf_markdown = prepare_pdf_markdown(md_text, workspace_root)
-    try:
+    base_args = _build_pdf_export_args()
+    has_cjk = _contains_cjk(pdf_markdown)
+
+    def _convert(extra_args: list[str]) -> None:
+        if pdf_path.exists():
+            pdf_path.unlink(missing_ok=True)
         pypandoc.convert_text(
             pdf_markdown,
             "pdf",
             format="md",
             outputfile=str(pdf_path),
-            extra_args=PDF_EXPORT_EXTRA_ARGS,
+            extra_args=extra_args,
         )
-        return _build_pdf_export_result(path=pdf_path, status="ok")
-    except Exception as exc:
-        status, error = _classify_pdf_export_failure(exc)
-        return _build_pdf_export_result(path=None, status=status, error=error)
+
+    if not has_cjk:
+        try:
+            _convert(base_args)
+            return _build_pdf_export_result(path=pdf_path, status="ok")
+        except Exception as exc:
+            status, error = _classify_pdf_export_failure(exc)
+            return _build_pdf_export_result(path=None, status=status, error=error)
+
+    last_exc: Exception | None = None
+    for font in _resolve_cjk_font_candidates():
+        try:
+            _convert(_build_pdf_export_args(font))
+            return _build_pdf_export_result(path=pdf_path, status="ok")
+        except Exception as exc:
+            last_exc = exc
+            continue
+
+    if last_exc is None:
+        return _build_pdf_export_result(
+            path=None,
+            status="failed",
+            error="PDF export failed for unknown reason",
+        )
+
+    status, error = _classify_pdf_export_failure(last_exc)
+    tried_fonts = ", ".join(_resolve_cjk_font_candidates())
+    return _build_pdf_export_result(
+        path=None,
+        status=status,
+        error=f"{error}. Tried CJK fonts: {tried_fonts}",
+    )
 
 
 def _sanitize_filename_component(
