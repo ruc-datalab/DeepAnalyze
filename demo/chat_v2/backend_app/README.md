@@ -1,6 +1,6 @@
 # 后端结构说明
 
-`demo/chat/backend.py` 现在只保留启动入口，核心逻辑拆到了 `backend_app/`：
+`demo/chat_v2/backend.py` 现在只保留启动入口，核心逻辑拆到了 `backend_app/`：
 
 - `app.py`：创建 FastAPI 应用并注册路由。
 - `settings.py`：集中管理模型、端口、workspace 等配置。

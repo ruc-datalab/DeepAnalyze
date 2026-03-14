@@ -1,6 +1,6 @@
 # Chat Demo
 
-`demo/chat` is the browser-based DeepAnalyze demo. It includes the backend API, the workspace/file layer, the frontend UI, and both local and Docker execution modes.
+`demo/chat_v2` is the browser-based DeepAnalyze demo. It includes the backend API, the workspace/file layer, the frontend UI, and both local and Docker execution modes.
 
 [Chinese Version](./README_ZH.md)
 
@@ -36,7 +36,7 @@ Recommended setup:
 Install frontend dependencies once:
 
 ```bash
-cd demo/chat/frontend
+cd demo/chat_v2/frontend
 npm install
 cd ..
 ```
@@ -46,14 +46,14 @@ cd ..
 Use the sample config file:
 
 ```bash
-cd demo/chat
+cd demo/chat_v2
 cp .env.example .env
 ```
 
 Windows:
 
 ```powershell
-cd demo/chat
+cd demo/chat_v2
 Copy-Item .env.example .env
 ```
 
@@ -84,7 +84,7 @@ Important:
 Example:
 
 ```bash
-cd demo/chat
+cd demo/chat_v2
 docker build -t deepanalyze-chat-exec:latest -f Dockerfile.exec .
 ```
 
@@ -93,14 +93,14 @@ docker build -t deepanalyze-chat-exec:latest -f Dockerfile.exec .
 ### Linux / macOS
 
 ```bash
-cd demo/chat
+cd demo/chat_v2
 bash start.sh
 ```
 
 Stop:
 
 ```bash
-cd demo/chat
+cd demo/chat_v2
 bash stop.sh
 ```
 
