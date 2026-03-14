@@ -59,7 +59,6 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
     cd demo/chat/frontend
     npm install
     cd ..
-    cp .env.example .env
     bash start.sh
     
     # stop the api and interface
