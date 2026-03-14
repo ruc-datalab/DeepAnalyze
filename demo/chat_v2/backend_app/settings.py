@@ -84,6 +84,7 @@ class Settings:
         "DEEPANALYZE_DOCKER_STOP_ON_SHUTDOWN",
         True,
     )
+    pdf_cjk_mainfont: str = os.getenv("DEEPANALYZE_PDF_CJK_MAINFONT", "").strip()
 
     @property
     def file_server_base(self) -> str:
