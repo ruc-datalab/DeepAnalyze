@@ -5126,12 +5126,12 @@ export function ThreePanelInterface() {
           {/* Right Panel - Inspector */}
           <ResizablePanel defaultSize={22} minSize={18}>
             <div className="flex h-full min-h-0 flex-col bg-white/80 dark:bg-gray-950/80 border-l border-gray-200/70 dark:border-gray-800/70">
-              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-3 shrink-0">
+              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-2 shrink-0">
                 <div>
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {uiLanguage === "zh" ? "检查栏" : "Inspector"}
                   </h2>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {uiLanguage === "zh"
                       ? "预览当前文件、查看最近产物和快速进入代码工作台"
                       : "Preview the current file, inspect recent artifacts, and jump into the code lab."}
@@ -5201,7 +5201,7 @@ export function ThreePanelInterface() {
                 </Card>
 
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
-                  <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-3">
+                  <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-2">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
