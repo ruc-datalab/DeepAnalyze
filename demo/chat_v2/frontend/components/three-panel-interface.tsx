@@ -4773,7 +4773,7 @@ export function ThreePanelInterface() {
           size="sm"
           onClick={() => fileInputRef.current?.click()}
           className="h-10 w-10 p-0 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          title={uiLanguage === "zh" ? "涓婁紶鏂囦欢" : "Upload Files"}
+          title={uiLanguage === "zh" ? "\u4e0a\u4f20\u6587\u4ef6" : "Upload Files"}
         >
           <Paperclip className="h-4 w-4" />
         </Button>
@@ -4783,7 +4783,7 @@ export function ThreePanelInterface() {
             onChange={(e) => setInputValue(e.target.value)}
             placeholder={
               uiLanguage === "zh"
-                ? "杈撳叆浣犵殑鍒嗘瀽闇€姹傦紝鎴栧湪宸︿晶鍒囨崲棰勮 Prompt..."
+                ? "\u8f93\u5165\u4f60\u7684\u5206\u6790\u9700\u6c42\uff0c\u6216\u5728\u5de6\u4fa7\u5207\u6362\u9884\u8bbe Prompt..."
                 : "Describe your analysis task, or pick a preset from the left panel..."
             }
             onKeyDown={(e) => {
@@ -4800,7 +4800,7 @@ export function ThreePanelInterface() {
             <Button
               variant="outline"
               size="sm"
-              title={uiLanguage === "zh" ? "娓呯┖鑱婂ぉ" : "Clear Chat"}
+              title={uiLanguage === "zh" ? "\u6e05\u7a7a\u804a\u5929" : "Clear Chat"}
               className="h-10 px-3 rounded-full"
               disabled={isTyping}
             >
@@ -4810,21 +4810,21 @@ export function ThreePanelInterface() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {uiLanguage === "zh" ? "娓呯┖鑱婂ぉ锛? : "Clear chat?"}
+                {uiLanguage === "zh" ? "\u6e05\u7a7a\u804a\u5929\uff1f" : "Clear chat?"}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {uiLanguage === "zh"
-                  ? "灏嗗垹闄ゅ綋鍓嶄細璇濆唴鐨勬墍鏈夋秷鎭紝浠呬繚鐣欐杩庢彁绀恒€?
+                  ? "\u5c06\u5220\u9664\u5f53\u524d\u4f1a\u8bdd\u5185\u7684\u6240\u6709\u6d88\u606f\uff0c\u4ec5\u4fdd\u7559\u6b22\u8fce\u63d0\u793a\u3002"
                   : "This removes all messages in the current session and keeps only the welcome message."}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{uiLanguage === "zh" ? "鍙栨秷" : "Cancel"}</AlertDialogCancel>
+              <AlertDialogCancel>{uiLanguage === "zh" ? "\u53d6\u6d88" : "Cancel"}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={clearChat}
                 className="bg-red-600 hover:bg-red-700"
               >
-                {uiLanguage === "zh" ? "纭娓呯┖" : "Confirm"}
+                {uiLanguage === "zh" ? "\u786e\u8ba4\u6e05\u7a7a" : "Confirm"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -4834,7 +4834,7 @@ export function ThreePanelInterface() {
             onClick={handleStopMessage}
             size="sm"
             className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
-            title={uiLanguage === "zh" ? "姝ｅ湪鐢熸垚" : "Generating"}
+            title={uiLanguage === "zh" ? "\u6b63\u5728\u751f\u6210" : "Generating"}
             disabled={isStopping}
           >
             {isStopping ? (
@@ -4842,7 +4842,7 @@ export function ThreePanelInterface() {
             ) : (
               <Square className="h-3.5 w-3.5 mr-1 fill-current" />
             )}
-            {uiLanguage === "zh" ? "鍋滄" : "Stop"}
+            {uiLanguage === "zh" ? "\u505c\u6b62" : "Stop"}
           </Button>
         ) : (
           <Button
@@ -4852,7 +4852,7 @@ export function ThreePanelInterface() {
             className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
           >
             <Send className="h-4 w-4 mr-1" />
-            {uiLanguage === "zh" ? "鍙戦€? : "Send"}
+            {uiLanguage === "zh" ? "\u53d1\u9001" : "Send"}
           </Button>
         )}
       </div>
