@@ -3010,6 +3010,86 @@ export function ThreePanelInterface() {
                   </span>
                 )}
               </div>
+              <div className="flex items-center gap-1">
+                {type === "Answer" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      if (isTypingRef.current) {
+                        toastRef.current({
+                          description: textLabels.exportBlockedWhileStreaming,
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      await exportReportBackendRef.current();
+                    }}
+                    className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    title={textLabels.exportActionTitle}
+                  >
+                    <Download className="h-3 w-3" />
+                  </Button>
+                )}
+                {(type === "Code" ||
+                  type === "Analyze" ||
+                  type === "Understand") && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        const text =
+                          type === "Code" ? extractCode(body || "") : body || "";
+                        const ok = await copyToClipboard(text.trim());
+                        toastRef.current({
+                          description: ok ? "已复制" : "复制失败",
+                          variant: ok ? undefined : "destructive",
+                        });
+                      }}
+                      className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    {type === "Code" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const code = extractCode(body || "");
+                          setCodeEditorContent(code);
+                          setSelectedCodeSection(body || "");
+                          setShowCodeEditor(true);
+                        }}
+                        className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </>
+                )}
+                {type === "Execute" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      const executionOutput = extractCode(body || "");
+                      const textToCopy = executionOutput || body || "";
+                      if (textToCopy.trim()) {
+                        const ok = await copyToClipboard(textToCopy.trim());
+                        toastRef.current({
+                          description: ok ? "已复制" : "复制失败",
+                          variant: ok ? undefined : "destructive",
+                        });
+                      }
+                    }}
+                    className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    title={uiLanguage === "zh" ? "复制 Execute 输出" : "Copy Execute Output"}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             </div>
             {!isCollapsed && (
               <div
@@ -3067,8 +3147,11 @@ export function ThreePanelInterface() {
       fixedStreamingSectionHeightEnabled,
       renderMarkdownContent,
       renderSectionContent,
+      textLabels.exportActionTitle,
+      textLabels.exportBlockedWhileStreaming,
       textLabels.sectionGenerating,
       touchMessageAt,
+      uiLanguage,
     ]
   );
 
