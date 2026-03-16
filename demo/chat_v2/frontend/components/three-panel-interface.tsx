@@ -201,6 +201,7 @@ interface ExportResponsePayload {
 const PREVIEW_TABLE_PAGE_SIZE = 10;
 const BLOCKED_UPLOAD_EXTENSIONS = new Set(["py"]);
 const ACTIVE_SECTION_UPDATE_INTERVAL_MS = 80;
+const STREAMING_SECTION_FIXED_HEIGHT_PX = 280;
 const UPLOAD_ACCEPT_TYPES =
   ".csv,.tsv,.xlsx,.xls,.parquet,.sqlite,.db,.json,.txt,.log,.md,.markdown,.yml,.yaml,.pdf,image/*,.zip";
 
@@ -506,6 +507,8 @@ export function ThreePanelInterface() {
     Record<string, boolean>
   >({});
   const [autoCollapseEnabled, setAutoCollapseEnabled] = useState(true);
+  const [fixedStreamingSectionHeightEnabled, setFixedStreamingSectionHeightEnabled] =
+    useState(false);
   const [manualLocks, setManualLocks] = useState<Record<string, boolean>>({});
 
   // Session ID：用于区分不同浏览器用户（无需登录）
@@ -540,6 +543,14 @@ export function ThreePanelInterface() {
       const savedAuto = localStorage.getItem("autoCollapseEnabled");
       if (savedAuto !== null) {
         setAutoCollapseEnabled(savedAuto !== "false");
+      }
+      const savedFixedStreamingHeight = localStorage.getItem(
+        "fixedStreamingSectionHeightEnabled"
+      );
+      if (savedFixedStreamingHeight !== null) {
+        setFixedStreamingSectionHeightEnabled(
+          savedFixedStreamingHeight === "true"
+        );
       }
 
       const savedLanguage = localStorage.getItem("deepanalyze.uiLanguage");
@@ -3001,7 +3012,18 @@ export function ThreePanelInterface() {
               </div>
             </div>
             {!isCollapsed && (
-              <div className="p-3">
+              <div
+                className={`p-3 ${
+                  fixedStreamingSectionHeightEnabled
+                    ? "overflow-y-auto overflow-x-hidden"
+                    : ""
+                }`}
+                style={
+                  fixedStreamingSectionHeightEnabled
+                    ? { height: `${STREAMING_SECTION_FIXED_HEIGHT_PX}px` }
+                    : undefined
+                }
+              >
                 <StreamingSectionBody
                   type={type}
                   content={body}
@@ -3042,6 +3064,7 @@ export function ThreePanelInterface() {
     },
     [
       buildSectionKey,
+      fixedStreamingSectionHeightEnabled,
       renderMarkdownContent,
       renderSectionContent,
       textLabels.sectionGenerating,
@@ -5022,6 +5045,24 @@ export function ThreePanelInterface() {
                         if (!v) {
                           setCollapsedSections({});
                           setManualLocks({});
+                        }
+                      }}
+                    />
+                    <span className="ml-2">
+                      {uiLanguage === "zh"
+                        ? "流式固定高度"
+                        : "Fixed Stream Height"}
+                    </span>
+                    <Switch
+                      className="data-[state=unchecked]:bg-gray-200 data-[state=unchecked]:border data-[state=unchecked]:border-gray-300"
+                      checked={fixedStreamingSectionHeightEnabled}
+                      onCheckedChange={(v: boolean) => {
+                        setFixedStreamingSectionHeightEnabled(!!v);
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem(
+                            "fixedStreamingSectionHeightEnabled",
+                            (!!v).toString()
+                          );
                         }
                       }}
                     />
