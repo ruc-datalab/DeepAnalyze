@@ -103,6 +103,11 @@ async def clear_workspace(session_id: str = Query("default")):
     return workspace_service.clear_workspace(session_id)
 
 
+@router.post("/workspace/clear")
+async def clear_workspace_via_post(session_id: str = Query("default")):
+    return workspace_service.clear_workspace(session_id)
+
+
 @router.post("/workspace/upload-to")
 async def upload_to_dir(
     dir: str = Query("", description="relative directory under workspace"),

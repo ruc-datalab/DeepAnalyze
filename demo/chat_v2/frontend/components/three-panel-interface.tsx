@@ -1894,12 +1894,29 @@ export function ThreePanelInterface() {
   const clearWorkspace = async () => {
     if (!sessionId) return;
     try {
-      const response = await fetch(
-        `${API_URLS.WORKSPACE_CLEAR}?session_id=${sessionId}`,
-        {
-          method: "DELETE",
-        }
+      const clearUrl = buildApiUrlWithParams(
+        API_CONFIG.ENDPOINTS.WORKSPACE_CLEAR,
+        { session_id: sessionId }
       );
+      let response: Response;
+      try {
+        response = await fetch(clearUrl, { method: "DELETE" });
+      } catch (deleteError) {
+        console.warn(
+          "clear workspace DELETE failed, fallback to POST:",
+          deleteError
+        );
+        response = await fetch(clearUrl, { method: "POST" });
+      }
+
+      if (response.status === 405) {
+        response = await fetch(clearUrl, { method: "POST" });
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
       if (response.ok) {
         setWorkspaceFiles([]);
         await loadWorkspaceTree();
