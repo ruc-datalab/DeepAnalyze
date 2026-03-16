@@ -3881,6 +3881,7 @@ export function ThreePanelInterface() {
       // 仅处理当前 sectionKey
 
       // 如果该块是折叠的，则展开它
+
       if (prev[sectionKey]) {
         next[sectionKey] = false;
         return next;
