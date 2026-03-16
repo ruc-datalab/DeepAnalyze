@@ -5421,21 +5421,26 @@ export function ThreePanelInterface() {
               <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
                   <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-3">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {uiLanguage === "zh" ? "当前预览" : "Current Preview"}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 shrink-0">
+                        {uiLanguage === "zh" ? "当前预览" : "Current Preview"}
+                      </div>
+                      {previewTitle && (
+                        <>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">/</span>
+                          <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {previewTitle}
+                          </div>
+                          <div className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                            {getLocalizedPreviewType(previewType)}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="p-4">
                     {previewTitle ? (
                       <div className="space-y-3">
-                        <div>
-                          <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {previewTitle}
-                          </div>
-                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            {getLocalizedPreviewType(previewType)}
-                          </div>
-                        </div>
                         <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
                           {renderPreviewContent({ compact: true })}
                         </div>
