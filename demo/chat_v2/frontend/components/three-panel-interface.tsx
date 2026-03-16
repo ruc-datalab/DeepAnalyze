@@ -4605,7 +4605,7 @@ export function ThreePanelInterface() {
                       <Textarea
                         value={systemPrompt}
                         onChange={(e) => setSystemPrompt(e.target.value)}
-                        className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black text-sm"
+                        className="min-h-20 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black text-sm"
                         placeholder={textLabels.systemPromptPlaceholder}
                       />
                     </div>
@@ -4773,45 +4773,6 @@ export function ThreePanelInterface() {
                   <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400">
                     {uploadMsg}
                   </div>
-                )}
-
-                {previewTitle && (
-                  <Card className="p-3 rounded-2xl border-gray-200/80 dark:border-gray-800/80">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="rounded-full px-2.5">
-                            {textLabels.recentPreview}
-                          </Badge>
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {getLocalizedPreviewType(previewType)}
-                          </span>
-                        </div>
-                        <div className="mt-2 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {previewTitle}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8"
-                          onClick={() => setIsPreviewOpen(true)}
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1" />
-                          {textLabels.preview}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={handleDownload}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
                 )}
 
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3 space-y-3">
