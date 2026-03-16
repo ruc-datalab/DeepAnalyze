@@ -597,9 +597,10 @@ const StreamingSectionViewport = memo(function StreamingSectionViewport({
         {children}
       </div>
       {enabled && isOverflowing && !isAtBottom && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-1">
-          <div className="rounded px-2 text-sm leading-5 text-gray-600 dark:text-gray-300 bg-white/90 dark:bg-black/55">
-          ...
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10">
+          <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/55 to-transparent dark:from-black/70 dark:via-black/35" />
+          <div className="absolute bottom-1 right-2 flex h-5 w-5 items-center justify-center rounded-full border border-gray-300/70 bg-white/85 text-gray-500 shadow-sm dark:border-gray-600/70 dark:bg-black/65 dark:text-gray-300 animate-pulse">
+            <ChevronDown className="h-3 w-3" />
           </div>
         </div>
       )}
