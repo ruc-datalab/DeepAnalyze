@@ -84,7 +84,7 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
 - The usage method is the same as WebUI.
 
     ```bash
-    cd demo/chat/frontend
+    cd demo/chat_v2/frontend  
     npm install
     cd ..
     cp .env.example .env 
