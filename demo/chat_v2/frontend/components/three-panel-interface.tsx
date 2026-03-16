@@ -5302,59 +5302,159 @@ export function ThreePanelInterface() {
                   <div className="grid grid-cols-3 gap-2 p-3">
                     <button
                       type="button"
-                      className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+                      className={`rounded-xl border px-3 py-2 text-left transition-colors ${
                         workspaceView === "uploaded"
                           ? "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20"
                           : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
                       }`}
                       onClick={() => setWorkspaceView("uploaded")}
                     >
-                      <Upload className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                      <Upload className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                         {textLabels.uploaded}
                       </div>
-                      <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      <div className="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">
                         {workspaceFileCounts.uploaded}
                       </div>
                     </button>
                     <button
                       type="button"
-                      className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+                      className={`rounded-xl border px-3 py-2 text-left transition-colors ${
                         workspaceView === "generated"
                           ? "border-purple-300 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/20"
                           : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
                       }`}
                       onClick={() => setWorkspaceView("generated")}
                     >
-                      <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                      <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                      <Sparkles className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                      <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                         {textLabels.generated}
                       </div>
-                      <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      <div className="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">
                         {workspaceFileCounts.generated}
                       </div>
                     </button>
                     <button
                       type="button"
-                      className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+                      className={`rounded-xl border px-3 py-2 text-left transition-colors ${
                         workspaceView === "all"
                           ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20"
                           : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
                       }`}
                       onClick={() => setWorkspaceView("all")}
                     >
-                      <FolderOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                      <FolderOpen className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                         {textLabels.all}
                       </div>
-                      <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      <div className="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">
                         {workspaceFileCounts.all}
                       </div>
                     </button>
                   </div>
+
+                  <div className="border-t border-gray-200/80 dark:border-gray-800/80 p-3 space-y-3">
+                    <Input
+                      value={workspaceSearch}
+                      onChange={(e) => setWorkspaceSearch(e.target.value)}
+                      placeholder={textLabels.search}
+                      className="h-9 rounded-xl border-gray-200 dark:border-gray-800"
+                    />
+
+                    <div className="rounded-xl border border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/60">
+                        <Badge variant="secondary" className="rounded-full px-2.5">
+                          {workspaceView === "generated"
+                            ? textLabels.generated
+                            : workspaceView === "uploaded"
+                              ? textLabels.uploaded
+                              : textLabels.all}
+                        </Badge>
+                        <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                          {textLabels.clickToPreview}
+                        </span>
+                      </div>
+                      {filteredWorkspaceFiles.length ? (
+                        <div className="flex flex-wrap gap-3 p-3">
+                          {filteredWorkspaceFiles.map((file, index) => {
+                            const isImage = file.category === "image" && !!file.preview_url;
+                            const imageUrl = resolveWorkspaceFileUrl(file.preview_url || file.download_url);
+                            const ext = (file.extension || "").replace(/^\./, "").toUpperCase() || "FILE";
+                            return (
+                              <button
+                                key={`${file.path || file.name}-${index}`}
+                                className={`group w-[156px] shrink-0 text-left rounded-2xl border p-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${getFileAccentClasses(file)} ${selectedWorkspacePath === file.path ? "ring-2 ring-blue-300 dark:ring-blue-800" : ""}`}
+                                onClick={() => {
+                                  setSelectedWorkspacePath(file.path);
+                                  openPreview(file);
+                                }}
+                                onDoubleClick={() => {
+                                  setSelectedWorkspacePath(file.path);
+                                  openFullPreview(file);
+                                }}
+                                type="button"
+                              >
+                                <div className="aspect-square overflow-hidden rounded-xl bg-white/80 dark:bg-gray-950/70 border border-white/60 dark:border-gray-800 flex items-center justify-center">
+                                  {isImage ? (
+                                    <img
+                                      src={imageUrl}
+                                      alt={file.name}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : file.category === "table" ? (
+                                    <div className="flex flex-col items-center justify-center text-emerald-700 dark:text-emerald-300">
+                                      <FileSpreadsheet className="h-9 w-9" />
+                                      <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                    </div>
+                                  ) : ["json", "sqlite", "db"].includes((file.extension || "").replace(/^\./, "")) ? (
+                                    <div className="flex flex-col items-center justify-center text-amber-700 dark:text-amber-300">
+                                      <FileJson className="h-9 w-9" />
+                                      <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                    </div>
+                                  ) : ["py", "sql", "js", "ts", "tsx", "jsx", "ipynb"].includes((file.extension || "").replace(/^\./, "")) ? (
+                                    <div className="flex flex-col items-center justify-center text-violet-700 dark:text-violet-300">
+                                      <FileCode2 className="h-9 w-9" />
+                                      <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                    </div>
+                                  ) : file.category === "image" ? (
+                                    <div className="flex flex-col items-center justify-center text-blue-700 dark:text-blue-300">
+                                      <FileImage className="h-9 w-9" />
+                                      <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center justify-center text-gray-700 dark:text-gray-300">
+                                      <FileText className="h-9 w-9" />
+                                      <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="px-1 pt-2">
+                                  <div className="truncate text-xs font-medium text-gray-900 dark:text-gray-100" title={file.path}>
+                                    {file.name}
+                                  </div>
+                                  <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                                    <span className="truncate">{formatFileSize(file.size)}</span>
+                                    <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[10px]">
+                                      {isGeneratedWorkspaceFile(file)
+                                        ? textLabels.generated
+                                        : textLabels.uploaded}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full px-4 py-10 text-sm text-gray-500 dark:text-gray-400">
+                          {textLabels.noFiles}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </Card>
 
-                <div className="space-y-2">
+                <div className="hidden space-y-2">
                   <Input
                     value={workspaceSearch}
                     onChange={(e) => setWorkspaceSearch(e.target.value)}
@@ -5376,7 +5476,7 @@ export function ThreePanelInterface() {
                   </Tabs>
                 </div>
 
-                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
+                <Card className="hidden rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
                   <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/60">
                     <Badge variant="secondary" className="rounded-full px-2.5">
                       {workspaceView === "generated"
