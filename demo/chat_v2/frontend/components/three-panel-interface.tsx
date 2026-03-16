@@ -2696,6 +2696,14 @@ export function ThreePanelInterface() {
     });
   }, []);
 
+  const buildSectionKey = useCallback(
+    (type: StructuredSectionType, position: number, messageIndex?: number) => {
+      const suffix = `${type}-pos${position}`;
+      return messageIndex !== undefined ? `msg${messageIndex}-${suffix}` : suffix;
+    },
+    []
+  );
+
   const renderMarkdownContent = useCallback((
     content: string,
     options?: { withinSection?: boolean }
@@ -2866,7 +2874,6 @@ export function ThreePanelInterface() {
       const parts: React.ReactNode[] = [];
       const openRe = /<(Analyze|Understand|Code|Execute|Answer|File)>/g;
       let cursor = 0;
-      let sectionIndex = 0;
       let m: RegExpExecArray | null;
 
       while ((m = openRe.exec(content)) !== null) {
@@ -2893,24 +2900,18 @@ export function ThreePanelInterface() {
         const bodyEnd = isComplete ? closeIdx : content.length;
         const body = content.slice(openEnd, bodyEnd).trim();
 
-        const baseKey = `${type}-${sectionIndex}`;
-        const msgKey =
-          messageIndex !== undefined ? `msg${messageIndex}-${type}-${sectionIndex}` : baseKey;
-        const sectionKey = msgKey;
+        const sectionKey = buildSectionKey(type, start, messageIndex);
         const collapseState = collapsedSectionsRef.current;
-        const isCollapsed =
-          (collapseState as any)[msgKey] ??
-          (collapseState as any)[baseKey] ??
-          false;
+        const isCollapsed = !!(collapseState as any)[sectionKey];
 
         const toggleSection = () => {
           setCollapsedSections((prev) => {
             const next = { ...prev } as Record<string, boolean>;
-            const current = (prev as any)[msgKey] ?? (prev as any)[baseKey] ?? false;
-            next[msgKey] = !current;
-            next[baseKey] = !current;
+            const current = !!(prev as any)[sectionKey];
+            next[sectionKey] = !current;
             return next;
           });
+          setManualLocks((prev) => ({ ...prev, [sectionKey]: true }));
           touchMessageAt(messageIndex);
         };
 
@@ -2963,7 +2964,6 @@ export function ThreePanelInterface() {
           </div>
         );
 
-        sectionIndex += 1;
         cursor = isComplete ? closeIdx + closeTag.length : content.length;
         openRe.lastIndex = cursor;
 
@@ -2991,7 +2991,13 @@ export function ThreePanelInterface() {
 
       return <>{parts}</>;
     },
-    [renderMarkdownContent, renderSectionContent, textLabels.sectionGenerating, touchMessageAt]
+    [
+      buildSectionKey,
+      renderMarkdownContent,
+      renderSectionContent,
+      textLabels.sectionGenerating,
+      touchMessageAt,
+    ]
   );
 
   const renderMessageWithSections = useCallback((
@@ -3082,31 +3088,24 @@ export function ThreePanelInterface() {
 
       // 添加结构化标签
       const config = sectionConfigs[match.type];
-      const baseKey = `${match.type}-${index}`;
-      const msgKey =
-        messageIndex !== undefined
-          ? `msg${messageIndex}-${match.type}-${index}`
-          : baseKey;
-      const sectionKey = msgKey;
+      const sectionKey = buildSectionKey(
+        match.type as StructuredSectionType,
+        match.position,
+        messageIndex
+      );
       const collapseState = collapsedSectionsRef.current;
-      const isCollapsed =
-        (collapseState as any)[msgKey] ??
-        (collapseState as any)[baseKey] ??
-        false;
+      const isCollapsed = !!(collapseState as any)[sectionKey];
 
       const toggleSection = () => {
         setCollapsedSections((prev) => {
           const next = { ...prev } as Record<string, boolean>;
-          const current =
-            (prev as any)[msgKey] ?? (prev as any)[baseKey] ?? false;
-          next[msgKey] = !current;
-          next[baseKey] = !current;
+          const current = !!(prev as any)[sectionKey];
+          next[sectionKey] = !current;
           return next;
         });
         setManualLocks((prev) => ({
           ...prev,
-          [msgKey]: true,
-          [baseKey]: true,
+          [sectionKey]: true,
         }));
         touchMessageAt(messageIndex);
       };
@@ -3171,8 +3170,8 @@ export function ThreePanelInterface() {
 
       parts.push(
         <div
-          key={`section-${index}`}
-          className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+          key={`section-${sectionKey}`}
+          className={`mb-4 border rounded-lg overflow-hidden ${config.color}`}
           data-section={match.type}
           data-section-key={sectionKey}
           style={{
@@ -3180,7 +3179,7 @@ export function ThreePanelInterface() {
             containIntrinsicSize: isCollapsed ? "56px" : "240px",
           }}
         >
-          <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between px-3 py-2 bg-white/60 dark:bg-black/30 border-b border-black/5 dark:border-white/10">
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -3313,7 +3312,7 @@ export function ThreePanelInterface() {
     }
 
     return <>{parts}</>;
-  }, [renderMarkdownContent, renderSectionContent, textLabels.exportActionTitle, textLabels.exportBlockedWhileStreaming, textLabels.relatedFiles, touchMessageAt]);
+  }, [buildSectionKey, renderMarkdownContent, renderSectionContent, textLabels.exportActionTitle, textLabels.exportBlockedWhileStreaming, textLabels.relatedFiles, touchMessageAt]);
 
   // 根据完整内容自动折叠：除最后一个块外全部折叠
   const autoCollapseForContent = useCallback(
@@ -3327,36 +3326,31 @@ export function ThreePanelInterface() {
         "File",
         "Answer",
       ] as const;
-      const matches: Array<{ type: string; index: number; pos: number }> = [];
+      const matches: Array<{ type: StructuredSectionType; pos: number }> = [];
       sectionTypes.forEach((t) => {
         const re = new RegExp(`<${t}>([\\s\\S]*?)</${t}>`, "g");
         let m: RegExpExecArray | null;
-        let local = 0;
         while ((m = re.exec(content)) !== null) {
-          matches.push({ type: t, index: local++, pos: m.index });
+          matches.push({ type: t, pos: m.index });
         }
       });
       if (matches.length === 0) return;
       matches.sort((a, b) => a.pos - b.pos);
       const next: Record<string, boolean> = {};
       matches.forEach((m, i) => {
-        const baseKey = `${m.type}-${i}`;
-        const msgKey =
-          messageIndex !== undefined ? `msg${messageIndex}-${m.type}-${i}` : null;
-        const key = msgKey || baseKey;
+        const key = buildSectionKey(m.type, m.pos, messageIndex);
         next[key] = i !== matches.length - 1; // 最后一个不折叠
       });
       setCollapsedSections((prev) => {
         const merged: Record<string, boolean> = { ...prev };
         // 只在未手动锁定的 key 上更新，保留用户手动状态
         for (const key in next) {
-          const baseKey = key.replace(/^msg\d+-/, "");
-          if (!manualLocks[key] && !manualLocks[baseKey]) merged[key] = next[key];
+          if (!manualLocks[key]) merged[key] = next[key];
         }
         return merged;
       });
     },
-    [autoCollapseEnabled, manualLocks]
+    [autoCollapseEnabled, buildSectionKey, manualLocks]
   );
 
 
@@ -3862,12 +3856,13 @@ export function ThreePanelInterface() {
     // 按位置排序，然后生成 sectionKey（与 renderMessageWithSections 逻辑一致）
     allMatches.sort((a, b) => a.position - b.position);
 
-    return allMatches.map((m, index) => ({
+    return allMatches.map((m) => ({
       type: m.type,
-      sectionKey:
-        messageIndex !== undefined
-          ? `msg${messageIndex}-${m.type}-${index}` // 包含消息索引
-          : `${m.type}-${index}`, // 兼容旧逻辑
+      sectionKey: buildSectionKey(
+        m.type as StructuredSectionType,
+        m.position,
+        messageIndex
+      ),
       config: sectionConfigs[m.type],
     }));
   };
@@ -3883,13 +3878,11 @@ export function ThreePanelInterface() {
     // 展开目标块（如果它是折叠的）
     setCollapsedSections((prev) => {
       const next = { ...prev };
-      // 提取 baseKey（去掉 msg{index}- 前缀）
-      const baseKey = sectionKey.replace(/^msg\d+-/, "");
+      // 仅处理当前 sectionKey
 
-      // 如果该块是折叠的，则展开它（同时更新两种格式的 key）
-      if (prev[sectionKey] || prev[baseKey]) {
+      // 如果该块是折叠的，则展开它
+      if (prev[sectionKey]) {
         next[sectionKey] = false;
-        next[baseKey] = false;
         return next;
       }
       return prev;
@@ -3897,11 +3890,9 @@ export function ThreePanelInterface() {
 
     // 标记为手动操作，防止自动折叠覆盖
     setManualLocks((prev) => {
-      const baseKey = sectionKey.replace(/^msg\d+-/, "");
       return {
         ...prev,
         [sectionKey]: true,
-        [baseKey]: true,
       };
     });
     touchMessageAt(parseMessageIndexFromSectionKey(sectionKey));
