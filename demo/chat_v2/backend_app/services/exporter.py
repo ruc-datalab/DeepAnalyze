@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import shutil
 from datetime import datetime
@@ -239,6 +240,84 @@ def _classify_pdf_export_failure(exc: Exception) -> tuple[str, str]:
     return "failed", message
 
 
+def _resolve_pandoc_cache_dir() -> Path:
+    configured = settings.pdf_pandoc_cache_dir.strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return (Path(settings.workspace_base_dir) / ".tools" / "pandoc").resolve()
+
+
+def _find_pandoc_binary(search_root: Path) -> Path | None:
+    if not search_root.exists() or not search_root.is_dir():
+        return None
+
+    direct_candidates = (
+        search_root / "pandoc",
+        search_root / "pandoc.exe",
+        search_root / "bin" / "pandoc",
+        search_root / "bin" / "pandoc.exe",
+    )
+    for candidate in direct_candidates:
+        if candidate.exists() and candidate.is_file():
+            return candidate.resolve()
+
+    for candidate in search_root.rglob("*"):
+        if not candidate.is_file():
+            continue
+        if candidate.name.lower() not in {"pandoc", "pandoc.exe"}:
+            continue
+        return candidate.resolve()
+    return None
+
+
+def _ensure_pandoc_available(pypandoc: Any) -> tuple[bool, str | None]:
+    try:
+        pypandoc.get_pandoc_version()
+        return True, None
+    except Exception as first_exc:
+        first_error = str(first_exc).strip() or "pandoc is not available"
+
+    if not settings.pdf_auto_download_pandoc:
+        return False, first_error
+
+    cache_dir = _resolve_pandoc_cache_dir()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    cached_binary = _find_pandoc_binary(cache_dir)
+    if cached_binary is not None:
+        os.environ["PYPANDOC_PANDOC"] = str(cached_binary)
+        try:
+            pypandoc.get_pandoc_version()
+            return True, None
+        except Exception:
+            pass
+
+    try:
+        pypandoc.download_pandoc(targetfolder=str(cache_dir))
+    except Exception as download_exc:
+        return (
+            False,
+            f"{first_error}; auto-download failed: {str(download_exc).strip() or download_exc.__class__.__name__}",
+        )
+
+    downloaded_binary = _find_pandoc_binary(cache_dir)
+    if downloaded_binary is None:
+        return (
+            False,
+            f"{first_error}; downloaded pandoc binary not found under {cache_dir}",
+        )
+
+    os.environ["PYPANDOC_PANDOC"] = str(downloaded_binary)
+    try:
+        pypandoc.get_pandoc_version()
+        return True, None
+    except Exception as verify_exc:
+        return (
+            False,
+            f"{first_error}; downloaded pandoc is unusable: {str(verify_exc).strip() or verify_exc.__class__.__name__}",
+        )
+
+
 def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> dict[str, Any]:
     try:
         import pypandoc
@@ -256,13 +335,12 @@ def save_pdf(md_text: str, base_name: str, workspace_dir: str) -> dict[str, Any]
             error="xelatex is not available in PATH",
         )
 
-    try:
-        pypandoc.get_pandoc_version()
-    except Exception as exc:
+    pandoc_ready, pandoc_error = _ensure_pandoc_available(pypandoc)
+    if not pandoc_ready:
         return _build_pdf_export_result(
             path=None,
             status="missing_dependency",
-            error=str(exc) or "pandoc is not available",
+            error=pandoc_error or "pandoc is not available",
         )
 
     target_dir = Path(workspace_dir)

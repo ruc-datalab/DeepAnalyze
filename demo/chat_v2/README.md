@@ -132,7 +132,13 @@ PDF export depends on:
 - `pandoc`
 - `xelatex`
 
-If `pandoc` or `xelatex` is missing, the UI will show an explicit error message. The system does not install these dependencies automatically.
+Behavior details:
+
+- If `pandoc` is missing, the backend will try to auto-download it (enabled by default).
+- `xelatex` is still required and must be installed manually.
+- You can control this with:
+  - `DEEPANALYZE_PDF_AUTO_DOWNLOAD_PANDOC` (`true` by default)
+  - `DEEPANALYZE_PDF_PANDOC_CACHE_DIR` (optional pandoc cache path)
 
 ## Directory Overview
 
