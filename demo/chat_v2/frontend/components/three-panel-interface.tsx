@@ -500,9 +500,11 @@ const StreamingSectionBody = memo(
 
 const StreamingSectionViewport = memo(function StreamingSectionViewport({
   enabled,
+  bodyClassName,
   children,
 }: {
   enabled: boolean;
+  bodyClassName?: string;
   children: React.ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -523,15 +525,59 @@ const StreamingSectionViewport = memo(function StreamingSectionViewport({
   }, [enabled]);
 
   useEffect(() => {
-    syncOverflowState();
-    if (!enabled || typeof ResizeObserver === "undefined") return;
+    let rafId: number | null = null;
+    const scheduleSync = () => {
+      if (typeof window === "undefined") return;
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        syncOverflowState();
+      });
+    };
+
+    scheduleSync();
     const el = containerRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(() => {
-      syncOverflowState();
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
+    if (!enabled || !el) {
+      return () => {
+        if (rafId !== null && typeof window !== "undefined") {
+          window.cancelAnimationFrame(rafId);
+        }
+      };
+    }
+
+    let resizeObserver: ResizeObserver | null = null;
+    let mutationObserver: MutationObserver | null = null;
+
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        scheduleSync();
+      });
+      resizeObserver.observe(el);
+      if (el.firstElementChild) {
+        resizeObserver.observe(el.firstElementChild);
+      }
+    }
+
+    if (typeof MutationObserver !== "undefined") {
+      mutationObserver = new MutationObserver(() => {
+        scheduleSync();
+      });
+      mutationObserver.observe(el, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }
+
+    return () => {
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+      if (rafId !== null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
   }, [enabled, children, syncOverflowState]);
 
   return (
@@ -539,7 +585,7 @@ const StreamingSectionViewport = memo(function StreamingSectionViewport({
       <div
         ref={containerRef}
         onScroll={enabled ? syncOverflowState : undefined}
-        className={`p-3 ${
+        className={`p-3 ${bodyClassName || ""} ${
           enabled ? "overflow-y-auto overflow-x-hidden" : ""
         }`}
         style={
@@ -551,8 +597,10 @@ const StreamingSectionViewport = memo(function StreamingSectionViewport({
         {children}
       </div>
       {enabled && isOverflowing && !isAtBottom && (
-        <div className="pointer-events-none absolute bottom-0 right-0 px-2 text-xs leading-5 text-gray-500 dark:text-gray-400 bg-gradient-to-l from-white/95 via-white/75 to-transparent dark:from-black/70 dark:via-black/45">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-1">
+          <div className="rounded px-2 text-sm leading-5 text-gray-600 dark:text-gray-300 bg-white/90 dark:bg-black/55">
           ...
+          </div>
         </div>
       )}
     </div>
@@ -3493,14 +3541,15 @@ export function ThreePanelInterface() {
             </div>
           </div>
           {!isCollapsed && (
-            <div
-              className={`p-3 ${match.type === "Answer" ? "answer-body" : ""}`}
+            <StreamingSectionViewport
+              enabled={fixedStreamingSectionHeightEnabled}
+              bodyClassName={match.type === "Answer" ? "answer-body" : ""}
             >
               {match.type === "Code"
                 ? renderSectionContent(buildCodeFenceForSection(sectionBody))
                 : renderSectionContent(sectionBody)}
               {fileGallery}
-            </div>
+            </StreamingSectionViewport>
           )}
         </div>
       );
@@ -3521,7 +3570,7 @@ export function ThreePanelInterface() {
     }
 
     return <>{parts}</>;
-  }, [buildSectionKey, renderMarkdownContent, renderSectionContent, textLabels.exportActionTitle, textLabels.exportBlockedWhileStreaming, textLabels.relatedFiles, touchMessageAt]);
+  }, [buildSectionKey, fixedStreamingSectionHeightEnabled, renderMarkdownContent, renderSectionContent, textLabels.exportActionTitle, textLabels.exportBlockedWhileStreaming, textLabels.relatedFiles, touchMessageAt]);
 
   // 根据完整内容自动折叠：除最后一个块外全部折叠
   const autoCollapseForContent = useCallback(
