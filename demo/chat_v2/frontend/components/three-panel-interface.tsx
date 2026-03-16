@@ -1193,6 +1193,12 @@ export function ThreePanelInterface() {
     [uiLanguage]
   );
 
+  const fileStatsTitle = uiLanguage === "zh" ? "文件统计" : "File Stats";
+  const fileStatsHint =
+    uiLanguage === "zh"
+      ? "点击卡片可切换左侧文件筛选。"
+      : "Click a card to switch the file filter on the left.";
+
   const selectedPreset = useMemo(
     () =>
       DATA_ANALYSIS_PROMPT_PRESETS.find((item) => item.id === selectedPresetId) ||
@@ -1264,6 +1270,18 @@ export function ThreePanelInterface() {
       other: generatedFiles.filter((file) => (file.category || "other") === "other").length,
     };
   }, [isGeneratedBundleFile, workspaceFiles]);
+
+  const workspaceFileCounts = useMemo(() => {
+    const generated = workspaceFiles.filter((file) =>
+      isGeneratedWorkspaceFile(file)
+    ).length;
+    const all = workspaceFiles.length;
+    return {
+      uploaded: Math.max(all - generated, 0),
+      generated,
+      all,
+    };
+  }, [isGeneratedWorkspaceFile, workspaceFiles]);
 
   const filteredWorkspaceFiles = useMemo(() => {
     const query = workspaceSearch.trim().toLowerCase();
@@ -5293,6 +5311,70 @@ export function ThreePanelInterface() {
                 </Card>
 
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
+                  <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-3">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {fileStatsTitle}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {fileStatsHint}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 p-3">
+                    <button
+                      type="button"
+                      className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+                        workspaceView === "uploaded"
+                          ? "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20"
+                          : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
+                      }`}
+                      onClick={() => setWorkspaceView("uploaded")}
+                    >
+                      <Upload className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                        {textLabels.uploaded}
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        {workspaceFileCounts.uploaded}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+                        workspaceView === "generated"
+                          ? "border-purple-300 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/20"
+                          : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
+                      }`}
+                      onClick={() => setWorkspaceView("generated")}
+                    >
+                      <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                        {textLabels.generated}
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        {workspaceFileCounts.generated}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+                        workspaceView === "all"
+                          ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20"
+                          : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
+                      }`}
+                      onClick={() => setWorkspaceView("all")}
+                    >
+                      <FolderOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                        {textLabels.all}
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        {workspaceFileCounts.all}
+                      </div>
+                    </button>
+                  </div>
+                </Card>
+
+                <Card className="hidden rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
                   <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-3">
                     <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {uiLanguage === "zh" ? "最近生成文件" : "Generated Files"}
