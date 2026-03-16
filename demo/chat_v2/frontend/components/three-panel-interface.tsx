@@ -2484,6 +2484,8 @@ export function ThreePanelInterface() {
       const data = await requestExport(API_URLS.EXPORT_REPORT, payload);
       const pdfStatus = data.pdf_status || (data.files?.pdf ? "ok" : null);
       const pdfError = (data.pdf_error || "").trim();
+      const withPdfErrorDetail = (base: string) =>
+        isPdfRequest && pdfError ? `${base} (${pdfError})` : base;
       const preferredFile =
         pickExportedFile(data, format) ||
         (format === "pdf"
@@ -2492,10 +2494,10 @@ export function ThreePanelInterface() {
 
       if (!preferredFile?.download_url) {
         if (isPdfRequest && pdfStatus === "missing_compiler") {
-          throw new Error(textLabels.exportCompilerMissing);
+          throw new Error(withPdfErrorDetail(textLabels.exportCompilerMissing));
         }
         if (isPdfRequest && pdfStatus === "missing_dependency") {
-          throw new Error(textLabels.exportDependencyMissing);
+          throw new Error(withPdfErrorDetail(textLabels.exportDependencyMissing));
         }
         throw new Error(pdfError || "missing exported report");
       }
@@ -2516,10 +2518,11 @@ export function ThreePanelInterface() {
 
       if (isPdfRequest && pdfStatus === "missing_compiler") {
         toast({
-          description:
+          description: withPdfErrorDetail(
             resolvedFormat === "md"
               ? textLabels.exportCompilerMissingFallback
-              : textLabels.exportCompilerMissing,
+              : textLabels.exportCompilerMissing
+          ),
           variant: "destructive",
         });
         return;
@@ -2527,10 +2530,11 @@ export function ThreePanelInterface() {
 
       if (isPdfRequest && pdfStatus === "missing_dependency") {
         toast({
-          description:
+          description: withPdfErrorDetail(
             resolvedFormat === "md"
               ? textLabels.exportDependencyMissingFallback
-              : textLabels.exportDependencyMissing,
+              : textLabels.exportDependencyMissing
+          ),
           variant: "destructive",
         });
         return;

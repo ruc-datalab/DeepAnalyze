@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
@@ -15,6 +16,8 @@ from .workspace import (
     register_generated_paths,
     uniquify_path,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def extract_sections_from_messages(messages: list[dict[str, Any]]) -> str:
@@ -462,6 +465,14 @@ def export_report_from_body(body: dict[str, Any]) -> dict[str, Any]:
     md_path = save_md(md_text, base_name, str(export_dir))
     pdf_result = save_pdf(md_text, base_name, str(export_dir))
     pdf_path = pdf_result["path"]
+    if pdf_result["status"] != "ok":
+        logger.warning(
+            "PDF export fallback: status=%s session_id=%s base_name=%s error=%s",
+            pdf_result["status"],
+            session_id,
+            base_name,
+            pdf_result["error"],
+        )
     register_generated_paths(
         session_id,
         [
