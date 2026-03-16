@@ -619,6 +619,7 @@ export function ThreePanelInterface() {
   const [autoCollapseEnabled, setAutoCollapseEnabled] = useState(true);
   const [fixedStreamingSectionHeightEnabled, setFixedStreamingSectionHeightEnabled] =
     useState(false);
+  const [moveDialogToLeftPanel, setMoveDialogToLeftPanel] = useState(false);
   const [manualLocks, setManualLocks] = useState<Record<string, boolean>>({});
 
   // Session ID：用于区分不同浏览器用户（无需登录）
@@ -661,6 +662,10 @@ export function ThreePanelInterface() {
         setFixedStreamingSectionHeightEnabled(
           savedFixedStreamingHeight === "true"
         );
+      }
+      const savedMoveDialog = localStorage.getItem("moveDialogToLeftPanel");
+      if (savedMoveDialog !== null) {
+        setMoveDialogToLeftPanel(savedMoveDialog === "true");
       }
 
       const savedLanguage = localStorage.getItem("deepanalyze.uiLanguage");
@@ -1249,6 +1254,8 @@ export function ThreePanelInterface() {
         uiLanguage === "zh"
           ? "中间只保留对话、流式分析和快捷操作"
           : "The center stays focused on chat, streaming analysis, and quick actions.",
+      moveDialogToLeft:
+        uiLanguage === "zh" ? "对话框移到左栏" : "Move Dialog Left",
       presetsDescription:
         uiLanguage === "zh" ? "预设会同步到输入框" : "Presets sync to the input box",
       emptySystemPrompt:
@@ -4758,6 +4765,100 @@ export function ThreePanelInterface() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const renderChatComposer = (wrapperClassName: string) => (
+    <div className={wrapperClassName}>
+      <div className="flex gap-3 items-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+          className="h-10 w-10 p-0 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          title={uiLanguage === "zh" ? "涓婁紶鏂囦欢" : "Upload Files"}
+        >
+          <Paperclip className="h-4 w-4" />
+        </Button>
+        <div className="flex-1 relative">
+          <Textarea
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder={
+              uiLanguage === "zh"
+                ? "杈撳叆浣犵殑鍒嗘瀽闇€姹傦紝鎴栧湪宸︿晶鍒囨崲棰勮 Prompt..."
+                : "Describe your analysis task, or pick a preset from the left panel..."
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black pr-4"
+          />
+        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              title={uiLanguage === "zh" ? "娓呯┖鑱婂ぉ" : "Clear Chat"}
+              className="h-10 px-3 rounded-full"
+              disabled={isTyping}
+            >
+              <Eraser className="h-4 w-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {uiLanguage === "zh" ? "娓呯┖鑱婂ぉ锛? : "Clear chat?"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {uiLanguage === "zh"
+                  ? "灏嗗垹闄ゅ綋鍓嶄細璇濆唴鐨勬墍鏈夋秷鎭紝浠呬繚鐣欐杩庢彁绀恒€?
+                  : "This removes all messages in the current session and keeps only the welcome message."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{uiLanguage === "zh" ? "鍙栨秷" : "Cancel"}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={clearChat}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {uiLanguage === "zh" ? "纭娓呯┖" : "Confirm"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        {isTyping ? (
+          <Button
+            onClick={handleStopMessage}
+            size="sm"
+            className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+            title={uiLanguage === "zh" ? "姝ｅ湪鐢熸垚" : "Generating"}
+            disabled={isStopping}
+          >
+            {isStopping ? (
+              <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Square className="h-3.5 w-3.5 mr-1 fill-current" />
+            )}
+            {uiLanguage === "zh" ? "鍋滄" : "Stop"}
+          </Button>
+        ) : (
+          <Button
+            onClick={handleSendMessage}
+            size="sm"
+            disabled={!inputValue.trim() && attachments.length === 0}
+            className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+          >
+            <Send className="h-4 w-4 mr-1" />
+            {uiLanguage === "zh" ? "鍙戦€? : "Send"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <>
       <div
@@ -4860,6 +4961,10 @@ export function ThreePanelInterface() {
                         placeholder={textLabels.systemPromptPlaceholder}
                       />
                     </div>
+                    {moveDialogToLeftPanel &&
+                      renderChatComposer(
+                        "rounded-2xl border border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/40 p-3"
+                      )}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -5251,6 +5356,20 @@ export function ThreePanelInterface() {
                         }
                       }}
                     />
+                    <span className="ml-2">{textLabels.moveDialogToLeft}</span>
+                    <Switch
+                      className="data-[state=unchecked]:bg-gray-200 data-[state=unchecked]:border data-[state=unchecked]:border-gray-300"
+                      checked={moveDialogToLeftPanel}
+                      onCheckedChange={(v: boolean) => {
+                        setMoveDialogToLeftPanel(!!v);
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem(
+                            "moveDialogToLeftPanel",
+                            (!!v).toString()
+                          );
+                        }
+                      }}
+                    />
                   </div>
                   <Button
                     variant="outline"
@@ -5295,6 +5414,7 @@ export function ThreePanelInterface() {
               </div>
 
               {/* Input Area */}
+              {!moveDialogToLeftPanel && (
               <div className="p-4 border-t border-gray-200 dark:border-gray-800 shrink-0 bg-white/80 dark:bg-gray-950/80">
                 <div className="flex gap-3 items-end">
                   <Button
@@ -5386,6 +5506,7 @@ export function ThreePanelInterface() {
                   )}
                 </div>
               </div>
+              )}
 
             </div>
           </ResizablePanel>
