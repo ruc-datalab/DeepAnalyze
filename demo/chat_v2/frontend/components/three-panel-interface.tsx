@@ -416,6 +416,27 @@ type StructuredSectionType =
   | "Answer"
   | "File";
 
+const normalizeCodeBlockForSection = (
+  content: string
+): { language: string; code: string } => {
+  const codeBlockMatch = content.match(/```([\w+-]+)?\n?([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    return {
+      language: codeBlockMatch[1]?.trim() || "python",
+      code: codeBlockMatch[2].trim(),
+    };
+  }
+  return {
+    language: "python",
+    code: content.trim(),
+  };
+};
+
+const buildCodeFenceForSection = (content: string): string => {
+  const normalized = normalizeCodeBlockForSection(content);
+  return `\`\`\`${normalized.language}\n${normalized.code}\n\`\`\``;
+};
+
 const StreamingMarkdownBlock = memo(
   function StreamingMarkdownBlock({
     content,
@@ -448,6 +469,13 @@ const StreamingSectionBody = memo(
     renderSectionContent: (content: string) => React.ReactNode;
   }) {
     if (!content.trim()) return null;
+    if (type === "Code" && isComplete) {
+      return (
+        <div className="markdown-content">
+          {renderSectionContent(buildCodeFenceForSection(content))}
+        </div>
+      );
+    }
     if (!isComplete) {
       if (type === "Code" || type === "Execute") {
         return (
@@ -3289,7 +3317,9 @@ export function ThreePanelInterface() {
             <div
               className={`p-3 ${match.type === "Answer" ? "answer-body" : ""}`}
             >
-              {renderSectionContent(sectionBody)}
+              {match.type === "Code"
+                ? renderSectionContent(buildCodeFenceForSection(sectionBody))
+                : renderSectionContent(sectionBody)}
               {fileGallery}
             </div>
           )}
