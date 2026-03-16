@@ -201,7 +201,7 @@ interface ExportResponsePayload {
 const PREVIEW_TABLE_PAGE_SIZE = 10;
 const BLOCKED_UPLOAD_EXTENSIONS = new Set(["py"]);
 const ACTIVE_SECTION_UPDATE_INTERVAL_MS = 80;
-const STREAMING_SECTION_FIXED_HEIGHT_PX = 280;
+const STREAMING_SECTION_FIXED_HEIGHT_PX = 140;
 const UPLOAD_ACCEPT_TYPES =
   ".csv,.tsv,.xlsx,.xls,.parquet,.sqlite,.db,.json,.txt,.log,.md,.markdown,.yml,.yaml,.pdf,image/*,.zip";
 
@@ -497,6 +497,67 @@ const StreamingSectionBody = memo(
     prev.isComplete === next.isComplete &&
     prev.renderSectionContent === next.renderSectionContent
 );
+
+const StreamingSectionViewport = memo(function StreamingSectionViewport({
+  enabled,
+  children,
+}: {
+  enabled: boolean;
+  children: React.ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+
+  const syncOverflowState = useCallback(() => {
+    const el = containerRef.current;
+    if (!el || !enabled) {
+      setIsOverflowing(false);
+      setIsAtBottom(true);
+      return;
+    }
+    const overflowing = el.scrollHeight - el.clientHeight > 1;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
+    setIsOverflowing(overflowing);
+    setIsAtBottom(atBottom || !overflowing);
+  }, [enabled]);
+
+  useEffect(() => {
+    syncOverflowState();
+    if (!enabled || typeof ResizeObserver === "undefined") return;
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      syncOverflowState();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [enabled, children, syncOverflowState]);
+
+  return (
+    <div className="relative">
+      <div
+        ref={containerRef}
+        onScroll={enabled ? syncOverflowState : undefined}
+        className={`p-3 ${
+          enabled ? "overflow-y-auto overflow-x-hidden" : ""
+        }`}
+        style={
+          enabled
+            ? { height: `${STREAMING_SECTION_FIXED_HEIGHT_PX}px` }
+            : undefined
+        }
+      >
+        {children}
+      </div>
+      {enabled && isOverflowing && !isAtBottom && (
+        <div className="pointer-events-none absolute bottom-0 right-0 px-2 text-xs leading-5 text-gray-500 dark:text-gray-400 bg-gradient-to-l from-white/95 via-white/75 to-transparent dark:from-black/70 dark:via-black/45">
+          ...
+        </div>
+      )}
+    </div>
+  );
+});
 
 export function ThreePanelInterface() {
   const { toast } = useToast();
@@ -3092,17 +3153,8 @@ export function ThreePanelInterface() {
               </div>
             </div>
             {!isCollapsed && (
-              <div
-                className={`p-3 ${
-                  fixedStreamingSectionHeightEnabled
-                    ? "overflow-y-auto overflow-x-hidden"
-                    : ""
-                }`}
-                style={
-                  fixedStreamingSectionHeightEnabled
-                    ? { height: `${STREAMING_SECTION_FIXED_HEIGHT_PX}px` }
-                    : undefined
-                }
+              <StreamingSectionViewport
+                enabled={fixedStreamingSectionHeightEnabled}
               >
                 <StreamingSectionBody
                   type={type}
@@ -3110,7 +3162,7 @@ export function ThreePanelInterface() {
                   isComplete={isComplete}
                   renderSectionContent={renderSectionContent}
                 />
-              </div>
+              </StreamingSectionViewport>
             )}
           </div>
         );
