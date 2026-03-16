@@ -80,7 +80,6 @@ import {
   Code2,
   Eye,
   PanelRightOpen,
-  WandSparkles,
   Languages,
   FileSpreadsheet,
   Package,
@@ -540,11 +539,6 @@ export function ThreePanelInterface() {
         setHeywhaleApiKey(savedApiKey);
       }
 
-      const savedPromptPanel = localStorage.getItem("deepanalyze.showPromptPanel");
-      if (savedPromptPanel !== null) {
-        setShowPromptPanel(savedPromptPanel !== "false");
-      }
-
       const savedPresetId = localStorage.getItem("deepanalyze.selectedPresetId");
       if (
         savedPresetId &&
@@ -746,7 +740,6 @@ export function ThreePanelInterface() {
   >("uploaded");
   const [workspaceSearch, setWorkspaceSearch] = useState("");
   const [selectedWorkspacePath, setSelectedWorkspacePath] = useState("");
-  const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [uiLanguage, setUiLanguage] = useState<UILanguage>("en");
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [llmProvider, setLlmProvider] = useState<"local" | "heywhale">("local");
@@ -781,14 +774,6 @@ export function ThreePanelInterface() {
     if (typeof window === "undefined") return;
     sessionStorage.setItem("deepanalyze.heywhaleApiKey", heywhaleApiKey);
   }, [heywhaleApiKey]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(
-      "deepanalyze.showPromptPanel",
-      showPromptPanel ? "true" : "false"
-    );
-  }, [showPromptPanel]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -4550,60 +4535,6 @@ export function ThreePanelInterface() {
                     className="hidden"
                     accept={UPLOAD_ACCEPT_TYPES}
                   />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowPromptPanel((prev) => !prev)}
-                    className="h-8 w-8 p-0"
-                    title={textLabels.promptPresets}
-                  >
-                    <WandSparkles className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      loadWorkspaceTree();
-                      loadWorkspaceFiles();
-                    }}
-                    className="h-8 w-8 p-0"
-                    title="refresh"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
-                        title="clear workspace"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {uiLanguage === "zh" ? "清空 workspace？" : "Clear workspace?"}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {uiLanguage === "zh"
-                            ? "将删除 workspace 根目录下的所有文件与文件夹，此操作不可撤销。"
-                            : "This deletes all files and folders under the workspace root. This action cannot be undone."}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-red-600 hover:bg-red-700"
-                          onClick={clearWorkspace}
-                        >
-                          {uiLanguage === "zh" ? "确认清空" : "Confirm"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
                 </div>
               </div>
 
@@ -4611,8 +4542,7 @@ export function ThreePanelInterface() {
                 ref={treeContainerRef}
                 className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-3"
               >
-                {showPromptPanel && (
-                  <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3 space-y-3">
+                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -4735,7 +4665,6 @@ export function ThreePanelInterface() {
                       </div>
                     )}
                   </Card>
-                )}
 
                 <div className="space-y-4">
                   <div
@@ -5312,11 +5241,62 @@ export function ThreePanelInterface() {
 
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
                   <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-3">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {fileStatsTitle}
-                    </div>
-                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {fileStatsHint}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {fileStatsTitle}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {fileStatsHint}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            loadWorkspaceTree();
+                            loadWorkspaceFiles();
+                          }}
+                          className="h-8 w-8 p-0"
+                          title="refresh"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+                              title="clear workspace"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                {uiLanguage === "zh" ? "清空 workspace？" : "Clear workspace?"}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {uiLanguage === "zh"
+                                  ? "将删除 workspace 根目录下的所有文件与文件夹，此操作不可撤销。"
+                                  : "This deletes all files and folders under the workspace root. This action cannot be undone."}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 hover:bg-red-700"
+                                onClick={clearWorkspace}
+                              >
+                                {uiLanguage === "zh" ? "确认清空" : "Confirm"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 p-3">
