@@ -5410,7 +5410,7 @@ export function ThreePanelInterface() {
                     </span>
                   </div>
                   {filteredWorkspaceFiles.length ? (
-                    <div className="grid grid-cols-1 gap-3 p-3">
+                    <div className="flex flex-wrap gap-3 p-3">
                       {filteredWorkspaceFiles.map((file, index) => {
                         const isImage = file.category === "image" && !!file.preview_url;
                         const imageUrl = resolveWorkspaceFileUrl(file.preview_url || file.download_url);
@@ -5418,7 +5418,7 @@ export function ThreePanelInterface() {
                         return (
                           <button
                             key={`${file.path || file.name}-${index}`}
-                            className={`group text-left rounded-2xl border p-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${getFileAccentClasses(file)} ${selectedWorkspacePath === file.path ? "ring-2 ring-blue-300 dark:ring-blue-800" : ""}`}
+                            className={`group w-[156px] shrink-0 text-left rounded-2xl border p-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${getFileAccentClasses(file)} ${selectedWorkspacePath === file.path ? "ring-2 ring-blue-300 dark:ring-blue-800" : ""}`}
                             onClick={() => {
                               setSelectedWorkspacePath(file.path);
                               openPreview(file);
