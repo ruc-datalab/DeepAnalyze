@@ -1391,18 +1391,64 @@ export function ThreePanelInterface() {
 
   const selectedPresetPrompt = selectedPreset?.prompt[uiLanguage] || "";
 
-  const isGeneratedPath = useCallback((path?: string | null) => {
-    const normalized = String(path || "")
+  const normalizeWorkspacePath = useCallback((path?: string | null) => {
+    return String(path || "")
       .replace(/\\/g, "/")
-      .replace(/^\/+/, "");
-    return normalized === "generated" || normalized.startsWith("generated/");
+      .replace(/^\/+/, "")
+      .trim();
   }, []);
 
-  const isGeneratedWorkspaceFile = useCallback(
-    (file?: Pick<WorkspaceFile, "path"> | null) => {
-      return isGeneratedPath(file?.path);
+  const isGeneratedPath = useCallback(
+    (path?: string | null) => {
+      const normalized = normalizeWorkspacePath(path);
+      return normalized === "generated" || normalized.startsWith("generated/");
     },
-    [isGeneratedPath]
+    [normalizeWorkspacePath]
+  );
+
+  const isSessionRootFilePath = useCallback(
+    (path?: string | null) => {
+      const normalized = normalizeWorkspacePath(path);
+      return !!normalized && !normalized.includes("/");
+    },
+    [normalizeWorkspacePath]
+  );
+
+  const isGeneratedDirectFilePath = useCallback(
+    (path?: string | null) => {
+      const normalized = normalizeWorkspacePath(path);
+      return /^generated\/[^/]+$/.test(normalized);
+    },
+    [normalizeWorkspacePath]
+  );
+
+  const generatedDirectNameSet = useMemo(() => {
+    const set = new Set<string>();
+    workspaceFiles.forEach((file) => {
+      if (isGeneratedDirectFilePath(file.path)) {
+        set.add(String(file.name || "").toLowerCase());
+      }
+    });
+    return set;
+  }, [isGeneratedDirectFilePath, workspaceFiles]);
+
+  const rightPanelSourceFiles = useMemo(
+    () => workspaceFiles.filter((file) => isSessionRootFilePath(file.path)),
+    [isSessionRootFilePath, workspaceFiles]
+  );
+
+  const isGeneratedWorkspaceFile = useCallback(
+    (file?: Pick<WorkspaceFile, "path" | "name"> | null) => {
+      if (!file) return false;
+      if (isGeneratedDirectFilePath(file.path)) {
+        return true;
+      }
+      if (!isSessionRootFilePath(file.path)) {
+        return false;
+      }
+      return generatedDirectNameSet.has(String(file.name || "").toLowerCase());
+    },
+    [generatedDirectNameSet, isGeneratedDirectFilePath, isSessionRootFilePath]
   );
 
   const isGeneratedBundleFile = useCallback(
@@ -1465,20 +1511,20 @@ export function ThreePanelInterface() {
   }, [isGeneratedBundleFile, workspaceFiles]);
 
   const workspaceFileCounts = useMemo(() => {
-    const generated = workspaceFiles.filter((file) =>
+    const generated = rightPanelSourceFiles.filter((file) =>
       isGeneratedWorkspaceFile(file)
     ).length;
-    const all = workspaceFiles.length;
+    const all = rightPanelSourceFiles.length;
     return {
       uploaded: Math.max(all - generated, 0),
       generated,
       all,
     };
-  }, [isGeneratedWorkspaceFile, workspaceFiles]);
+  }, [isGeneratedWorkspaceFile, rightPanelSourceFiles]);
 
   const filteredWorkspaceFiles = useMemo(() => {
     const query = workspaceSearch.trim().toLowerCase();
-    const filtered = workspaceFiles
+    const filtered = rightPanelSourceFiles
       .filter((file) => {
         const isGenerated = isGeneratedWorkspaceFile(file);
         if (workspaceView === "generated" && !isGenerated) return false;
@@ -1499,7 +1545,7 @@ export function ThreePanelInterface() {
   }, [
     dedupeGeneratedDisplayFiles,
     isGeneratedWorkspaceFile,
-    workspaceFiles,
+    rightPanelSourceFiles,
     workspaceSearch,
     workspaceView,
   ]);
@@ -2850,11 +2896,11 @@ export function ThreePanelInterface() {
   const recentGeneratedFiles = useMemo(
     () =>
       dedupeGeneratedDisplayFiles(
-        workspaceFiles
+        rightPanelSourceFiles
           .filter((file) => isGeneratedWorkspaceFile(file))
           .sort((left, right) => right.name.localeCompare(left.name))
       ).slice(0, 8),
-    [dedupeGeneratedDisplayFiles, isGeneratedWorkspaceFile, workspaceFiles]
+    [dedupeGeneratedDisplayFiles, isGeneratedWorkspaceFile, rightPanelSourceFiles]
   );
 
   const handleMessagesScroll = useCallback(
