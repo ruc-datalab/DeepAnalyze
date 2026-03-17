@@ -982,6 +982,9 @@ export function ThreePanelInterface() {
   const aiDisplayedContentRef = useRef<string>("");
   const streamRafRef = useRef<number | null>(null);
   const streamAbortControllerRef = useRef<AbortController | null>(null);
+  const workspaceFilesAbortRef = useRef<AbortController | null>(null);
+  const workspaceFilesLoadingRef = useRef(false);
+  const lastWorkspaceFilesErrorRef = useRef("");
   const isTypingRef = useRef(false);
   const toastRef = useRef(toast);
   const collapsedSectionsRef = useRef<Record<string, boolean>>({});
@@ -1136,28 +1139,19 @@ export function ThreePanelInterface() {
     toast({ description: "已清空聊天" });
   };
 
-  useEffect(() => {
-    if (sessionId) {
-      loadWorkspaceFiles();
-    }
-  }, [sessionId]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const isVisible =
-        typeof document !== "undefined" && document.visibilityState === "visible";
-      if (!isUploading && !isTyping && isVisible) {
-        loadWorkspaceFiles();
-      }
-    }, 10000);
-    return () => clearInterval(id);
-  }, [isTyping, isUploading]);
-
-  const loadWorkspaceFiles = async () => {
+  const loadWorkspaceFiles = useCallback(async () => {
     if (!sessionId) return;
+    if (workspaceFilesLoadingRef.current) return;
+    const controller = new AbortController();
+    workspaceFilesAbortRef.current = controller;
+    workspaceFilesLoadingRef.current = true;
     try {
       const response = await fetch(
-        `${API_URLS.WORKSPACE_FILES}?session_id=${sessionId}`
+        `${API_URLS.WORKSPACE_FILES}?session_id=${sessionId}`,
+        {
+          signal: controller.signal,
+          cache: "no-store",
+        }
       );
       if (response.ok) {
         const data = await response.json();
@@ -1179,9 +1173,57 @@ export function ThreePanelInterface() {
         });
       }
     } catch (error) {
+      if ((error as Error)?.name === "AbortError") {
+        return;
+      }
+      const errorMsg =
+        error instanceof Error ? error.message : String(error || "");
+      const isTransientFetchError =
+        /failed to fetch|networkerror|load failed/i.test(errorMsg);
+      if (isTransientFetchError) {
+        if (lastWorkspaceFilesErrorRef.current !== errorMsg) {
+          lastWorkspaceFilesErrorRef.current = errorMsg;
+          console.warn("Workspace files polling unavailable:", errorMsg);
+        }
+        return;
+      }
       console.error("Failed to load workspace files:", error);
+    } finally {
+      if (workspaceFilesAbortRef.current === controller) {
+        workspaceFilesAbortRef.current = null;
+      }
+      workspaceFilesLoadingRef.current = false;
     }
-  };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+    lastWorkspaceFilesErrorRef.current = "";
+    workspaceFilesAbortRef.current?.abort();
+    workspaceFilesLoadingRef.current = false;
+    void loadWorkspaceFiles();
+  }, [sessionId, loadWorkspaceFiles]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const isVisible =
+        typeof document !== "undefined" && document.visibilityState === "visible";
+      if (!isUploading && !isTyping && isVisible) {
+        void loadWorkspaceFiles();
+      }
+    }, 10000);
+    return () => window.clearInterval(id);
+  }, [isTyping, isUploading, loadWorkspaceFiles]);
+
+  useEffect(() => {
+    return () => {
+      workspaceFilesAbortRef.current?.abort();
+      workspaceFilesAbortRef.current = null;
+      workspaceFilesLoadingRef.current = false;
+    };
+  }, []);
 
   const loadWorkspaceTree = async () => {
     if (!sessionId) return;
