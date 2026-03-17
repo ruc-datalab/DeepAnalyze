@@ -4966,8 +4966,8 @@ export function ThreePanelInterface() {
           )}
 
           <div className={stacked ? "flex items-center justify-between gap-3" : "contents"}>
-            <div className="flex items-center gap-2">
-              {stacked && (
+            {stacked && (
+              <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -4977,42 +4977,8 @@ export function ThreePanelInterface() {
                 >
                   <Paperclip className="h-4 w-4" />
                 </Button>
-              )}
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    title={uiLanguage === "zh" ? "\u6e05\u7a7a\u804a\u5929" : "Clear Chat"}
-                    className="h-10 px-3 rounded-full"
-                    disabled={isTyping}
-                  >
-                    <Eraser className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      {uiLanguage === "zh" ? "\u6e05\u7a7a\u804a\u5929\uff1f" : "Clear chat?"}
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {uiLanguage === "zh"
-                        ? "\u5c06\u5220\u9664\u5f53\u524d\u4f1a\u8bdd\u5185\u7684\u6240\u6709\u6d88\u606f\uff0c\u4ec5\u4fdd\u7559\u6b22\u8fce\u63d0\u793a\u3002"
-                        : "This removes all messages in the current session and keeps only the welcome message."}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>{uiLanguage === "zh" ? "\u53d6\u6d88" : "Cancel"}</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={clearChat}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      {uiLanguage === "zh" ? "\u786e\u8ba4\u6e05\u7a7a" : "Confirm"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+              </div>
+            )}
             {isTyping ? (
               <Button
                 onClick={handleStopMessage}
@@ -5559,6 +5525,40 @@ export function ThreePanelInterface() {
                     <PanelRightOpen className="h-3.5 w-3.5 mr-1" />
                     {uiLanguage === "zh" ? "代码工作台" : "Code Lab"}
                   </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-full px-3"
+                        title={uiLanguage === "zh" ? "清空聊天" : "Clear Chat"}
+                        disabled={isTyping}
+                      >
+                        <Eraser className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {uiLanguage === "zh" ? "清空聊天？" : "Clear chat?"}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {uiLanguage === "zh"
+                            ? "将删除当前会话内的所有消息，仅保留欢迎提示。"
+                            : "This removes all messages in the current session and keeps only the welcome message."}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={clearChat}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          {uiLanguage === "zh" ? "确认清空" : "Confirm"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -5622,40 +5622,6 @@ export function ThreePanelInterface() {
                       className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black pr-4"
                     />
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        title={uiLanguage === "zh" ? "清空聊天" : "Clear Chat"}
-                        className="h-10 px-3 rounded-full"
-                        disabled={isTyping}
-                      >
-                        <Eraser className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {uiLanguage === "zh" ? "清空聊天？" : "Clear chat?"}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {uiLanguage === "zh"
-                            ? "将删除当前会话内的所有消息，仅保留欢迎提示。"
-                            : "This removes all messages in the current session and keeps only the welcome message."}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={clearChat}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          {uiLanguage === "zh" ? "确认清空" : "Confirm"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
                   {isTyping ? (
                     <Button
                       onClick={handleStopMessage}
