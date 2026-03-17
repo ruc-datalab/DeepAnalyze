@@ -1390,8 +1390,6 @@ export function ThreePanelInterface() {
   );
 
   const selectedPresetPrompt = selectedPreset?.prompt[uiLanguage] || "";
-  const selectedPresetLabel = selectedPreset?.label[uiLanguage] || "";
-  const selectedPresetDescription = selectedPreset?.description[uiLanguage] || "";
 
   const isGeneratedWorkspaceFile = useCallback((file?: Pick<WorkspaceFile, "is_generated"> | null) => {
     return !!file?.is_generated;
@@ -4852,99 +4850,142 @@ export function ThreePanelInterface() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const renderChatComposer = (wrapperClassName: string) => (
-    <div className={wrapperClassName}>
-      <div className="flex gap-3 items-end">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          className="h-10 w-10 p-0 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          title={uiLanguage === "zh" ? "\u4e0a\u4f20\u6587\u4ef6" : "Upload Files"}
-        >
-          <Paperclip className="h-4 w-4" />
-        </Button>
-        <div className="flex-1 relative">
-          <Textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder={
-              uiLanguage === "zh"
-                ? "\u8f93\u5165\u4f60\u7684\u5206\u6790\u9700\u6c42\uff0c\u6216\u5728\u5de6\u4fa7\u5207\u6362\u9884\u8bbe Prompt..."
-                : "Describe your analysis task, or pick a preset from the left panel..."
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
+  const renderChatComposer = (
+    wrapperClassName: string,
+    options?: { stacked?: boolean }
+  ) => {
+    const stacked = !!options?.stacked;
+    return (
+      <div className={wrapperClassName}>
+        <div className={stacked ? "space-y-3" : "flex gap-3 items-end"}>
+          {stacked ? (
+            <Textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder={
+                uiLanguage === "zh"
+                  ? "\u8f93\u5165\u4f60\u7684\u5206\u6790\u9700\u6c42\uff0c\u6216\u5728\u5de6\u4fa7\u5207\u6362\u9884\u8bbe Prompt..."
+                  : "Describe your analysis task, or pick a preset from the left panel..."
               }
-            }}
-            className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black pr-4"
-          />
-        </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              title={uiLanguage === "zh" ? "\u6e05\u7a7a\u804a\u5929" : "Clear Chat"}
-              className="h-10 px-3 rounded-full"
-              disabled={isTyping}
-            >
-              <Eraser className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {uiLanguage === "zh" ? "\u6e05\u7a7a\u804a\u5929\uff1f" : "Clear chat?"}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {uiLanguage === "zh"
-                  ? "\u5c06\u5220\u9664\u5f53\u524d\u4f1a\u8bdd\u5185\u7684\u6240\u6709\u6d88\u606f\uff0c\u4ec5\u4fdd\u7559\u6b22\u8fce\u63d0\u793a\u3002"
-                  : "This removes all messages in the current session and keeps only the welcome message."}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{uiLanguage === "zh" ? "\u53d6\u6d88" : "Cancel"}</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={clearChat}
-                className="bg-red-600 hover:bg-red-700"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black pr-4"
+            />
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-10 w-10 p-0 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                title={uiLanguage === "zh" ? "\u4e0a\u4f20\u6587\u4ef6" : "Upload Files"}
               >
-                {uiLanguage === "zh" ? "\u786e\u8ba4\u6e05\u7a7a" : "Confirm"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        {isTyping ? (
-          <Button
-            onClick={handleStopMessage}
-            size="sm"
-            className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
-            title={uiLanguage === "zh" ? "\u6b63\u5728\u751f\u6210" : "Generating"}
-            disabled={isStopping}
-          >
-            {isStopping ? (
-              <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                <Paperclip className="h-4 w-4" />
+              </Button>
+              <div className="flex-1 relative">
+                <Textarea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder={
+                    uiLanguage === "zh"
+                      ? "\u8f93\u5165\u4f60\u7684\u5206\u6790\u9700\u6c42\uff0c\u6216\u5728\u5de6\u4fa7\u5207\u6362\u9884\u8bbe Prompt..."
+                      : "Describe your analysis task, or pick a preset from the left panel..."
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black pr-4"
+                />
+              </div>
+            </>
+          )}
+
+          <div className={stacked ? "flex items-center justify-between gap-3" : "contents"}>
+            <div className="flex items-center gap-2">
+              {stacked && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-10 w-10 p-0 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  title={uiLanguage === "zh" ? "\u4e0a\u4f20\u6587\u4ef6" : "Upload Files"}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+              )}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    title={uiLanguage === "zh" ? "\u6e05\u7a7a\u804a\u5929" : "Clear Chat"}
+                    className="h-10 px-3 rounded-full"
+                    disabled={isTyping}
+                  >
+                    <Eraser className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {uiLanguage === "zh" ? "\u6e05\u7a7a\u804a\u5929\uff1f" : "Clear chat?"}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {uiLanguage === "zh"
+                        ? "\u5c06\u5220\u9664\u5f53\u524d\u4f1a\u8bdd\u5185\u7684\u6240\u6709\u6d88\u606f\uff0c\u4ec5\u4fdd\u7559\u6b22\u8fce\u63d0\u793a\u3002"
+                        : "This removes all messages in the current session and keeps only the welcome message."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{uiLanguage === "zh" ? "\u53d6\u6d88" : "Cancel"}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={clearChat}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      {uiLanguage === "zh" ? "\u786e\u8ba4\u6e05\u7a7a" : "Confirm"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+            {isTyping ? (
+              <Button
+                onClick={handleStopMessage}
+                size="sm"
+                className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+                title={uiLanguage === "zh" ? "\u6b63\u5728\u751f\u6210" : "Generating"}
+                disabled={isStopping}
+              >
+                {isStopping ? (
+                  <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Square className="h-3.5 w-3.5 mr-1 fill-current" />
+                )}
+                {uiLanguage === "zh" ? "\u505c\u6b62" : "Stop"}
+              </Button>
             ) : (
-              <Square className="h-3.5 w-3.5 mr-1 fill-current" />
+              <Button
+                onClick={handleSendMessage}
+                size="sm"
+                disabled={!inputValue.trim() && attachments.length === 0}
+                className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+              >
+                <Send className="h-4 w-4 mr-1" />
+                {uiLanguage === "zh" ? "\u53d1\u9001" : "Send"}
+              </Button>
             )}
-            {uiLanguage === "zh" ? "\u505c\u6b62" : "Stop"}
-          </Button>
-        ) : (
-          <Button
-            onClick={handleSendMessage}
-            size="sm"
-            disabled={!inputValue.trim() && attachments.length === 0}
-            className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
-          >
-            <Send className="h-4 w-4 mr-1" />
-            {uiLanguage === "zh" ? "\u53d1\u9001" : "Send"}
-          </Button>
-        )}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>
@@ -5018,15 +5059,6 @@ export function ThreePanelInterface() {
                         </Select>
                       </div>
                     </div>
-                    <div className="rounded-xl bg-gray-50 dark:bg-gray-900/60 px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
-                      <div className="font-medium text-gray-800 dark:text-gray-100">
-                        {selectedPresetLabel}
-                      </div>
-                      <div className="mt-1">{selectedPresetDescription}</div>
-                      <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-                        {textLabels.promptHint}
-                      </div>
-                    </div>
                     <div>
                       <div className="mb-1.5 flex items-center justify-between">
                         <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -5050,7 +5082,8 @@ export function ThreePanelInterface() {
                     </div>
                     {moveDialogToLeftPanel &&
                       renderChatComposer(
-                        "rounded-2xl border border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/40 p-3"
+                        "rounded-2xl border border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/40 p-3",
+                        { stacked: true }
                       )}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
