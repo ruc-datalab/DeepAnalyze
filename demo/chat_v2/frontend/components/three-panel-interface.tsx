@@ -2168,54 +2168,84 @@ export function ThreePanelInterface() {
 
   const resolveWorkspaceRelativePath = useCallback(
     (rawPath: string): string => {
-      const normalizedRawPath = String(rawPath || "")
-        .trim()
-        .replace(/\\/g, "/")
-        .replace(/^\.\//, "")
-        .replace(/^\/+/, "");
+      const decodeSafe = (value: string): string => {
+        try {
+          return decodeURIComponent(value);
+        } catch {
+          return value;
+        }
+      };
 
-      if (!normalizedRawPath) {
+      const stripped = String(rawPath || "")
+        .trim()
+        .replace(/^<(.+)>$/, "$1");
+      if (!stripped) {
         return "";
       }
 
+      const normalizedRawPath = stripped
+        .replace(/\\/g, "/")
+        .replace(/^\.\/+/, "")
+        .replace(/^\/+/, "");
       const [pathWithoutQuery] = normalizedRawPath.split(/[?#]/, 1);
-      if (!pathWithoutQuery || pathWithoutQuery.includes("/")) {
-        return normalizedRawPath;
+      if (!pathWithoutQuery) {
+        return "";
       }
 
-      let decodedName = pathWithoutQuery;
-      try {
-        decodedName = decodeURIComponent(pathWithoutQuery);
-      } catch {
-        decodedName = pathWithoutQuery;
+      const normalizedSegments: string[] = [];
+      for (const segment of pathWithoutQuery.split("/")) {
+        const current = segment.trim();
+        if (!current || current === ".") continue;
+        if (current === "..") {
+          if (normalizedSegments.length > 0) {
+            normalizedSegments.pop();
+          }
+          continue;
+        }
+        normalizedSegments.push(current);
       }
 
-      const normalizedName = decodedName.toLowerCase();
+      const normalizedPath = normalizedSegments.join("/");
+      if (!normalizedPath) {
+        return "";
+      }
+
+      const normalizedTarget = decodeSafe(normalizedPath).toLowerCase();
+      const hasSlash = normalizedPath.includes("/");
       const matchedFile = workspaceFiles
         .filter((file) => {
           const filePath = String(file.path || "")
             .replace(/\\/g, "/")
-            .replace(/^\/+/, "");
+            .replace(/^\/+/, "")
+            .trim();
           if (!filePath) {
             return false;
           }
-          const lowerFilePath = filePath.toLowerCase();
-          const lowerFileName = String(file.name || "").toLowerCase();
+          const lowerFilePath = decodeSafe(filePath).toLowerCase();
+          const lowerFileName = decodeSafe(String(file.name || "")).toLowerCase();
           return (
-            lowerFilePath === normalizedName ||
-            lowerFileName === normalizedName ||
-            lowerFilePath.endsWith(`/${normalizedName}`)
+            lowerFilePath === normalizedTarget ||
+            (!hasSlash &&
+              (lowerFileName === normalizedTarget ||
+                lowerFilePath.endsWith(`/${normalizedTarget}`)))
           );
         })
         .sort((left, right) => {
           const score = (file: WorkspaceFile) => {
-            const filePath = String(file.path || "")
+            const filePath = decodeSafe(
+              String(file.path || "")
               .replace(/\\/g, "/")
               .replace(/^\/+/, "")
-              .toLowerCase();
+              .trim()
+            ).toLowerCase();
             let current = 0;
-            if (filePath === normalizedName) current += 100;
-            if (String(file.name || "").toLowerCase() === normalizedName) current += 20;
+            if (filePath === normalizedTarget) current += 100;
+            if (
+              !hasSlash &&
+              decodeSafe(String(file.name || "")).toLowerCase() === normalizedTarget
+            ) {
+              current += 20;
+            }
             if (filePath.startsWith("generated/")) current += 10;
             if (file.category === "image") current += 5;
             return current;
@@ -2223,7 +2253,7 @@ export function ThreePanelInterface() {
           return score(right) - score(left);
         })[0];
 
-      return matchedFile?.path || normalizedRawPath;
+      return matchedFile?.path || normalizedPath;
     },
     [workspaceFiles]
   );
@@ -2239,8 +2269,17 @@ export function ThreePanelInterface() {
         return "";
       }
 
-      const trimmed = String(rawUrl).trim();
+      const trimmed = String(rawUrl)
+        .trim()
+        .replace(/^<(.+)>$/, "$1")
+        .trim();
+      if (!trimmed) {
+        return "";
+      }
       const desiredDownload = options?.download ?? false;
+      if (/^(data:|blob:)/i.test(trimmed)) {
+        return trimmed;
+      }
 
       if (/^\/\//.test(trimmed)) {
         const proto =
@@ -2322,7 +2361,7 @@ export function ThreePanelInterface() {
         return trimmed;
       }
 
-      const rel = trimmed.replace(/^\.\//, "").replace(/^\/+/, "");
+      const rel = resolveWorkspaceRelativePath(trimmed);
       if (!rel) {
         return "";
       }
@@ -2984,7 +3023,7 @@ export function ThreePanelInterface() {
         })}
       </div>
     );
-  }, [isDarkMode]);
+  }, [isDarkMode, resolveWorkspaceFileUrl]);
 
   const renderSectionContent = useCallback(
     (content: string) => {
