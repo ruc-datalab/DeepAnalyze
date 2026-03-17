@@ -1391,14 +1391,26 @@ export function ThreePanelInterface() {
 
   const selectedPresetPrompt = selectedPreset?.prompt[uiLanguage] || "";
 
-  const isGeneratedWorkspaceFile = useCallback((file?: Pick<WorkspaceFile, "is_generated"> | null) => {
-    return !!file?.is_generated;
+  const isGeneratedPath = useCallback((path?: string | null) => {
+    const normalized = String(path || "")
+      .replace(/\\/g, "/")
+      .replace(/^\/+/, "");
+    return normalized === "generated" || normalized.startsWith("generated/");
   }, []);
 
-  const isGeneratedBundleFile = useCallback((file?: Pick<WorkspaceFile, "path"> | null) => {
-    const path = file?.path || "";
-    return path === "generated" || path.startsWith("generated/");
-  }, []);
+  const isGeneratedWorkspaceFile = useCallback(
+    (file?: Pick<WorkspaceFile, "path"> | null) => {
+      return isGeneratedPath(file?.path);
+    },
+    [isGeneratedPath]
+  );
+
+  const isGeneratedBundleFile = useCallback(
+    (file?: Pick<WorkspaceFile, "path"> | null) => {
+      return isGeneratedPath(file?.path);
+    },
+    [isGeneratedPath]
+  );
 
   const dedupeGeneratedDisplayFiles = useCallback((files: WorkspaceFile[]) => {
     const result: WorkspaceFile[] = [];
