@@ -20,6 +20,28 @@ from .workspace import (
 logger = logging.getLogger(__name__)
 
 
+_FENCED_CODE_RE = re.compile(r"^\s*```[\w-]*\n[\s\S]*?\n```\s*$")
+
+
+def _ensure_code_fence(segment: str, language: str = "") -> str:
+    text = str(segment or "").strip()
+    if not text:
+        return "```text\n\n```"
+    if _FENCED_CODE_RE.match(text):
+        return text
+    lang = language.strip()
+    fence_head = f"```{lang}" if lang else "```"
+    return f"{fence_head}\n{text}\n```"
+
+
+def _format_appendix_segment(tag: str, segment: str) -> str:
+    if tag == "Code":
+        return _ensure_code_fence(segment, "python")
+    if tag == "Execute":
+        return _ensure_code_fence(segment, "")
+    return segment
+
+
 def extract_sections_from_messages(messages: list[dict[str, Any]]) -> str:
     if not isinstance(messages, list):
         return ""
@@ -39,7 +61,8 @@ def extract_sections_from_messages(messages: list[dict[str, Any]]) -> str:
             segment = segment.strip()
             if tag == "Answer":
                 parts.append(f"{segment}\n")
-            appendix.append(f"\n### Step {step}: {tag}\n\n{segment}\n")
+            appendix_segment = _format_appendix_segment(tag, segment)
+            appendix.append(f"\n### Step {step}: {tag}\n\n{appendix_segment}\n")
             step += 1
 
     final_text = "".join(parts).strip()
