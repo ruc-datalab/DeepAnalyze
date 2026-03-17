@@ -3160,7 +3160,9 @@ export function ThreePanelInterface() {
 
         const sectionKey = buildSectionKey(type, start, messageIndex);
         const collapseState = collapsedSectionsRef.current;
-        const isCollapsed = !!(collapseState as any)[sectionKey];
+        const isCollapsed = autoCollapseEnabled
+          ? !!(collapseState as any)[sectionKey]
+          : !!manualLocks[sectionKey] && !!(collapseState as any)[sectionKey];
 
         const toggleSection = () => {
           setCollapsedSections((prev) => {
@@ -3332,8 +3334,10 @@ export function ThreePanelInterface() {
       return <>{parts}</>;
     },
     [
+      autoCollapseEnabled,
       buildSectionKey,
       fixedStreamingSectionHeightEnabled,
+      manualLocks,
       renderMarkdownContent,
       renderSectionContent,
       textLabels.exportActionTitle,
@@ -3438,7 +3442,9 @@ export function ThreePanelInterface() {
         messageIndex
       );
       const collapseState = collapsedSectionsRef.current;
-      const isCollapsed = !!(collapseState as any)[sectionKey];
+      const isCollapsed = autoCollapseEnabled
+        ? !!(collapseState as any)[sectionKey]
+        : !!manualLocks[sectionKey] && !!(collapseState as any)[sectionKey];
 
       const toggleSection = () => {
         setCollapsedSections((prev) => {
@@ -3659,7 +3665,7 @@ export function ThreePanelInterface() {
     }
 
     return <>{parts}</>;
-  }, [buildSectionKey, fixedStreamingSectionHeightEnabled, renderMarkdownContent, renderSectionContent, textLabels.exportActionTitle, textLabels.exportBlockedWhileStreaming, textLabels.relatedFiles, touchMessageAt]);
+  }, [autoCollapseEnabled, buildSectionKey, fixedStreamingSectionHeightEnabled, manualLocks, renderMarkdownContent, renderSectionContent, textLabels.exportActionTitle, textLabels.exportBlockedWhileStreaming, textLabels.relatedFiles, touchMessageAt]);
 
   // 根据完整内容自动折叠：除最后一个块外全部折叠
   const autoCollapseForContent = useCallback(
