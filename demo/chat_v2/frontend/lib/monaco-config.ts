@@ -1,13 +1,14 @@
-import { loader } from '@monaco-editor/react';
+import { loader } from "@monaco-editor/react";
 
-// 配置Monaco编辑器使用本地资源
 export function configureMonaco() {
-    if (typeof window !== 'undefined') {
-        // 使用本地 node_modules 中的 monaco-editor
-        loader.config({
-            paths: {
-                vs: '/monaco-editor/min/vs'
-            }
-        });
-    }
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  // 使用本地 dev 资源，规避 min 资源首次初始化时的一次性异常。
+  loader.config({
+    paths: {
+      vs: "/monaco-editor/dev/vs",
+    },
+  });
 }
