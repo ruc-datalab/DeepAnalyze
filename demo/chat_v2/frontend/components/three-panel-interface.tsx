@@ -4907,6 +4907,43 @@ export function ThreePanelInterface() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const renderClearChatButton = (buttonClassName: string) => (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={buttonClassName}
+          title={uiLanguage === "zh" ? "清空聊天" : "Clear Chat"}
+          disabled={isTyping}
+        >
+          <Eraser className="h-3.5 w-3.5" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {uiLanguage === "zh" ? "清空聊天？" : "Clear chat?"}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {uiLanguage === "zh"
+              ? "将删除当前会话内的所有消息，仅保留欢迎提示。"
+              : "This removes all messages in the current session and keeps only the welcome message."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={clearChat}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {uiLanguage === "zh" ? "确认清空" : "Confirm"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   const renderChatComposer = (
     wrapperClassName: string,
     options?: { stacked?: boolean }
@@ -4964,7 +5001,7 @@ export function ThreePanelInterface() {
             </>
           )}
 
-          <div className={stacked ? "flex items-center justify-between gap-3" : "contents"}>
+          <div className={stacked ? "flex items-center justify-between gap-3" : "flex items-center gap-2"}>
             {stacked && (
               <div className="flex items-center gap-2">
                 <Button
@@ -4978,32 +5015,35 @@ export function ThreePanelInterface() {
                 </Button>
               </div>
             )}
-            {isTyping ? (
-              <Button
-                onClick={handleStopMessage}
-                size="sm"
-                className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
-                title={uiLanguage === "zh" ? "\u6b63\u5728\u751f\u6210" : "Generating"}
-                disabled={isStopping}
-              >
-                {isStopping ? (
-                  <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <Square className="h-3.5 w-3.5 mr-1 fill-current" />
-                )}
-                {uiLanguage === "zh" ? "\u505c\u6b62" : "Stop"}
-              </Button>
-            ) : (
-              <Button
-                onClick={handleSendMessage}
-                size="sm"
-                disabled={!inputValue.trim() && attachments.length === 0}
-                className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
-              >
-                <Send className="h-4 w-4 mr-1" />
-                {uiLanguage === "zh" ? "\u53d1\u9001" : "Send"}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {isTyping ? (
+                <Button
+                  onClick={handleStopMessage}
+                  size="sm"
+                  className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+                  title={uiLanguage === "zh" ? "\u6b63\u5728\u751f\u6210" : "Generating"}
+                  disabled={isStopping}
+                >
+                  {isStopping ? (
+                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Square className="h-3.5 w-3.5 mr-1 fill-current" />
+                  )}
+                  {uiLanguage === "zh" ? "\u505c\u6b62" : "Stop"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSendMessage}
+                  size="sm"
+                  disabled={!inputValue.trim() && attachments.length === 0}
+                  className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+                >
+                  <Send className="h-4 w-4 mr-1" />
+                  {uiLanguage === "zh" ? "\u53d1\u9001" : "Send"}
+                </Button>
+              )}
+              {renderClearChatButton("h-10 rounded-full px-3")}
+            </div>
           </div>
         </div>
       </div>
@@ -5524,40 +5564,6 @@ export function ThreePanelInterface() {
                     <PanelRightOpen className="h-3.5 w-3.5 mr-1" />
                     {uiLanguage === "zh" ? "代码工作台" : "Code Lab"}
                   </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-full px-3"
-                        title={uiLanguage === "zh" ? "清空聊天" : "Clear Chat"}
-                        disabled={isTyping}
-                      >
-                        <Eraser className="h-3.5 w-3.5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {uiLanguage === "zh" ? "清空聊天？" : "Clear chat?"}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {uiLanguage === "zh"
-                            ? "将删除当前会话内的所有消息，仅保留欢迎提示。"
-                            : "This removes all messages in the current session and keeps only the welcome message."}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={clearChat}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          {uiLanguage === "zh" ? "确认清空" : "Confirm"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -5621,32 +5627,35 @@ export function ThreePanelInterface() {
                       className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black pr-4"
                     />
                   </div>
-                  {isTyping ? (
-                    <Button
-                      onClick={handleStopMessage}
-                      size="sm"
-                      className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
-                      title={uiLanguage === "zh" ? "正在生成" : "Generating"}
-                      disabled={isStopping}
-                    >
-                      {isStopping ? (
-                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                      ) : (
-                        <Square className="h-3.5 w-3.5 mr-1 fill-current" />
-                      )}
-                      {uiLanguage === "zh" ? "停止" : "Stop"}
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleSendMessage}
-                      size="sm"
-                      disabled={!inputValue.trim() && attachments.length === 0}
-                      className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
-                    >
-                      <Send className="h-4 w-4 mr-1" />
-                      {uiLanguage === "zh" ? "发送" : "Send"}
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isTyping ? (
+                      <Button
+                        onClick={handleStopMessage}
+                        size="sm"
+                        className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+                        title={uiLanguage === "zh" ? "正在生成" : "Generating"}
+                        disabled={isStopping}
+                      >
+                        {isStopping ? (
+                          <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Square className="h-3.5 w-3.5 mr-1 fill-current" />
+                        )}
+                        {uiLanguage === "zh" ? "停止" : "Stop"}
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleSendMessage}
+                        size="sm"
+                        disabled={!inputValue.trim() && attachments.length === 0}
+                        className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+                      >
+                        <Send className="h-4 w-4 mr-1" />
+                        {uiLanguage === "zh" ? "发送" : "Send"}
+                      </Button>
+                    )}
+                    {renderClearChatButton("h-10 rounded-full px-3")}
+                  </div>
                 </div>
               </div>
               )}
