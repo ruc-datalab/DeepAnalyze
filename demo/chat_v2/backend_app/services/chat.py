@@ -27,6 +27,8 @@ _STOP_EVENTS_LOCK = threading.Lock()
 HEYWHALE_API_BASE = (
     "https://www.heywhale.com/api/model/services/691d42c36c6dda33df0bf645/app/v1"
 )
+MINIMAX_API_BASE = "https://api.minimax.io/v1"
+MINIMAX_DEFAULT_MODEL = "MiniMax-M2.7"
 REMOTE_STOP_SEQUENCES = ["</Code>", "</Answer>"]
 
 
@@ -61,22 +63,36 @@ def _normalize_temperature(value: Any) -> float:
     return max(0.0, min(2.0, temperature))
 
 
+def _normalize_minimax_temperature(value: float) -> float:
+    """Clamp temperature into MiniMax's accepted range (0.01 .. 1.0]."""
+    return max(0.01, min(1.0, value))
+
+
 def build_chat_runtime_config(payload: dict[str, Any] | None) -> ChatRuntimeConfig:
     body = payload or {}
     provider = str(body.get("provider") or "local").strip().lower() or "local"
-    if provider not in {"local", "heywhale"}:
+    if provider not in {"local", "heywhale", "minimax"}:
         provider = "local"
 
     api_base = str(body.get("api_base") or "").strip()
     if provider == "heywhale" and not api_base:
         api_base = HEYWHALE_API_BASE
+    elif provider == "minimax" and not api_base:
+        api_base = MINIMAX_API_BASE
 
-    model = str(body.get("model") or settings.model_path).strip() or settings.model_path
+    model = str(body.get("model") or "").strip()
+    if not model:
+        model = MINIMAX_DEFAULT_MODEL if provider == "minimax" else settings.model_path
+
     api_key = str(body.get("api_key") or "").strip()
+
+    temperature = _normalize_temperature(body.get("temperature"))
+    if provider == "minimax":
+        temperature = _normalize_minimax_temperature(temperature)
 
     return ChatRuntimeConfig(
         provider=provider,
-        temperature=_normalize_temperature(body.get("temperature")),
+        temperature=temperature,
         model=model,
         api_key=api_key,
         api_base=api_base,
@@ -169,6 +185,35 @@ def _iter_heywhale_stream(
                 yield delta, {"choices": [{"finish_reason": finish_reason}]}
 
 
+def _iter_minimax_stream(
+    conversation: list[dict[str, Any]],
+    runtime_config: ChatRuntimeConfig,
+):
+    if not runtime_config.api_key:
+        raise ValueError("MiniMax API key is required")
+
+    minimax_client = openai.OpenAI(
+        base_url=runtime_config.api_base or MINIMAX_API_BASE,
+        api_key=runtime_config.api_key,
+    )
+    response = minimax_client.chat.completions.create(
+        model=runtime_config.model or MINIMAX_DEFAULT_MODEL,
+        messages=conversation,
+        temperature=runtime_config.temperature,
+        stream=True,
+        stop=REMOTE_STOP_SEQUENCES,
+        max_tokens=32768,
+    )
+    try:
+        for chunk in response:
+            delta_content = chunk.choices[0].delta.content if chunk.choices else None
+            yield delta_content, chunk
+    finally:
+        close = getattr(response, "close", None)
+        if callable(close):
+            close()
+
+
 def _resolve_workspace_selection(
     workspace: Iterable[str] | None,
     workspace_dir: str,
@@ -247,11 +292,12 @@ def bot_stream(
             last_chunk = None
             leading_chunks: list[str] = []
             leading_decided = not should_patch_first_assistant_message
-            stream_iter = (
-                _iter_heywhale_stream(conversation, runtime_config)
-                if runtime_config.provider == "heywhale"
-                else _iter_local_stream(conversation, runtime_config)
-            )
+            if runtime_config.provider == "heywhale":
+                stream_iter = _iter_heywhale_stream(conversation, runtime_config)
+            elif runtime_config.provider == "minimax":
+                stream_iter = _iter_minimax_stream(conversation, runtime_config)
+            else:
+                stream_iter = _iter_local_stream(conversation, runtime_config)
             try:
                 for delta, chunk in stream_iter:
                     if stop_event.is_set():
