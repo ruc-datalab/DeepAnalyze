@@ -28,6 +28,7 @@ HEYWHALE_API_BASE = (
     "https://www.heywhale.com/api/model/services/691d42c36c6dda33df0bf645/app/v1"
 )
 REMOTE_STOP_SEQUENCES = ["</Code>", "</Answer>"]
+EXECUTE_RESULT_PREFIX = "# Execute Result\n"
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,22 @@ class ChatRuntimeConfig:
     model: str = settings.model_path
     api_key: str = ""
     api_base: str = ""
+
+
+def _is_third_party_provider(provider: str) -> bool:
+    return provider in {"heywhale", "custom"}
+
+
+def _build_execution_feedback_message(
+    runtime_config: ChatRuntimeConfig,
+    execution_output: str,
+) -> dict[str, str]:
+    if _is_third_party_provider(runtime_config.provider):
+        return {
+            "role": "user",
+            "content": f"{EXECUTE_RESULT_PREFIX}{execution_output}",
+        }
+    return {"role": "execute", "content": execution_output}
 
 
 def _get_or_create_stop_event(session_id: str) -> threading.Event:
@@ -374,7 +391,9 @@ def bot_stream(
             file_block = build_file_block(artifact_paths, workspace_dir, session_id)
             yield exe_str + file_block
 
-            conversation.append({"role": "execute", "content": exe_output})
+            conversation.append(
+                _build_execution_feedback_message(runtime_config, exe_output)
+            )
 
             current_files = {
                 path.resolve() for path in Path(workspace_dir).rglob("*") if path.is_file()

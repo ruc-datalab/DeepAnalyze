@@ -206,6 +206,11 @@ const UPLOAD_ACCEPT_TYPES =
   ".csv,.tsv,.xlsx,.xls,.parquet,.sqlite,.db,.json,.txt,.log,.md,.markdown,.yml,.yaml,.pdf,image/*,.zip";
 type LlmProvider = "local" | "heywhale" | "custom";
 const DEFAULT_MODEL_NAME = "DeepAnalyze-8B";
+const EXECUTE_RESULT_PREFIX = "# Execute Result\n";
+const EXECUTE_RESULT_NOTICE_EN =
+  "Code execution feedback will be returned as a user message starting with `# Execute Result\\n`.";
+const EXECUTE_RESULT_NOTICE_ZH =
+  "代码执行结果会以用户消息回传，且内容开头固定为 `# Execute Result\\n`。";
 const CUSTOM_MODEL_SYSTEM_PREFIX_EN = `# Role
 
 You are an intelligent agent designed for **data analysis** scenarios. Your goal is to follow user instructions, continuously **analyze**, **write executable code**, and **understand the data based on the output**, ultimately producing high-quality **answers**. Each time you output, you decide the next action on your own.
@@ -1637,20 +1642,31 @@ export function ThreePanelInterface() {
 
   const effectiveSystemPrompt = useMemo(() => {
     const trimmed = systemPrompt.trim();
-    if (llmProvider !== "custom") {
-      return trimmed;
+    let mergedPrompt = trimmed;
+
+    if (llmProvider === "custom") {
+      const customPrefix =
+        uiLanguage === "zh"
+          ? CUSTOM_MODEL_SYSTEM_PREFIX_ZH
+          : CUSTOM_MODEL_SYSTEM_PREFIX_EN;
+      if (!mergedPrompt) {
+        mergedPrompt = customPrefix;
+      } else if (!mergedPrompt.startsWith(customPrefix)) {
+        mergedPrompt = `${customPrefix}\n\n${mergedPrompt}`;
+      }
     }
-    const prefix =
-      uiLanguage === "zh"
-        ? CUSTOM_MODEL_SYSTEM_PREFIX_ZH
-        : CUSTOM_MODEL_SYSTEM_PREFIX_EN;
-    if (!trimmed) {
-      return prefix;
+
+    if (llmProvider !== "local" && !mergedPrompt.includes(EXECUTE_RESULT_PREFIX)) {
+      const executeResultNotice =
+        uiLanguage === "zh"
+          ? EXECUTE_RESULT_NOTICE_ZH
+          : EXECUTE_RESULT_NOTICE_EN;
+      mergedPrompt = mergedPrompt
+        ? `${mergedPrompt}\n\n${executeResultNotice}`
+        : executeResultNotice;
     }
-    if (trimmed.startsWith(prefix)) {
-      return trimmed;
-    }
-    return `${prefix}\n\n${trimmed}`;
+
+    return mergedPrompt;
   }, [llmProvider, systemPrompt, uiLanguage]);
 
   useEffect(() => {
