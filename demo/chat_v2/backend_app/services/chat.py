@@ -40,15 +40,18 @@ class ChatRuntimeConfig:
     api_base: str = ""
 
 
-def _is_third_party_provider(provider: str) -> bool:
-    return provider in {"heywhale", "custom"}
+def _is_deepanalyze_model(model_name: str) -> bool:
+    normalized = str(model_name or "").strip().lower()
+    if not normalized:
+        return False
+    return bool(re.search(r"deep[\s\-_]*analyze", normalized))
 
 
 def _build_execution_feedback_message(
     runtime_config: ChatRuntimeConfig,
     execution_output: str,
 ) -> dict[str, str]:
-    if _is_third_party_provider(runtime_config.provider):
+    if not _is_deepanalyze_model(runtime_config.model):
         return {
             "role": "user",
             "content": f"{EXECUTE_RESULT_PREFIX}{execution_output}",

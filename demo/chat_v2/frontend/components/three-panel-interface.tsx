@@ -211,6 +211,8 @@ const EXECUTE_RESULT_NOTICE_EN =
   "Code execution feedback will be returned as a user message starting with `# Execute Result\\n`.";
 const EXECUTE_RESULT_NOTICE_ZH =
   "代码执行结果会以用户消息回传，且内容开头固定为 `# Execute Result\\n`。";
+const isDeepAnalyzeModelName = (modelName: string) =>
+  /deep[\s\-_]*analyze/i.test(String(modelName || "").trim());
 const CUSTOM_MODEL_SYSTEM_PREFIX_EN = `# Role
 
 You are an intelligent agent designed for **data analysis** scenarios. Your goal is to follow user instructions, continuously **analyze**, **write executable code**, and **understand the data based on the output**, ultimately producing high-quality **answers**. Each time you output, you decide the next action on your own.
@@ -1656,7 +1658,10 @@ export function ThreePanelInterface() {
       }
     }
 
-    if (llmProvider !== "local" && !mergedPrompt.includes(EXECUTE_RESULT_PREFIX)) {
+    if (
+      !isDeepAnalyzeModelName(modelName) &&
+      !mergedPrompt.includes(EXECUTE_RESULT_PREFIX)
+    ) {
       const executeResultNotice =
         uiLanguage === "zh"
           ? EXECUTE_RESULT_NOTICE_ZH
@@ -1667,7 +1672,7 @@ export function ThreePanelInterface() {
     }
 
     return mergedPrompt;
-  }, [llmProvider, systemPrompt, uiLanguage]);
+  }, [llmProvider, modelName, systemPrompt, uiLanguage]);
 
   useEffect(() => {
     if (!selectedPresetPrompt) return;
