@@ -211,8 +211,14 @@ const EXECUTE_RESULT_NOTICE_EN =
   "Code execution feedback will be returned as a user message starting with `# Execute Result\\n`.";
 const EXECUTE_RESULT_NOTICE_ZH =
   "代码执行结果会以用户消息回传，且内容开头固定为 `# Execute Result\\n`。";
+const CODE_ISOLATION_NOTICE_EN =
+  "Each `<Code>` block runs as an independent Python script and does not inherit variables from previous `<Code>` blocks.";
+const CODE_ISOLATION_NOTICE_ZH =
+  "每个 `<Code>` 块都会作为独立的 Python 脚本运行，不会继承之前 `<Code>` 块中的变量。";
 const isDeepAnalyzeModelName = (modelName: string) =>
   /deep[\s\-_]*analyze/i.test(String(modelName || "").trim());
+const hasCodeIsolationNotice = (prompt: string) =>
+  /independent Python script|独立的 Python 脚本/.test(String(prompt || ""));
 const CUSTOM_MODEL_SYSTEM_PREFIX_EN = `# Role
 
 You are an intelligent agent designed for **data analysis** scenarios. Your goal is to follow user instructions, continuously **analyze**, **write executable code**, and **understand the data based on the output**, ultimately producing high-quality **answers**. Each time you output, you decide the next action on your own.
@@ -1655,6 +1661,14 @@ export function ThreePanelInterface() {
         mergedPrompt = customPrefix;
       } else if (!mergedPrompt.startsWith(customPrefix)) {
         mergedPrompt = `${customPrefix}\n\n${mergedPrompt}`;
+      }
+
+      if (!hasCodeIsolationNotice(mergedPrompt)) {
+        const codeIsolationNotice =
+          uiLanguage === "zh"
+            ? CODE_ISOLATION_NOTICE_ZH
+            : CODE_ISOLATION_NOTICE_EN;
+        mergedPrompt = `${mergedPrompt}\n\n${codeIsolationNotice}`;
       }
     }
 
