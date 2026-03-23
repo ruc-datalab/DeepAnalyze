@@ -215,10 +215,16 @@ const CODE_ISOLATION_NOTICE_EN =
   "Each `<Code>` block runs as an independent Python script and does not inherit variables from previous `<Code>` blocks.";
 const CODE_ISOLATION_NOTICE_ZH =
   "每个 `<Code>` 块都会作为独立的 Python 脚本运行，不会继承之前 `<Code>` 块中的变量。";
+const CURRENT_DIR_OUTPUT_NOTICE_EN =
+  "When generating files or charts, save them directly in the current directory and do not create subdirectories.";
+const CURRENT_DIR_OUTPUT_NOTICE_ZH =
+  "生成文件或图表时，请直接保存在当前目录，不要创建子目录。";
 const isDeepAnalyzeModelName = (modelName: string) =>
   /deep[\s\-_]*analyze/i.test(String(modelName || "").trim());
 const hasCodeIsolationNotice = (prompt: string) =>
   /independent Python script|独立的 Python 脚本/.test(String(prompt || ""));
+const hasCurrentDirOutputNotice = (prompt: string) =>
+  /current directory|当前目录/.test(String(prompt || ""));
 const CUSTOM_MODEL_SYSTEM_PREFIX_EN = `# Role
 
 You are an intelligent agent designed for **data analysis** scenarios. Your goal is to follow user instructions, continuously **analyze**, **write executable code**, and **understand the data based on the output**, ultimately producing high-quality **answers**. Each time you output, you decide the next action on your own.
@@ -1669,6 +1675,14 @@ export function ThreePanelInterface() {
             ? CODE_ISOLATION_NOTICE_ZH
             : CODE_ISOLATION_NOTICE_EN;
         mergedPrompt = `${mergedPrompt}\n\n${codeIsolationNotice}`;
+      }
+
+      if (!hasCurrentDirOutputNotice(mergedPrompt)) {
+        const currentDirOutputNotice =
+          uiLanguage === "zh"
+            ? CURRENT_DIR_OUTPUT_NOTICE_ZH
+            : CURRENT_DIR_OUTPUT_NOTICE_EN;
+        mergedPrompt = `${mergedPrompt}\n\n${currentDirOutputNotice}`;
       }
     }
 
