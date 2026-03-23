@@ -13,6 +13,22 @@
 - Export Markdown and PDF reports
 - Switch between Chinese and English UI
 - Run code either locally or inside Docker
+- Choose model provider: Local, HeyWhale API, or Custom OpenAI-compatible API
+
+## Model Provider Settings
+
+In the left configuration panel:
+
+- `Local`: uses your local DeepAnalyze-compatible endpoint.
+- `HeyWhale API`: requires `API Key`; API base uses the built-in HeyWhale endpoint by default.
+- `Custom Model`: requires your own `Model Name` and `API Base`; `API Key` is optional.
+
+When provider is `Custom Model`, the frontend automatically prepends a structured data-analysis system prefix:
+
+- English UI => English prefix
+- Chinese UI => Chinese prefix
+
+For local or HeyWhale DeepAnalyze usage, this extra prefix is not injected.
 
 ## Prerequisites
 

@@ -204,6 +204,84 @@ const ACTIVE_SECTION_UPDATE_INTERVAL_MS = 80;
 const STREAMING_SECTION_FIXED_HEIGHT_PX = 140;
 const UPLOAD_ACCEPT_TYPES =
   ".csv,.tsv,.xlsx,.xls,.parquet,.sqlite,.db,.json,.txt,.log,.md,.markdown,.yml,.yaml,.pdf,image/*,.zip";
+type LlmProvider = "local" | "heywhale" | "custom";
+const DEFAULT_MODEL_NAME = "DeepAnalyze-8B";
+const CUSTOM_MODEL_SYSTEM_PREFIX_EN = `# Role
+
+You are an intelligent agent designed for **data analysis** scenarios. Your goal is to follow user instructions, continuously **analyze**, **write executable code**, and **understand the data based on the output**, ultimately producing high-quality **answers**. Each time you output, you decide the next action on your own.
+
+---
+
+# Input Format: \`# Instruction\` and \`# Data\`
+
+You will receive user instructions structured as follows:
+
+- \`# Instruction\`: The user's task instructions (what you need to do).
+- \`# Data\`: A contextual data block containing file names and file sizes.
+
+You must:
+
+- Strictly follow the instructions in \`# Instruction\`;
+- Treat \`# Data\` only as available reference material and do not fabricate non-existent data.
+
+---
+
+# Output Format (Must Follow)
+
+You must organize your output using the following XML-style tags (tag names are case-sensitive):
+
+- \`<Analyze>...</Analyze>\`: Your analysis, assumptions, solution selection, risks, and trade-offs.
+- \`<Code>...</Code>\`: Code to be executed in Python.
+- \`<Understand>...</Understand>\`: Your confirmation and understanding of the data content and context.
+- \`<Answer>...</Answer>\`: The final conclusion and deliverables (reports/explanations/table conclusions, etc.) for the user.
+- After outputting \`</Code>\`, you should end your output. The code you just wrote will be sent to the Python execution environment, and the execution results will be returned to you.
+
+---
+
+# Interaction Process (How the System Uses Your Output)
+
+The system will interact with you as follows:
+
+1. After receiving \`# Instruction/# Data\`, you will formulate a plan in \`<Analyze>\` and produce the next executable action in \`<Code>\`.
+2. The system will execute the code in \`<Code>\` and return the execution output to you as an "execution result" message.
+3. After reviewing the execution result, you will decide whether to proceed with data understanding (\`<Understand>\`), analysis (\`<Analyze>\`), or deliver the final answer (\`<Answer>\`).`;
+const CUSTOM_MODEL_SYSTEM_PREFIX_ZH = `# 角色（Role）
+
+你是一个面向 **数据分析** 场景的智能体。你的目标是遵循用户指令，不断**分析（Analyze）、 编写可执行代码（Code）、根据输出理解数据（Understand），**，并最终产出高质量的** 答案(Answer) **。每次输出时，由你自己决定下一步的动作。
+
+---
+# 输入格式：\`# Instruction\` 与 \`# Data\`
+
+你会收到用户指令，内容采用如下结构：
+
+- \`# Instruction\`：用户的任务指令（你需要做什么）。
+- \`# Data\`：上下文数据块，包含文件名和文件大小。
+
+你必须：
+
+- 严格按 \`# Instruction\` 执行；
+- 仅把 \`# Data\` 作为可获取的参考，不要凭空杜撰不存在的数据；
+
+---
+# 输出范式（必须遵守）
+
+你必须用以下 XML 风格标签组织输出（标签名区分大小写）：
+
+- \`<Analyze>...</Analyze>\`：你的分析、假设、方案选择、风险与取舍。
+- \`<Code>...</Code>\`：要在Python 中执行的代码。
+- \`<Understand>...</Understand>\`：你对数据内容、上下文的确认与理解。
+- \`<Answer>...</Answer>\`：最终对用户的结论与交付物（报告/解释/表格结论等）。
+- 你在输出\`</Code>\`之后，应结束输出。此时你刚才写的代码会送到python执行环境中执行，并将执行结果返回给你。
+
+---
+
+# 交互流程（系统如何使用你的输出）
+
+系统会按如下方式与你交互：
+
+1. 你收到 \`# Instruction/# Data\` 后，在 \`<Analyze>\` 中制定计划，然后用 \`<Code>\` 产出下一步可执行动作。
+2. 系统会执行 \`<Code>\` 中的代码，并把执行输出以“执行结果”消息回传给你。
+3. 你阅读执行结果后，决定进行数据理解\`<Understand>\`、分析\`<Analyze>\`还是得出最终的答案\`<Answer>\`。`;
 
 type WorkspaceNode = {
   name: string;
@@ -678,8 +756,17 @@ export function ThreePanelInterface() {
       }
 
       const savedProvider = localStorage.getItem("deepanalyze.llmProvider");
-      if (savedProvider === "local" || savedProvider === "heywhale") {
-        setLlmProvider(savedProvider);
+      if (
+        savedProvider === "local" ||
+        savedProvider === "heywhale" ||
+        savedProvider === "custom"
+      ) {
+        setLlmProvider(savedProvider as LlmProvider);
+      }
+
+      const savedModelName = localStorage.getItem("deepanalyze.modelName");
+      if (savedModelName) {
+        setModelName(savedModelName);
       }
 
       const savedTemperature = localStorage.getItem("deepanalyze.modelTemperature");
@@ -690,6 +777,16 @@ export function ThreePanelInterface() {
       const savedApiKey = sessionStorage.getItem("deepanalyze.heywhaleApiKey");
       if (savedApiKey) {
         setHeywhaleApiKey(savedApiKey);
+      }
+
+      const savedCustomApiBase = localStorage.getItem("deepanalyze.customApiBase");
+      if (savedCustomApiBase) {
+        setCustomApiBase(savedCustomApiBase);
+      }
+
+      const savedCustomApiKey = sessionStorage.getItem("deepanalyze.customApiKey");
+      if (savedCustomApiKey) {
+        setCustomApiKey(savedCustomApiKey);
       }
 
       const savedPresetId = localStorage.getItem("deepanalyze.selectedPresetId");
@@ -895,9 +992,12 @@ export function ThreePanelInterface() {
   const [selectedWorkspacePath, setSelectedWorkspacePath] = useState("");
   const [uiLanguage, setUiLanguage] = useState<UILanguage>("en");
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
-  const [llmProvider, setLlmProvider] = useState<"local" | "heywhale">("local");
+  const [llmProvider, setLlmProvider] = useState<LlmProvider>("local");
+  const [modelName, setModelName] = useState(DEFAULT_MODEL_NAME);
   const [modelTemperature, setModelTemperature] = useState("0.4");
   const [heywhaleApiKey, setHeywhaleApiKey] = useState("");
+  const [customApiBase, setCustomApiBase] = useState("");
+  const [customApiKey, setCustomApiKey] = useState("");
   const [selectedPresetId, setSelectedPresetId] = useState(
     DATA_ANALYSIS_PROMPT_PRESETS[0]?.id || ""
   );
@@ -920,6 +1020,11 @@ export function ThreePanelInterface() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    localStorage.setItem("deepanalyze.modelName", modelName);
+  }, [modelName]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     localStorage.setItem("deepanalyze.modelTemperature", modelTemperature);
   }, [modelTemperature]);
 
@@ -927,6 +1032,16 @@ export function ThreePanelInterface() {
     if (typeof window === "undefined") return;
     sessionStorage.setItem("deepanalyze.heywhaleApiKey", heywhaleApiKey);
   }, [heywhaleApiKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("deepanalyze.customApiBase", customApiBase);
+  }, [customApiBase]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem("deepanalyze.customApiKey", customApiKey);
+  }, [customApiKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1304,6 +1419,12 @@ export function ThreePanelInterface() {
       modelProvider: uiLanguage === "zh" ? "模型来源" : "Model Provider",
       providerLocal: uiLanguage === "zh" ? "本地" : "Local",
       providerHeywhale: uiLanguage === "zh" ? "和鲸 API" : "HeyWhale API",
+      providerCustom: uiLanguage === "zh" ? "自定义模型" : "Custom Model",
+      modelName: uiLanguage === "zh" ? "模型名称" : "Model Name",
+      modelNamePlaceholder:
+        uiLanguage === "zh"
+          ? "例如：DeepAnalyze-8B 或 gpt-4o-mini"
+          : "For example: DeepAnalyze-8B or gpt-4o-mini",
       temperature: uiLanguage === "zh" ? "温度" : "Temperature",
       temperatureHint:
         uiLanguage === "zh"
@@ -1314,6 +1435,28 @@ export function ThreePanelInterface() {
         uiLanguage === "zh"
           ? "输入和鲸平台申请的 API Key"
           : "Enter the API key issued by HeyWhale",
+      customApiBase: uiLanguage === "zh" ? "自定义 API Base" : "Custom API Base",
+      customApiBasePlaceholder:
+        uiLanguage === "zh"
+          ? "例如：https://api.example.com/v1"
+          : "For example: https://api.example.com/v1",
+      customApiKey: uiLanguage === "zh" ? "自定义 API Key" : "Custom API Key",
+      customApiKeyPlaceholder:
+        uiLanguage === "zh"
+          ? "请输入你自己的 API Key（可选）"
+          : "Enter your API key (optional)",
+      needHeywhaleKey:
+        uiLanguage === "zh"
+          ? "请先填写和鲸 API Key"
+          : "Please provide a HeyWhale API key first.",
+      needCustomModel:
+        uiLanguage === "zh"
+          ? "请先填写自定义模型名称"
+          : "Please provide a custom model name first.",
+      needCustomApiBase:
+        uiLanguage === "zh"
+          ? "请先填写自定义 API Base 地址"
+          : "Please provide a custom API base URL first.",
       exportCenter: uiLanguage === "zh" ? "导出中心" : "Export Center",
       exportHint:
         uiLanguage === "zh"
@@ -1491,6 +1634,24 @@ export function ThreePanelInterface() {
     if (!Number.isFinite(parsed)) return 0.4;
     return Math.min(2, Math.max(0, parsed));
   }, [modelTemperature]);
+
+  const effectiveSystemPrompt = useMemo(() => {
+    const trimmed = systemPrompt.trim();
+    if (llmProvider !== "custom") {
+      return trimmed;
+    }
+    const prefix =
+      uiLanguage === "zh"
+        ? CUSTOM_MODEL_SYSTEM_PREFIX_ZH
+        : CUSTOM_MODEL_SYSTEM_PREFIX_EN;
+    if (!trimmed) {
+      return prefix;
+    }
+    if (trimmed.startsWith(prefix)) {
+      return trimmed;
+    }
+    return `${prefix}\n\n${trimmed}`;
+  }, [llmProvider, systemPrompt, uiLanguage]);
 
   useEffect(() => {
     if (!selectedPresetPrompt) return;
@@ -4629,12 +4790,24 @@ export function ThreePanelInterface() {
       await handleStopMessage();
       return;
     }
+    const trimmedModelName = modelName.trim();
     if (llmProvider === "heywhale" && !heywhaleApiKey.trim()) {
       toastRef.current({
-        description:
-          uiLanguage === "zh"
-            ? "请先填写和鲸 API Key"
-            : "Please provide a HeyWhale API key first.",
+        description: textLabels.needHeywhaleKey,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (llmProvider === "custom" && !trimmedModelName) {
+      toastRef.current({
+        description: textLabels.needCustomModel,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (llmProvider === "custom" && !customApiBase.trim()) {
+      toastRef.current({
+        description: textLabels.needCustomApiBase,
         variant: "destructive",
       });
       return;
@@ -4667,16 +4840,23 @@ export function ThreePanelInterface() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "DeepAnalyze-8B", // 修正模型名
+          model: trimmedModelName || DEFAULT_MODEL_NAME,
           provider: llmProvider,
-          api_key: llmProvider === "heywhale" ? heywhaleApiKey.trim() : "",
+          api_key:
+            llmProvider === "heywhale"
+              ? heywhaleApiKey.trim()
+              : llmProvider === "custom"
+                ? customApiKey.trim()
+                : "",
+          api_base: llmProvider === "custom" ? customApiBase.trim() : "",
           temperature: normalizedTemperature,
+          ui_language: uiLanguage,
           messages: [
-            ...(systemPrompt.trim()
+            ...(effectiveSystemPrompt
               ? [
                   {
                     role: "system",
-                    content: systemPrompt.trim(),
+                    content: effectiveSystemPrompt,
                   },
                 ]
               : []),
@@ -4691,7 +4871,7 @@ export function ThreePanelInterface() {
               content: inputValue,
             },
           ],
-          stream: true, // [修改] 明确开启流式模式
+          stream: true,
           session_id: sessionId,
         }),
       });
@@ -5156,7 +5336,7 @@ export function ThreePanelInterface() {
                         <Select
                           value={llmProvider}
                           onValueChange={(value) =>
-                            setLlmProvider(value as "local" | "heywhale")
+                            setLlmProvider(value as LlmProvider)
                           }
                         >
                           <SelectTrigger className="w-full rounded-xl">
@@ -5165,6 +5345,7 @@ export function ThreePanelInterface() {
                           <SelectContent>
                             <SelectItem value="local">{textLabels.providerLocal}</SelectItem>
                             <SelectItem value="heywhale">{textLabels.providerHeywhale}</SelectItem>
+                            <SelectItem value="custom">{textLabels.providerCustom}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -5189,6 +5370,17 @@ export function ThreePanelInterface() {
                         </div>
                       </div>
                     </div>
+                    <div>
+                      <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                        {textLabels.modelName}
+                      </div>
+                      <Input
+                        value={modelName}
+                        onChange={(e) => setModelName(e.target.value)}
+                        className="rounded-xl border-gray-200 dark:border-gray-800"
+                        placeholder={textLabels.modelNamePlaceholder}
+                      />
+                    </div>
                     {llmProvider === "heywhale" && (
                       <div>
                         <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -5201,6 +5393,33 @@ export function ThreePanelInterface() {
                           className="rounded-xl border-gray-200 dark:border-gray-800"
                           placeholder={textLabels.heywhaleApiKeyPlaceholder}
                         />
+                      </div>
+                    )}
+                    {llmProvider === "custom" && (
+                      <div className="space-y-3">
+                        <div>
+                          <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {textLabels.customApiBase}
+                          </div>
+                          <Input
+                            value={customApiBase}
+                            onChange={(e) => setCustomApiBase(e.target.value)}
+                            className="rounded-xl border-gray-200 dark:border-gray-800"
+                            placeholder={textLabels.customApiBasePlaceholder}
+                          />
+                        </div>
+                        <div>
+                          <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {textLabels.customApiKey}
+                          </div>
+                          <Input
+                            type="password"
+                            value={customApiKey}
+                            onChange={(e) => setCustomApiKey(e.target.value)}
+                            className="rounded-xl border-gray-200 dark:border-gray-800"
+                            placeholder={textLabels.customApiKeyPlaceholder}
+                          />
+                        </div>
                       </div>
                     )}
                   </Card>

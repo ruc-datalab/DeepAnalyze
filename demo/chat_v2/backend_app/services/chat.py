@@ -64,15 +64,19 @@ def _normalize_temperature(value: Any) -> float:
 def build_chat_runtime_config(payload: dict[str, Any] | None) -> ChatRuntimeConfig:
     body = payload or {}
     provider = str(body.get("provider") or "local").strip().lower() or "local"
-    if provider not in {"local", "heywhale"}:
+    if provider not in {"local", "heywhale", "custom"}:
         provider = "local"
 
     api_base = str(body.get("api_base") or "").strip()
     if provider == "heywhale" and not api_base:
         api_base = HEYWHALE_API_BASE
+    if provider == "custom" and not api_base:
+        raise ValueError("Custom API base is required")
 
     model = str(body.get("model") or settings.model_path).strip() or settings.model_path
     api_key = str(body.get("api_key") or "").strip()
+    if provider == "heywhale" and not api_key:
+        raise ValueError("HeyWhale API key is required")
 
     return ChatRuntimeConfig(
         provider=provider,
@@ -146,6 +150,50 @@ def _iter_heywhale_stream(
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {runtime_config.api_key}",
             },
+            json=request_body,
+        ) as response:
+            response.raise_for_status()
+            for raw_line in response.iter_lines():
+                if not raw_line:
+                    continue
+                line = raw_line.strip()
+                if not line:
+                    continue
+                if line.startswith("data:"):
+                    line = line[5:].strip()
+                if line == "[DONE]":
+                    break
+                try:
+                    payload = json.loads(line)
+                except Exception:
+                    continue
+                choice = (payload.get("choices") or [{}])[0]
+                delta = (choice.get("delta") or {}).get("content")
+                finish_reason = choice.get("finish_reason")
+                yield delta, {"choices": [{"finish_reason": finish_reason}]}
+
+
+def _iter_custom_stream(
+    conversation: list[dict[str, Any]],
+    runtime_config: ChatRuntimeConfig,
+):
+    request_body = {
+        "model": runtime_config.model,
+        "messages": conversation,
+        "temperature": runtime_config.temperature,
+        "stream": True,
+        "stop": REMOTE_STOP_SEQUENCES,
+    }
+
+    headers = {"Content-Type": "application/json"}
+    if runtime_config.api_key:
+        headers["Authorization"] = f"Bearer {runtime_config.api_key}"
+
+    with httpx.Client(timeout=None) as http_client:
+        with http_client.stream(
+            "POST",
+            f"{runtime_config.api_base.rstrip('/')}/chat/completions",
+            headers=headers,
             json=request_body,
         ) as response:
             response.raise_for_status()
@@ -250,7 +298,11 @@ def bot_stream(
             stream_iter = (
                 _iter_heywhale_stream(conversation, runtime_config)
                 if runtime_config.provider == "heywhale"
-                else _iter_local_stream(conversation, runtime_config)
+                else (
+                    _iter_custom_stream(conversation, runtime_config)
+                    if runtime_config.provider == "custom"
+                    else _iter_local_stream(conversation, runtime_config)
+                )
             )
             try:
                 for delta, chunk in stream_iter:
