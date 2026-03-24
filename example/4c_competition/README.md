@@ -1,8 +1,18 @@
-# api 接口请求
+# 2026年（第19届）中国大学生计算机设计大赛大数据主题赛 - 官方支撑DeepAnalyze
+
+## 一、克隆DeepAnalyze 仓库
+
+```bash
+git clone https://github.com/ruc-datalab/DeepAnalyze.git
+cd ./DeepAnalyze/example/4c_competition
+pip install -r requirements.txt
+```
+
+## 二、调用方式
 
 提供两种调用方案：
 
-## 1 纯 prompt 版请求示例
+### 1 纯 prompt 版请求示例
 
 ```Python
 !curl -X POST https://www.heywhale.com/api/model/services/69b7c9d028cbfe8349df5924/app/v1/chat/completions \
@@ -12,7 +22,7 @@
 curl -X POST "https://www.heywhale.com/api/model/services/69b7c9d028cbfe8349df5924/app/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer your_api_key" -d "{\"messages\": [{\"role\": \"user\", \"content\": \"What is tensorflow？\"}]}"
 ```
 
-## 2 prompt+上传文件版请求示例：
+### 2 prompt+上传文件版请求示例：
 
 将zip文件解压到本地目录
 

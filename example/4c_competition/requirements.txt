@@ -1,0 +1,29 @@
+# DeepAnalyze Project Dependencies
+# Core dependencies for Gradio web interface and FastAPI server
+
+# Web Interface - Gradio (specified version)
+gradio==6.0.0
+
+# OpenAI API Client
+openai>=1.0.0
+
+# FastAPI and ASGI Server
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+python-multipart>=0.0.6
+
+# Data Processing
+pandas>=1.5.0
+
+# HTTP Requests
+requests>=2.28.0
+
+# Data Validation (required by FastAPI)
+pydantic>=2.0.0
+
+# Optional but recommended for better performance
+# Uncomment if needed:
+# aiofiles>=23.0.0  # For async file operations
+# python-jose[cryptography]>=3.3.0  # For JWT authentication (if needed)
+# passlib[bcrypt]>=1.7.4  # For password hashing (if needed)
+
