@@ -29,6 +29,8 @@ HEYWHALE_API_BASE = (
 )
 REMOTE_STOP_SEQUENCES = ["</Code>", "</Answer>"]
 EXECUTE_RESULT_PREFIX = "# Execute Result\n"
+STRUCTURED_TAG_NAMES = ("Analyze", "Understand", "Code", "Execute", "Answer", "File")
+STRUCTURED_OPEN_TAGS = tuple(f"<{tag}>" for tag in STRUCTURED_TAG_NAMES)
 
 
 @dataclass(frozen=True)
@@ -116,12 +118,14 @@ def _infer_missing_close_tag(content: str) -> str | None:
 
 
 def _starts_with_structured_tag(content: str) -> bool:
-    return bool(
-        re.match(
-            r"^\s*<(Analyze|Understand|Code|Execute|Answer|File)>",
-            content or "",
-        )
-    )
+    return bool(re.match(r"^\s*<(Analyze|Understand|Code|Execute|Answer|File)>", content or ""))
+
+
+def _starts_with_partial_structured_open_tag(content: str) -> bool:
+    stripped = (content or "").lstrip()
+    if not stripped or not stripped.startswith("<"):
+        return False
+    return any(tag.startswith(stripped) for tag in STRUCTURED_OPEN_TAGS)
 
 
 def _iter_local_stream(
@@ -335,6 +339,8 @@ def bot_stream(
                             leading_chunks.append(delta)
                             combined = "".join(leading_chunks)
                             if not combined.strip():
+                                continue
+                            if _starts_with_partial_structured_open_tag(combined):
                                 continue
                             leading_decided = True
                             should_prefix = not _starts_with_structured_tag(combined)

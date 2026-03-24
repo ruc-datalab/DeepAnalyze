@@ -211,20 +211,8 @@ const EXECUTE_RESULT_NOTICE_EN =
   "Code execution feedback will be returned as a user message starting with `# Execute Result\\n`.";
 const EXECUTE_RESULT_NOTICE_ZH =
   "代码执行结果会以用户消息回传，且内容开头固定为 `# Execute Result\\n`。";
-const CODE_ISOLATION_NOTICE_EN =
-  "Each `<Code>` block runs as an independent Python script and does not inherit variables from previous `<Code>` blocks.";
-const CODE_ISOLATION_NOTICE_ZH =
-  "每个 `<Code>` 块都会作为独立的 Python 脚本运行，不会继承之前 `<Code>` 块中的变量。";
-const CURRENT_DIR_OUTPUT_NOTICE_EN =
-  "When generating files or charts, save them directly in the current directory and do not create subdirectories.";
-const CURRENT_DIR_OUTPUT_NOTICE_ZH =
-  "生成文件或图表时，请直接保存在当前目录，不要创建子目录。";
 const isDeepAnalyzeModelName = (modelName: string) =>
   /deep[\s\-_]*analyze/i.test(String(modelName || "").trim());
-const hasCodeIsolationNotice = (prompt: string) =>
-  /independent Python script|独立的 Python 脚本/.test(String(prompt || ""));
-const hasCurrentDirOutputNotice = (prompt: string) =>
-  /current directory|当前目录/.test(String(prompt || ""));
 const CUSTOM_MODEL_SYSTEM_PREFIX_EN = `# Role
 
 You are an intelligent agent designed for **data analysis** scenarios. Your goal is to follow user instructions, continuously **analyze**, **write executable code**, and **understand the data based on the output**, ultimately producing high-quality **answers**. Each time you output, you decide the next action on your own.
@@ -263,7 +251,14 @@ The system will interact with you as follows:
 
 1. After receiving \`# Instruction/# Data\`, you will formulate a plan in \`<Analyze>\` and produce the next executable action in \`<Code>\`.
 2. The system will execute the code in \`<Code>\` and return the execution output to you as an "execution result" message.
-3. After reviewing the execution result, you will decide whether to proceed with data understanding (\`<Understand>\`), analysis (\`<Analyze>\`), or deliver the final answer (\`<Answer>\`).`;
+3. After reviewing the execution result, you will decide whether to proceed with data understanding (\`<Understand>\`), analysis (\`<Analyze>\`), or deliver the final answer (\`<Answer>\`).
+
+---
+
+# Additional Constraints (Must Follow)
+
+- Each \`<Code>\` block runs as an independent Python script and does not inherit variables from previous \`<Code>\` blocks.
+- When generating files or charts, save them directly in the current directory and do not create subdirectories.`;
 const CUSTOM_MODEL_SYSTEM_PREFIX_ZH = `# 角色（Role）
 
 你是一个面向 **数据分析** 场景的智能体。你的目标是遵循用户指令，不断**分析（Analyze）、 编写可执行代码（Code）、根据输出理解数据（Understand），**，并最终产出高质量的** 答案(Answer) **。每次输出时，由你自己决定下一步的动作。
@@ -300,7 +295,14 @@ const CUSTOM_MODEL_SYSTEM_PREFIX_ZH = `# 角色（Role）
 
 1. 你收到 \`# Instruction/# Data\` 后，在 \`<Analyze>\` 中制定计划，然后用 \`<Code>\` 产出下一步可执行动作。
 2. 系统会执行 \`<Code>\` 中的代码，并把执行输出以“执行结果”消息回传给你。
-3. 你阅读执行结果后，决定进行数据理解\`<Understand>\`、分析\`<Analyze>\`还是得出最终的答案\`<Answer>\`。`;
+3. 你阅读执行结果后，决定进行数据理解\`<Understand>\`、分析\`<Analyze>\`还是得出最终的答案\`<Answer>\`。
+
+---
+
+# 额外约束（必须遵守）
+
+- 每个 \`<Code>\` 块都会作为独立的 Python 脚本运行，不会继承之前 \`<Code>\` 块中的变量。
+- 生成文件或图表时，请直接保存在当前目录，不要创建子目录。`;
 
 type WorkspaceNode = {
   name: string;
@@ -1669,21 +1671,6 @@ export function ThreePanelInterface() {
         mergedPrompt = `${customPrefix}\n\n${mergedPrompt}`;
       }
 
-      if (!hasCodeIsolationNotice(mergedPrompt)) {
-        const codeIsolationNotice =
-          uiLanguage === "zh"
-            ? CODE_ISOLATION_NOTICE_ZH
-            : CODE_ISOLATION_NOTICE_EN;
-        mergedPrompt = `${mergedPrompt}\n\n${codeIsolationNotice}`;
-      }
-
-      if (!hasCurrentDirOutputNotice(mergedPrompt)) {
-        const currentDirOutputNotice =
-          uiLanguage === "zh"
-            ? CURRENT_DIR_OUTPUT_NOTICE_ZH
-            : CURRENT_DIR_OUTPUT_NOTICE_EN;
-        mergedPrompt = `${mergedPrompt}\n\n${currentDirOutputNotice}`;
-      }
     }
 
     if (
@@ -4192,7 +4179,36 @@ export function ThreePanelInterface() {
       }
 
       if (previewType === "text") {
+        const previewExtension = (
+          previewTitle.split(".").pop() || "text"
+        ).toLowerCase();
+        const previewLanguage = guessLanguageByExtension(previewExtension);
         if (compact) {
+          if (previewLanguage === "json") {
+            return (
+              <div className="h-48 overflow-hidden p-2">
+                <div className="h-full min-h-0 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
+                  <Editor
+                    height="100%"
+                    defaultLanguage="json"
+                    language="json"
+                    value={previewContent.slice(0, 1200)}
+                    theme={isDarkMode ? "vs-dark" : "light"}
+                    options={{
+                      readOnly: true,
+                      wordWrap: "on",
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      fontFamily: "var(--font-mono), 'Courier New', monospace",
+                      fontSize: 12,
+                      lineNumbers: "off",
+                      automaticLayout: true,
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          }
           return (
             <pre className="max-h-48 overflow-auto whitespace-pre-wrap p-3 text-xs text-gray-700 dark:text-gray-300">
               {previewContent.slice(0, 1200)}
@@ -4205,12 +4221,8 @@ export function ThreePanelInterface() {
               <div className="h-full min-h-0">
                 <Editor
                   height="100%"
-                  defaultLanguage={guessLanguageByExtension(
-                    previewTitle.split(".").pop() || "text"
-                  )}
-                  language={guessLanguageByExtension(
-                    previewTitle.split(".").pop() || "text"
-                  )}
+                  defaultLanguage={previewLanguage}
+                  language={previewLanguage}
                   value={previewContent}
                   theme={isDarkMode ? "vs-dark" : "light"}
                   options={{
