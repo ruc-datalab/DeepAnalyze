@@ -5,6 +5,7 @@ import re
 import threading
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -17,7 +18,12 @@ from .execution import (
     execute_code_safe,
     snapshot_workspace_files,
 )
-from .workspace import collect_file_info, get_session_workspace
+from .workspace import (
+    collect_file_info,
+    get_session_workspace,
+    register_generated_paths,
+    uniquify_path,
+)
 from ..settings import CHINESE_MATPLOTLIB_BOOTSTRAP, settings
 
 
@@ -282,6 +288,35 @@ def _extract_code_to_execute(content: str) -> str | None:
     return code_str
 
 
+def _extract_answer_content(content: str) -> str:
+    matches = re.findall(r"<Answer>([\s\S]*?)</Answer>", content or "", re.DOTALL)
+    if not matches:
+        return ""
+    return matches[-1].strip()
+
+
+def _save_answer_markdown_report(
+    content: str,
+    workspace_dir: str,
+    session_id: str,
+) -> Path | None:
+    answer_content = _extract_answer_content(content)
+    if not answer_content:
+        return None
+
+    workspace_root = Path(workspace_dir).resolve()
+    generated_root = (workspace_root / "generated").resolve()
+    generated_root.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_path = uniquify_path(generated_root / f"Answer_Report_{timestamp}.md")
+    report_path.write_text(answer_content.rstrip() + "\n", encoding="utf-8")
+
+    rel_path = report_path.relative_to(workspace_root).as_posix()
+    register_generated_paths(session_id, [rel_path])
+    return report_path
+
+
 def bot_stream(
     messages: list[dict[str, Any]],
     workspace: list[str],
@@ -319,6 +354,7 @@ def bot_stream(
             last_chunk = None
             leading_chunks: list[str] = []
             leading_decided = not should_patch_first_assistant_message
+            answer_report_saved = False
             stream_iter = (
                 _iter_heywhale_stream(conversation, runtime_config)
                 if runtime_config.provider == "heywhale"
@@ -354,6 +390,22 @@ def bot_stream(
                         cur_res += delta
                         yield delta
                     if "</Answer>" in cur_res:
+                        if not answer_report_saved:
+                            report_path = _save_answer_markdown_report(
+                                cur_res,
+                                workspace_dir,
+                                session_id,
+                            )
+                            if report_path is not None:
+                                file_block = build_file_block(
+                                    [report_path],
+                                    workspace_dir,
+                                    session_id,
+                                )
+                                if file_block:
+                                    cur_res += file_block
+                                    yield file_block
+                            answer_report_saved = True
                         finished = True
                         break
             except httpx.HTTPError as exc:
@@ -374,6 +426,22 @@ def bot_stream(
                 cur_res += missing_tag
                 yield missing_tag
                 if missing_tag == "</Answer>":
+                    if not answer_report_saved:
+                        report_path = _save_answer_markdown_report(
+                            cur_res,
+                            workspace_dir,
+                            session_id,
+                        )
+                        if report_path is not None:
+                            file_block = build_file_block(
+                                [report_path],
+                                workspace_dir,
+                                session_id,
+                            )
+                            if file_block:
+                                cur_res += file_block
+                                yield file_block
+                        answer_report_saved = True
                     finished = True
 
             if "</Code>" not in cur_res or finished:
