@@ -257,7 +257,7 @@ The system will interact with you as follows:
 
 # Additional Constraints (Must Follow)
 
-- Each \`<Code>\` block runs as an independent Python script and does not inherit variables from previous \`<Code>\` blocks.
+- Each \`<Code>\` block runs as an independent Python script and does not inherit variables from previous \`<Code>\` blocks. Therefore, each piece of code in your \`<Code>\` must be a complete, standalone Python script that can run independently.
 - When generating files or charts, save them directly in the current directory and do not create subdirectories.`;
 const CUSTOM_MODEL_SYSTEM_PREFIX_ZH = `# 角色（Role）
 
@@ -301,7 +301,7 @@ const CUSTOM_MODEL_SYSTEM_PREFIX_ZH = `# 角色（Role）
 
 # 额外约束（必须遵守）
 
-- 每个 \`<Code>\` 块都会作为独立的 Python 脚本运行，不会继承之前 \`<Code>\` 块中的变量。
+- 每个 \`<Code>\` 块都会作为独立的 Python 脚本运行，不会继承之前 \`<Code>\` 块中的变量。因此你的每次\`<Code>\`里的代码都需要是独立可运行的完整python代码。
 - 生成文件或图表时，请直接保存在当前目录，不要创建子目录。`;
 
 type WorkspaceNode = {
