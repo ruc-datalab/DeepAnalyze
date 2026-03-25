@@ -38,6 +38,8 @@ EXECUTE_RESULT_PREFIX = "# Execute Result\n"
 FIXED_MODEL_NAME = "DeepAnalyze-8B"
 STRUCTURED_TAG_NAMES = ("Analyze", "Understand", "Code", "Execute", "Answer", "File")
 STRUCTURED_OPEN_TAGS = tuple(f"<{tag}>" for tag in STRUCTURED_TAG_NAMES)
+STRUCTURED_TAG_PATTERN = "|".join(STRUCTURED_TAG_NAMES)
+STRUCTURED_OPEN_TAG_RE = re.compile(rf"<({STRUCTURED_TAG_PATTERN})>")
 
 
 @dataclass(frozen=True)
@@ -120,19 +122,108 @@ def build_chat_runtime_config(payload: dict[str, Any] | None) -> ChatRuntimeConf
 
 
 def _infer_missing_close_tag(content: str) -> str | None:
-    if "<Code>" in content and "</Code>" not in content:
+    if _has_unclosed_section(content, "Code"):
         return "</Code>"
-    if "<Answer>" in content and "</Answer>" not in content:
+    if _has_unclosed_section(content, "Answer"):
         return "</Answer>"
     return None
 
 
+def _mask_backticked_content(content: str) -> str:
+    raw = content or ""
+    chars = list(raw)
+    length = len(raw)
+    cursor = 0
+
+    while cursor < length:
+        if raw[cursor] != "`":
+            cursor += 1
+            continue
+
+        tick_count = 1
+        while cursor + tick_count < length and raw[cursor + tick_count] == "`":
+            tick_count += 1
+
+        delimiter = "`" * tick_count
+        end_index = raw.find(delimiter, cursor + tick_count)
+        if end_index == -1:
+            end_index = length
+        else:
+            end_index += tick_count
+
+        for i in range(cursor, end_index):
+            chars[i] = " "
+        cursor = end_index
+
+    return "".join(chars)
+
+
+def _iter_top_level_structured_sections(content: str) -> list[dict[str, Any]]:
+    raw = content or ""
+    masked = _mask_backticked_content(raw)
+    sections: list[dict[str, Any]] = []
+    cursor = 0
+
+    while True:
+        open_match = STRUCTURED_OPEN_TAG_RE.search(masked, cursor)
+        if open_match is None:
+            break
+
+        tag = open_match.group(1)
+        open_end = open_match.end()
+        close_tag = f"</{tag}>"
+        close_index = masked.find(close_tag, open_end)
+
+        if close_index == -1:
+            sections.append(
+                {
+                    "tag": tag,
+                    "body": raw[open_end:],
+                    "completed": False,
+                }
+            )
+            break
+
+        sections.append(
+            {
+                "tag": tag,
+                "body": raw[open_end:close_index],
+                "completed": True,
+            }
+        )
+        cursor = close_index + len(close_tag)
+
+    return sections
+
+
+def _has_unclosed_section(content: str, tag: str) -> bool:
+    sections = _iter_top_level_structured_sections(content)
+    for section in reversed(sections):
+        if section["tag"] == tag:
+            return not bool(section["completed"])
+    return False
+
+
+def _has_completed_section(content: str, tag: str) -> bool:
+    sections = _iter_top_level_structured_sections(content)
+    return any(section["tag"] == tag and section["completed"] for section in sections)
+
+
+def _extract_latest_completed_section_body(content: str, tag: str) -> str:
+    sections = _iter_top_level_structured_sections(content)
+    for section in reversed(sections):
+        if section["tag"] == tag and section["completed"]:
+            return str(section["body"]).strip()
+    return ""
+
+
 def _starts_with_structured_tag(content: str) -> bool:
-    return bool(re.match(r"^\s*<(Analyze|Understand|Code|Execute|Answer|File)>", content or ""))
+    masked = _mask_backticked_content(content or "")
+    return bool(re.match(rf"^\s*<({STRUCTURED_TAG_PATTERN})>", masked))
 
 
 def _starts_with_partial_structured_open_tag(content: str) -> bool:
-    stripped = (content or "").lstrip()
+    stripped = _mask_backticked_content(content or "").lstrip()
     if not stripped or not stripped.startswith("<"):
         return False
     return any(tag.startswith(stripped) for tag in STRUCTURED_OPEN_TAGS)
@@ -280,11 +371,9 @@ def _build_user_prompt(messages: list[dict[str, Any]], workspace: list[str], wor
 
 
 def _extract_code_to_execute(content: str) -> str | None:
-    code_match = re.search(r"<Code>(.*?)</Code>", content, re.DOTALL)
-    if not code_match:
+    code_content = _extract_latest_completed_section_body(content, "Code")
+    if not code_content:
         return None
-
-    code_content = code_match.group(1).strip()
     md_match = re.search(r"```(?:python)?(.*?)```", code_content, re.DOTALL)
     code_str = md_match.group(1).strip() if md_match else code_content
     if re.search(r"(^|\W)(plt\.|matplotlib|sns\.|seaborn)", code_str, re.IGNORECASE):
@@ -293,10 +382,7 @@ def _extract_code_to_execute(content: str) -> str | None:
 
 
 def _extract_answer_content(content: str) -> str:
-    matches = re.findall(r"<Answer>([\s\S]*?)</Answer>", content or "", re.DOTALL)
-    if not matches:
-        return ""
-    return matches[-1].strip()
+    return _extract_latest_completed_section_body(content, "Answer")
 
 
 def _save_answer_markdown_report(
@@ -393,7 +479,7 @@ def bot_stream(
                             continue
                         cur_res += delta
                         yield delta
-                    if "</Answer>" in cur_res:
+                    if _has_completed_section(cur_res, "Answer"):
                         if not answer_report_saved:
                             report_path = _save_answer_markdown_report(
                                 cur_res,
@@ -448,7 +534,7 @@ def bot_stream(
                         answer_report_saved = True
                     finished = True
 
-            if "</Code>" not in cur_res or finished:
+            if not _has_completed_section(cur_res, "Code") or finished:
                 continue
 
             conversation.append({"role": "assistant", "content": cur_res})
