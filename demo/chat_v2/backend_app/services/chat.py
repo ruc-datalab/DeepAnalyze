@@ -35,6 +35,7 @@ HEYWHALE_API_BASE = (
 )
 REMOTE_STOP_SEQUENCES = ["</Code>", "</Answer>"]
 EXECUTE_RESULT_PREFIX = "# Execute Result\n"
+FIXED_MODEL_NAME = "DeepAnalyze-8B"
 STRUCTURED_TAG_NAMES = ("Analyze", "Understand", "Code", "Execute", "Answer", "File")
 STRUCTURED_OPEN_TAGS = tuple(f"<{tag}>" for tag in STRUCTURED_TAG_NAMES)
 
@@ -101,7 +102,10 @@ def build_chat_runtime_config(payload: dict[str, Any] | None) -> ChatRuntimeConf
     if provider == "custom" and not api_base:
         raise ValueError("Custom API base is required")
 
-    model = str(body.get("model") or settings.model_path).strip() or settings.model_path
+    if provider in {"local", "heywhale"}:
+        model = FIXED_MODEL_NAME
+    else:
+        model = str(body.get("model") or FIXED_MODEL_NAME).strip() or FIXED_MODEL_NAME
     api_key = str(body.get("api_key") or "").strip()
     if provider == "heywhale" and not api_key:
         raise ValueError("HeyWhale API key is required")

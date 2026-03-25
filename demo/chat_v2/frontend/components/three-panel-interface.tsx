@@ -785,9 +785,11 @@ export function ThreePanelInterface() {
         setLlmProvider(savedProvider as LlmProvider);
       }
 
-      const savedModelName = localStorage.getItem("deepanalyze.modelName");
-      if (savedModelName) {
-        setModelName(savedModelName);
+      const savedCustomModelName =
+        localStorage.getItem("deepanalyze.customModelName") ||
+        localStorage.getItem("deepanalyze.modelName");
+      if (savedCustomModelName) {
+        setCustomModelName(savedCustomModelName);
       }
 
       const savedTemperature = localStorage.getItem("deepanalyze.modelTemperature");
@@ -1014,7 +1016,7 @@ export function ThreePanelInterface() {
   const [uiLanguage, setUiLanguage] = useState<UILanguage>("en");
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [llmProvider, setLlmProvider] = useState<LlmProvider>("local");
-  const [modelName, setModelName] = useState(DEFAULT_MODEL_NAME);
+  const [customModelName, setCustomModelName] = useState(DEFAULT_MODEL_NAME);
   const [modelTemperature, setModelTemperature] = useState("0.4");
   const [heywhaleApiKey, setHeywhaleApiKey] = useState("");
   const [customApiBase, setCustomApiBase] = useState("");
@@ -1041,8 +1043,8 @@ export function ThreePanelInterface() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem("deepanalyze.modelName", modelName);
-  }, [modelName]);
+    localStorage.setItem("deepanalyze.customModelName", customModelName);
+  }, [customModelName]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1674,7 +1676,9 @@ export function ThreePanelInterface() {
     }
 
     if (
-      !isDeepAnalyzeModelName(modelName) &&
+      !isDeepAnalyzeModelName(
+        llmProvider === "custom" ? customModelName : DEFAULT_MODEL_NAME
+      ) &&
       !mergedPrompt.includes(EXECUTE_RESULT_PREFIX)
     ) {
       const executeResultNotice =
@@ -1687,7 +1691,7 @@ export function ThreePanelInterface() {
     }
 
     return mergedPrompt;
-  }, [llmProvider, modelName, systemPrompt, uiLanguage]);
+  }, [customModelName, llmProvider, systemPrompt, uiLanguage]);
 
   useEffect(() => {
     if (!selectedPresetPrompt) return;
@@ -4851,7 +4855,7 @@ export function ThreePanelInterface() {
       await handleStopMessage();
       return;
     }
-    const trimmedModelName = modelName.trim();
+    const trimmedCustomModelName = customModelName.trim();
     if (llmProvider === "heywhale" && !heywhaleApiKey.trim()) {
       toastRef.current({
         description: textLabels.needHeywhaleKey,
@@ -4859,7 +4863,7 @@ export function ThreePanelInterface() {
       });
       return;
     }
-    if (llmProvider === "custom" && !trimmedModelName) {
+    if (llmProvider === "custom" && !trimmedCustomModelName) {
       toastRef.current({
         description: textLabels.needCustomModel,
         variant: "destructive",
@@ -4901,7 +4905,10 @@ export function ThreePanelInterface() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: trimmedModelName || DEFAULT_MODEL_NAME,
+          model:
+            llmProvider === "custom"
+              ? trimmedCustomModelName || DEFAULT_MODEL_NAME
+              : DEFAULT_MODEL_NAME,
           provider: llmProvider,
           api_key:
             llmProvider === "heywhale"
@@ -5436,10 +5443,24 @@ export function ThreePanelInterface() {
                         {textLabels.modelName}
                       </div>
                       <Input
-                        value={modelName}
-                        onChange={(e) => setModelName(e.target.value)}
+                        value={
+                          llmProvider === "custom"
+                            ? customModelName
+                            : DEFAULT_MODEL_NAME
+                        }
+                        onChange={(e) => {
+                          if (llmProvider === "custom") {
+                            setCustomModelName(e.target.value);
+                          }
+                        }}
                         className="rounded-xl border-gray-200 dark:border-gray-800"
-                        placeholder={textLabels.modelNamePlaceholder}
+                        placeholder={
+                          llmProvider === "custom"
+                            ? textLabels.modelNamePlaceholder
+                            : DEFAULT_MODEL_NAME
+                        }
+                        readOnly={llmProvider !== "custom"}
+                        disabled={llmProvider !== "custom"}
                       />
                     </div>
                     {llmProvider === "heywhale" && (
