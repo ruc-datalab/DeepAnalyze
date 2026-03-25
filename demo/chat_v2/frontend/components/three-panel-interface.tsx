@@ -6435,16 +6435,6 @@ export function ThreePanelInterface() {
                   </div>
                 </Card>
 
-                {activePreviewFile && (
-                  <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-4">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {uiLanguage === "zh" ? "当前选中路径" : "Selected Path"}
-                    </div>
-                    <div className="mt-2 break-all text-xs text-gray-500 dark:text-gray-400">
-                      {activePreviewFile.path}
-                    </div>
-                  </Card>
-                )}
               </div>
             </div>
           </ResizablePanel>
