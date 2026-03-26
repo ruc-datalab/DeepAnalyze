@@ -13,6 +13,7 @@
 - 支持导出 Markdown 和 PDF 报告
 - 支持中英文界面切换
 - 支持 local / docker 两种代码执行模式
+- 支持多种 LLM 来源：本地 (vLLM)、和鲸 API、[MiniMax AI](https://www.minimaxi.com)
 
 ## 运行前准备
 
@@ -25,6 +26,8 @@ vllm serve DeepAnalyze-8B
 ```
 
 默认连接 `http://localhost:8000` 附近的 OpenAI 兼容接口。
+
+也可以在界面中将模型来源切换为 **MiniMax AI**，使用云端模型（MiniMax-M2.7），无需运行本地模型服务。只需在"模型来源"下拉菜单中选择"MiniMax AI"，然后输入从 [MiniMax 平台](https://www.minimaxi.com) 获取的 API Key。
 
 ### 2. Python 与 Node.js
 

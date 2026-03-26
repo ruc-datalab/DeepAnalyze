@@ -13,6 +13,7 @@
 - Export Markdown and PDF reports
 - Switch between Chinese and English UI
 - Run code either locally or inside Docker
+- Multiple LLM providers: Local (vLLM), HeyWhale API, and [MiniMax AI](https://www.minimaxi.com)
 
 ## Prerequisites
 
@@ -25,6 +26,8 @@ vllm serve DeepAnalyze-8B
 ```
 
 By default the chat demo connects to an OpenAI-compatible endpoint around `http://localhost:8000`.
+
+Alternatively, you can switch the model provider in the UI to **MiniMax AI** and use cloud-hosted models (MiniMax-M2.7) without running a local model service. Just select "MiniMax AI" from the Model Provider dropdown and enter your API key from [MiniMax platform](https://www.minimaxi.com).
 
 ### 2. Python and Node.js
 

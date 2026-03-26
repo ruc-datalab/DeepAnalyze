@@ -526,7 +526,7 @@ export function ThreePanelInterface() {
       }
 
       const savedProvider = localStorage.getItem("deepanalyze.llmProvider");
-      if (savedProvider === "local" || savedProvider === "heywhale") {
+      if (savedProvider === "local" || savedProvider === "heywhale" || savedProvider === "minimax") {
         setLlmProvider(savedProvider);
       }
 
@@ -538,6 +538,11 @@ export function ThreePanelInterface() {
       const savedApiKey = sessionStorage.getItem("deepanalyze.heywhaleApiKey");
       if (savedApiKey) {
         setHeywhaleApiKey(savedApiKey);
+      }
+
+      const savedMinimaxKey = sessionStorage.getItem("deepanalyze.minimaxApiKey");
+      if (savedMinimaxKey) {
+        setMinimaxApiKey(savedMinimaxKey);
       }
 
       const savedPromptPanel = localStorage.getItem("deepanalyze.showPromptPanel");
@@ -749,9 +754,10 @@ export function ThreePanelInterface() {
   const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [uiLanguage, setUiLanguage] = useState<UILanguage>("en");
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
-  const [llmProvider, setLlmProvider] = useState<"local" | "heywhale">("local");
+  const [llmProvider, setLlmProvider] = useState<"local" | "heywhale" | "minimax">("local");
   const [modelTemperature, setModelTemperature] = useState("0.4");
   const [heywhaleApiKey, setHeywhaleApiKey] = useState("");
+  const [minimaxApiKey, setMinimaxApiKey] = useState("");
   const [selectedPresetId, setSelectedPresetId] = useState(
     DATA_ANALYSIS_PROMPT_PRESETS[0]?.id || ""
   );
@@ -781,6 +787,11 @@ export function ThreePanelInterface() {
     if (typeof window === "undefined") return;
     sessionStorage.setItem("deepanalyze.heywhaleApiKey", heywhaleApiKey);
   }, [heywhaleApiKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem("deepanalyze.minimaxApiKey", minimaxApiKey);
+  }, [minimaxApiKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1122,6 +1133,7 @@ export function ThreePanelInterface() {
       modelProvider: uiLanguage === "zh" ? "模型来源" : "Model Provider",
       providerLocal: uiLanguage === "zh" ? "本地" : "Local",
       providerHeywhale: uiLanguage === "zh" ? "和鲸 API" : "HeyWhale API",
+      providerMinimax: uiLanguage === "zh" ? "MiniMax AI" : "MiniMax AI",
       temperature: uiLanguage === "zh" ? "温度" : "Temperature",
       temperatureHint:
         uiLanguage === "zh"
@@ -1132,6 +1144,11 @@ export function ThreePanelInterface() {
         uiLanguage === "zh"
           ? "输入和鲸平台申请的 API Key"
           : "Enter the API key issued by HeyWhale",
+      minimaxApiKey: uiLanguage === "zh" ? "MiniMax API Key" : "MiniMax API Key",
+      minimaxApiKeyPlaceholder:
+        uiLanguage === "zh"
+          ? "输入 MiniMax 平台申请的 API Key"
+          : "Enter the API key from MiniMax platform",
       exportCenter: uiLanguage === "zh" ? "导出中心" : "Export Center",
       exportHint:
         uiLanguage === "zh"
@@ -4236,6 +4253,16 @@ export function ThreePanelInterface() {
       });
       return;
     }
+    if (llmProvider === "minimax" && !minimaxApiKey.trim()) {
+      toastRef.current({
+        description:
+          uiLanguage === "zh"
+            ? "请先填写 MiniMax API Key"
+            : "Please provide a MiniMax API key first.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!inputValue.trim() && attachments.length === 0) return;
     const baseMessageIndex = messages.length;
     const aiMessageIndex = baseMessageIndex + 1;
@@ -4264,9 +4291,9 @@ export function ThreePanelInterface() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "DeepAnalyze-8B", // 修正模型名
+          model: llmProvider === "minimax" ? "MiniMax-M2.7" : "DeepAnalyze-8B",
           provider: llmProvider,
-          api_key: llmProvider === "heywhale" ? heywhaleApiKey.trim() : "",
+          api_key: llmProvider === "heywhale" ? heywhaleApiKey.trim() : llmProvider === "minimax" ? minimaxApiKey.trim() : "",
           temperature: normalizedTemperature,
           messages: [
             ...(systemPrompt.trim()
@@ -4669,7 +4696,7 @@ export function ThreePanelInterface() {
                         <Select
                           value={llmProvider}
                           onValueChange={(value) =>
-                            setLlmProvider(value as "local" | "heywhale")
+                            setLlmProvider(value as "local" | "heywhale" | "minimax")
                           }
                         >
                           <SelectTrigger className="w-full rounded-xl">
@@ -4678,6 +4705,7 @@ export function ThreePanelInterface() {
                           <SelectContent>
                             <SelectItem value="local">{textLabels.providerLocal}</SelectItem>
                             <SelectItem value="heywhale">{textLabels.providerHeywhale}</SelectItem>
+                            <SelectItem value="minimax">{textLabels.providerMinimax}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -4713,6 +4741,20 @@ export function ThreePanelInterface() {
                           onChange={(e) => setHeywhaleApiKey(e.target.value)}
                           className="rounded-xl border-gray-200 dark:border-gray-800"
                           placeholder={textLabels.heywhaleApiKeyPlaceholder}
+                        />
+                      </div>
+                    )}
+                    {llmProvider === "minimax" && (
+                      <div>
+                        <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {textLabels.minimaxApiKey}
+                        </div>
+                        <Input
+                          type="password"
+                          value={minimaxApiKey}
+                          onChange={(e) => setMinimaxApiKey(e.target.value)}
+                          className="rounded-xl border-gray-200 dark:border-gray-800"
+                          placeholder={textLabels.minimaxApiKeyPlaceholder}
                         />
                       </div>
                     )}
