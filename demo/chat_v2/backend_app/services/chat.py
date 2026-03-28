@@ -33,6 +33,9 @@ _STOP_EVENTS_LOCK = threading.Lock()
 HEYWHALE_API_BASE = (
     "https://www.heywhale.com/api/model/services/691d42c36c6dda33df0bf645/app/v1"
 )
+HEYWHALE_BACKUP_CHAT_COMPLETIONS_URL = (
+    "https://www.heywhale.com/api/model/services/69b7c9d028cbfe8349df5924/app/v1/chat/completions"
+)
 REMOTE_STOP_SEQUENCES = ["</Code>", "</Answer>"]
 EXECUTE_RESULT_PREFIX = "# Execute Result\n"
 FIXED_MODEL_NAME = "DeepAnalyze-8B"
@@ -267,35 +270,49 @@ def _iter_heywhale_stream(
         "stop": REMOTE_STOP_SEQUENCES,
     }
 
+    primary_url = f"{runtime_config.api_base.rstrip('/')}/chat/completions"
+    request_urls = [primary_url]
+    if runtime_config.api_base.rstrip("/") == HEYWHALE_API_BASE.rstrip("/"):
+        request_urls.append(HEYWHALE_BACKUP_CHAT_COMPLETIONS_URL)
+
     with httpx.Client(timeout=None) as http_client:
-        with http_client.stream(
-            "POST",
-            f"{runtime_config.api_base.rstrip('/')}/chat/completions",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {runtime_config.api_key}",
-            },
-            json=request_body,
-        ) as response:
-            response.raise_for_status()
-            for raw_line in response.iter_lines():
-                if not raw_line:
-                    continue
-                line = raw_line.strip()
-                if not line:
-                    continue
-                if line.startswith("data:"):
-                    line = line[5:].strip()
-                if line == "[DONE]":
-                    break
-                try:
-                    payload = json.loads(line)
-                except Exception:
-                    continue
-                choice = (payload.get("choices") or [{}])[0]
-                delta = (choice.get("delta") or {}).get("content")
-                finish_reason = choice.get("finish_reason")
-                yield delta, {"choices": [{"finish_reason": finish_reason}]}
+        for idx, request_url in enumerate(request_urls):
+            has_stream_output = False
+            try:
+                with http_client.stream(
+                    "POST",
+                    request_url,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {runtime_config.api_key}",
+                    },
+                    json=request_body,
+                ) as response:
+                    response.raise_for_status()
+                    for raw_line in response.iter_lines():
+                        if not raw_line:
+                            continue
+                        line = raw_line.strip()
+                        if not line:
+                            continue
+                        if line.startswith("data:"):
+                            line = line[5:].strip()
+                        if line == "[DONE]":
+                            break
+                        try:
+                            payload = json.loads(line)
+                        except Exception:
+                            continue
+                        has_stream_output = True
+                        choice = (payload.get("choices") or [{}])[0]
+                        delta = (choice.get("delta") or {}).get("content")
+                        finish_reason = choice.get("finish_reason")
+                        yield delta, {"choices": [{"finish_reason": finish_reason}]}
+                return
+            except httpx.HTTPError:
+                if has_stream_output or idx >= len(request_urls) - 1:
+                    raise
+                continue
 
 
 def _iter_custom_stream(
