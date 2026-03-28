@@ -132,7 +132,13 @@ PDF 导出依赖：
 - `pandoc`
 - `xelatex`
 
-如果缺少 `pandoc` 或 `xelatex`，界面会给出明确错误提示。系统不会自动安装这些依赖。
+行为说明：
+
+- 如果缺少 `pandoc`，后端会尝试自动下载（默认开启）。
+- `xelatex` 仍是必需项，需要手动安装。
+- 可通过以下环境变量控制：
+  - `DEEPANALYZE_PDF_AUTO_DOWNLOAD_PANDOC`（默认 `true`）
+  - `DEEPANALYZE_PDF_PANDOC_CACHE_DIR`（可选，指定 pandoc 缓存目录）
 
 ## 目录说明
 

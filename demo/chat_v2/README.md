@@ -13,6 +13,22 @@
 - Export Markdown and PDF reports
 - Switch between Chinese and English UI
 - Run code either locally or inside Docker
+- Choose model provider: Local, HeyWhale API, or Custom OpenAI-compatible API
+
+## Model Provider Settings
+
+In the left configuration panel:
+
+- `Local`: uses your local DeepAnalyze-compatible endpoint.
+- `HeyWhale API`: requires `API Key`; API base uses the built-in HeyWhale endpoint by default.
+- `Custom Model`: requires your own `Model Name` and `API Base`; `API Key` is optional.
+
+When provider is `Custom Model`, the frontend automatically prepends a structured data-analysis system prefix:
+
+- English UI => English prefix
+- Chinese UI => Chinese prefix
+
+For local or HeyWhale DeepAnalyze usage, this extra prefix is not injected.
 
 ## Prerequisites
 
@@ -132,7 +148,13 @@ PDF export depends on:
 - `pandoc`
 - `xelatex`
 
-If `pandoc` or `xelatex` is missing, the UI will show an explicit error message. The system does not install these dependencies automatically.
+Behavior details:
+
+- If `pandoc` is missing, the backend will try to auto-download it (enabled by default).
+- `xelatex` is still required and must be installed manually.
+- You can control this with:
+  - `DEEPANALYZE_PDF_AUTO_DOWNLOAD_PANDOC` (`true` by default)
+  - `DEEPANALYZE_PDF_PANDOC_CACHE_DIR` (optional pandoc cache path)
 
 ## Directory Overview
 
