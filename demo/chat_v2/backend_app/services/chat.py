@@ -5,6 +5,7 @@ import re
 import threading
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -17,7 +18,12 @@ from .execution import (
     execute_code_safe,
     snapshot_workspace_files,
 )
-from .workspace import collect_file_info, get_session_workspace
+from .workspace import (
+    collect_file_info,
+    get_session_workspace,
+    register_generated_paths,
+    uniquify_path,
+)
 from ..settings import CHINESE_MATPLOTLIB_BOOTSTRAP, settings
 
 
@@ -27,7 +33,16 @@ _STOP_EVENTS_LOCK = threading.Lock()
 HEYWHALE_API_BASE = (
     "https://www.heywhale.com/api/model/services/691d42c36c6dda33df0bf645/app/v1"
 )
+HEYWHALE_BACKUP_CHAT_COMPLETIONS_URL = (
+    "https://www.heywhale.com/api/model/services/69b7c9d028cbfe8349df5924/app/v1/chat/completions"
+)
 REMOTE_STOP_SEQUENCES = ["</Code>", "</Answer>"]
+EXECUTE_RESULT_PREFIX = "# Execute Result\n"
+FIXED_MODEL_NAME = "DeepAnalyze-8B"
+STRUCTURED_TAG_NAMES = ("Analyze", "Understand", "Code", "Execute", "Answer", "File")
+STRUCTURED_OPEN_TAGS = tuple(f"<{tag}>" for tag in STRUCTURED_TAG_NAMES)
+STRUCTURED_TAG_PATTERN = "|".join(STRUCTURED_TAG_NAMES)
+STRUCTURED_OPEN_TAG_RE = re.compile(rf"<({STRUCTURED_TAG_PATTERN})>")
 
 
 @dataclass(frozen=True)
@@ -37,6 +52,25 @@ class ChatRuntimeConfig:
     model: str = settings.model_path
     api_key: str = ""
     api_base: str = ""
+
+
+def _is_deepanalyze_model(model_name: str) -> bool:
+    normalized = str(model_name or "").strip().lower()
+    if not normalized:
+        return False
+    return bool(re.search(r"deep[\s\-_]*analyze", normalized))
+
+
+def _build_execution_feedback_message(
+    runtime_config: ChatRuntimeConfig,
+    execution_output: str,
+) -> dict[str, str]:
+    if not _is_deepanalyze_model(runtime_config.model):
+        return {
+            "role": "user",
+            "content": f"{EXECUTE_RESULT_PREFIX}{execution_output}",
+        }
+    return {"role": "execute", "content": execution_output}
 
 
 def _get_or_create_stop_event(session_id: str) -> threading.Event:
@@ -64,15 +98,22 @@ def _normalize_temperature(value: Any) -> float:
 def build_chat_runtime_config(payload: dict[str, Any] | None) -> ChatRuntimeConfig:
     body = payload or {}
     provider = str(body.get("provider") or "local").strip().lower() or "local"
-    if provider not in {"local", "heywhale"}:
+    if provider not in {"local", "heywhale", "custom"}:
         provider = "local"
 
     api_base = str(body.get("api_base") or "").strip()
     if provider == "heywhale" and not api_base:
         api_base = HEYWHALE_API_BASE
+    if provider == "custom" and not api_base:
+        raise ValueError("Custom API base is required")
 
-    model = str(body.get("model") or settings.model_path).strip() or settings.model_path
+    if provider in {"local", "heywhale"}:
+        model = FIXED_MODEL_NAME
+    else:
+        model = str(body.get("model") or FIXED_MODEL_NAME).strip() or FIXED_MODEL_NAME
     api_key = str(body.get("api_key") or "").strip()
+    if provider == "heywhale" and not api_key:
+        raise ValueError("HeyWhale API key is required")
 
     return ChatRuntimeConfig(
         provider=provider,
@@ -84,20 +125,111 @@ def build_chat_runtime_config(payload: dict[str, Any] | None) -> ChatRuntimeConf
 
 
 def _infer_missing_close_tag(content: str) -> str | None:
-    if "<Code>" in content and "</Code>" not in content:
+    if _has_unclosed_section(content, "Code"):
         return "</Code>"
-    if "<Answer>" in content and "</Answer>" not in content:
+    if _has_unclosed_section(content, "Answer"):
         return "</Answer>"
     return None
 
 
-def _starts_with_structured_tag(content: str) -> bool:
-    return bool(
-        re.match(
-            r"^\s*<(Analyze|Understand|Code|Execute|Answer|File)>",
-            content or "",
+def _mask_backticked_content(content: str) -> str:
+    raw = content or ""
+    chars = list(raw)
+    length = len(raw)
+    cursor = 0
+
+    while cursor < length:
+        if raw[cursor] != "`":
+            cursor += 1
+            continue
+
+        tick_count = 1
+        while cursor + tick_count < length and raw[cursor + tick_count] == "`":
+            tick_count += 1
+
+        delimiter = "`" * tick_count
+        end_index = raw.find(delimiter, cursor + tick_count)
+        if end_index == -1:
+            end_index = length
+        else:
+            end_index += tick_count
+
+        for i in range(cursor, end_index):
+            chars[i] = " "
+        cursor = end_index
+
+    return "".join(chars)
+
+
+def _iter_top_level_structured_sections(content: str) -> list[dict[str, Any]]:
+    raw = content or ""
+    masked = _mask_backticked_content(raw)
+    sections: list[dict[str, Any]] = []
+    cursor = 0
+
+    while True:
+        open_match = STRUCTURED_OPEN_TAG_RE.search(masked, cursor)
+        if open_match is None:
+            break
+
+        tag = open_match.group(1)
+        open_end = open_match.end()
+        close_tag = f"</{tag}>"
+        close_index = masked.find(close_tag, open_end)
+
+        if close_index == -1:
+            sections.append(
+                {
+                    "tag": tag,
+                    "body": raw[open_end:],
+                    "completed": False,
+                }
+            )
+            break
+
+        sections.append(
+            {
+                "tag": tag,
+                "body": raw[open_end:close_index],
+                "completed": True,
+            }
         )
-    )
+        cursor = close_index + len(close_tag)
+
+    return sections
+
+
+def _has_unclosed_section(content: str, tag: str) -> bool:
+    sections = _iter_top_level_structured_sections(content)
+    for section in reversed(sections):
+        if section["tag"] == tag:
+            return not bool(section["completed"])
+    return False
+
+
+def _has_completed_section(content: str, tag: str) -> bool:
+    sections = _iter_top_level_structured_sections(content)
+    return any(section["tag"] == tag and section["completed"] for section in sections)
+
+
+def _extract_latest_completed_section_body(content: str, tag: str) -> str:
+    sections = _iter_top_level_structured_sections(content)
+    for section in reversed(sections):
+        if section["tag"] == tag and section["completed"]:
+            return str(section["body"]).strip()
+    return ""
+
+
+def _starts_with_structured_tag(content: str) -> bool:
+    masked = _mask_backticked_content(content or "")
+    return bool(re.match(rf"^\s*<({STRUCTURED_TAG_PATTERN})>", masked))
+
+
+def _starts_with_partial_structured_open_tag(content: str) -> bool:
+    stripped = _mask_backticked_content(content or "").lstrip()
+    if not stripped or not stripped.startswith("<"):
+        return False
+    return any(tag.startswith(stripped) for tag in STRUCTURED_OPEN_TAGS)
 
 
 def _iter_local_stream(
@@ -138,14 +270,72 @@ def _iter_heywhale_stream(
         "stop": REMOTE_STOP_SEQUENCES,
     }
 
+    primary_url = f"{runtime_config.api_base.rstrip('/')}/chat/completions"
+    request_urls = [primary_url]
+    if runtime_config.api_base.rstrip("/") == HEYWHALE_API_BASE.rstrip("/"):
+        request_urls.append(HEYWHALE_BACKUP_CHAT_COMPLETIONS_URL)
+
+    with httpx.Client(timeout=None) as http_client:
+        for idx, request_url in enumerate(request_urls):
+            has_stream_output = False
+            try:
+                with http_client.stream(
+                    "POST",
+                    request_url,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {runtime_config.api_key}",
+                    },
+                    json=request_body,
+                ) as response:
+                    response.raise_for_status()
+                    for raw_line in response.iter_lines():
+                        if not raw_line:
+                            continue
+                        line = raw_line.strip()
+                        if not line:
+                            continue
+                        if line.startswith("data:"):
+                            line = line[5:].strip()
+                        if line == "[DONE]":
+                            break
+                        try:
+                            payload = json.loads(line)
+                        except Exception:
+                            continue
+                        has_stream_output = True
+                        choice = (payload.get("choices") or [{}])[0]
+                        delta = (choice.get("delta") or {}).get("content")
+                        finish_reason = choice.get("finish_reason")
+                        yield delta, {"choices": [{"finish_reason": finish_reason}]}
+                return
+            except httpx.HTTPError:
+                if has_stream_output or idx >= len(request_urls) - 1:
+                    raise
+                continue
+
+
+def _iter_custom_stream(
+    conversation: list[dict[str, Any]],
+    runtime_config: ChatRuntimeConfig,
+):
+    request_body = {
+        "model": runtime_config.model,
+        "messages": conversation,
+        "temperature": runtime_config.temperature,
+        "stream": True,
+        "stop": REMOTE_STOP_SEQUENCES,
+    }
+
+    headers = {"Content-Type": "application/json"}
+    if runtime_config.api_key:
+        headers["Authorization"] = f"Bearer {runtime_config.api_key}"
+
     with httpx.Client(timeout=None) as http_client:
         with http_client.stream(
             "POST",
             f"{runtime_config.api_base.rstrip('/')}/chat/completions",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {runtime_config.api_key}",
-            },
+            headers=headers,
             json=request_body,
         ) as response:
             response.raise_for_status()
@@ -198,16 +388,40 @@ def _build_user_prompt(messages: list[dict[str, Any]], workspace: list[str], wor
 
 
 def _extract_code_to_execute(content: str) -> str | None:
-    code_match = re.search(r"<Code>(.*?)</Code>", content, re.DOTALL)
-    if not code_match:
+    code_content = _extract_latest_completed_section_body(content, "Code")
+    if not code_content:
         return None
-
-    code_content = code_match.group(1).strip()
     md_match = re.search(r"```(?:python)?(.*?)```", code_content, re.DOTALL)
     code_str = md_match.group(1).strip() if md_match else code_content
     if re.search(r"(^|\W)(plt\.|matplotlib|sns\.|seaborn)", code_str, re.IGNORECASE):
         return CHINESE_MATPLOTLIB_BOOTSTRAP + "\n" + code_str
     return code_str
+
+
+def _extract_answer_content(content: str) -> str:
+    return _extract_latest_completed_section_body(content, "Answer")
+
+
+def _save_answer_markdown_report(
+    content: str,
+    workspace_dir: str,
+    session_id: str,
+) -> Path | None:
+    answer_content = _extract_answer_content(content)
+    if not answer_content:
+        return None
+
+    workspace_root = Path(workspace_dir).resolve()
+    generated_root = (workspace_root / "generated").resolve()
+    generated_root.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_path = uniquify_path(generated_root / f"Answer_Report_{timestamp}.md")
+    report_path.write_text(answer_content.rstrip() + "\n", encoding="utf-8")
+
+    rel_path = report_path.relative_to(workspace_root).as_posix()
+    register_generated_paths(session_id, [rel_path])
+    return report_path
 
 
 def bot_stream(
@@ -247,10 +461,15 @@ def bot_stream(
             last_chunk = None
             leading_chunks: list[str] = []
             leading_decided = not should_patch_first_assistant_message
+            answer_report_saved = False
             stream_iter = (
                 _iter_heywhale_stream(conversation, runtime_config)
                 if runtime_config.provider == "heywhale"
-                else _iter_local_stream(conversation, runtime_config)
+                else (
+                    _iter_custom_stream(conversation, runtime_config)
+                    if runtime_config.provider == "custom"
+                    else _iter_local_stream(conversation, runtime_config)
+                )
             )
             try:
                 for delta, chunk in stream_iter:
@@ -264,6 +483,8 @@ def bot_stream(
                             combined = "".join(leading_chunks)
                             if not combined.strip():
                                 continue
+                            if _starts_with_partial_structured_open_tag(combined):
+                                continue
                             leading_decided = True
                             should_prefix = not _starts_with_structured_tag(combined)
                             if should_prefix:
@@ -275,7 +496,23 @@ def bot_stream(
                             continue
                         cur_res += delta
                         yield delta
-                    if "</Answer>" in cur_res:
+                    if _has_completed_section(cur_res, "Answer"):
+                        if not answer_report_saved:
+                            report_path = _save_answer_markdown_report(
+                                cur_res,
+                                workspace_dir,
+                                session_id,
+                            )
+                            if report_path is not None:
+                                file_block = build_file_block(
+                                    [report_path],
+                                    workspace_dir,
+                                    session_id,
+                                )
+                                if file_block:
+                                    cur_res += file_block
+                                    yield file_block
+                            answer_report_saved = True
                         finished = True
                         break
             except httpx.HTTPError as exc:
@@ -296,9 +533,25 @@ def bot_stream(
                 cur_res += missing_tag
                 yield missing_tag
                 if missing_tag == "</Answer>":
+                    if not answer_report_saved:
+                        report_path = _save_answer_markdown_report(
+                            cur_res,
+                            workspace_dir,
+                            session_id,
+                        )
+                        if report_path is not None:
+                            file_block = build_file_block(
+                                [report_path],
+                                workspace_dir,
+                                session_id,
+                            )
+                            if file_block:
+                                cur_res += file_block
+                                yield file_block
+                        answer_report_saved = True
                     finished = True
 
-            if "</Code>" not in cur_res or finished:
+            if not _has_completed_section(cur_res, "Code") or finished:
                 continue
 
             conversation.append({"role": "assistant", "content": cur_res})
@@ -322,7 +575,9 @@ def bot_stream(
             file_block = build_file_block(artifact_paths, workspace_dir, session_id)
             yield exe_str + file_block
 
-            conversation.append({"role": "execute", "content": exe_output})
+            conversation.append(
+                _build_execution_feedback_message(runtime_config, exe_output)
+            )
 
             current_files = {
                 path.resolve() for path in Path(workspace_dir).rglob("*") if path.is_file()

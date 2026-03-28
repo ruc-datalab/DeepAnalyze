@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
@@ -48,7 +48,10 @@ async def chat(body: dict = Body(...)):
     messages = body.get("messages", [])
     workspace = body.get("workspace", [])
     session_id = body.get("session_id", "default")
-    runtime_config = build_chat_runtime_config(body)
+    try:
+        runtime_config = build_chat_runtime_config(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     def generate():
         for delta_content in bot_stream(messages, workspace, session_id, runtime_config):

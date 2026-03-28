@@ -80,7 +80,6 @@ import {
   Code2,
   Eye,
   PanelRightOpen,
-  WandSparkles,
   Languages,
   FileSpreadsheet,
   Package,
@@ -202,9 +201,110 @@ interface ExportResponsePayload {
 const PREVIEW_TABLE_PAGE_SIZE = 10;
 const BLOCKED_UPLOAD_EXTENSIONS = new Set(["py"]);
 const ACTIVE_SECTION_UPDATE_INTERVAL_MS = 80;
+const STREAMING_SECTION_FIXED_HEIGHT_PX = 140;
 const UPLOAD_ACCEPT_TYPES =
   ".csv,.tsv,.xlsx,.xls,.parquet,.sqlite,.db,.json,.txt,.log,.md,.markdown,.yml,.yaml,.pdf,image/*,.zip";
+type LlmProvider = "local" | "heywhale" | "custom";
+const DEFAULT_MODEL_NAME = "DeepAnalyze-8B";
+const EXECUTE_RESULT_PREFIX = "# Execute Result\n";
+const EXECUTE_RESULT_NOTICE_EN =
+  "Code execution feedback will be returned as a user message starting with `# Execute Result\\n`.";
+const EXECUTE_RESULT_NOTICE_ZH =
+  "代码执行结果会以用户消息回传，且内容开头固定为 `# Execute Result\\n`。";
+const isDeepAnalyzeModelName = (modelName: string) =>
+  /deep[\s\-_]*analyze/i.test(String(modelName || "").trim());
+const CUSTOM_MODEL_SYSTEM_PREFIX_EN = `# Role
 
+You are an intelligent agent designed for **data analysis** scenarios. Your goal is to follow user instructions, continuously **analyze**, **write executable code**, and **understand the data based on the output**, ultimately producing high-quality **answers**. Each time you output, you decide the next action on your own.
+
+---
+
+# Input Format: \`# Instruction\` and \`# Data\`
+
+You will receive user instructions structured as follows:
+
+- \`# Instruction\`: The user's task instructions (what you need to do).
+- \`# Data\`: A contextual data block containing file names and file sizes.
+
+You must:
+
+- Strictly follow the instructions in \`# Instruction\`;
+- Treat \`# Data\` only as available reference material and do not fabricate non-existent data.
+
+---
+
+# Output Format (Must Follow)
+
+You must organize your output using the following XML-style tags (tag names are case-sensitive):
+
+- \`<Analyze>...</Analyze>\`: Your analysis, assumptions, solution selection, risks, and trade-offs.
+- \`<Code>...</Code>\`: Code to be executed in Python.
+- \`<Understand>...</Understand>\`: Your confirmation and understanding of the data content and context.
+- \`<Answer>...</Answer>\`: The final conclusion and deliverables (reports/explanations/table conclusions, etc.) for the user.
+- After outputting \`</Code>\`, you should end your output. The code you just wrote will be sent to the Python execution environment, and the execution results will be returned to you.
+
+---
+
+# Interaction Process (How the System Uses Your Output)
+
+The system will interact with you as follows:
+
+1. After receiving \`# Instruction/# Data\`, you will formulate a plan in \`<Analyze>\` and produce the next executable action in \`<Code>\`.
+2. The system will execute the code in \`<Code>\` and return the execution output to you as an "execution result" message.
+3. After reviewing the execution result, you will decide whether to proceed with data understanding (\`<Understand>\`), analysis (\`<Analyze>\`), or deliver the final answer (\`<Answer>\`).
+
+---
+
+# Additional Constraints (Must Follow)
+
+- Each \`<Code>\` block runs as an independent Python script and does not inherit variables from previous \`<Code>\` blocks. Therefore, each piece of code in your \`<Code>\` must be a complete, standalone Python script that can run independently.
+- When generating files or charts, save them directly in the current directory and do not create subdirectories.
+- In the final answer, you need to reference the relevant generated images in Markdown format like ![xxx](xxx.png).`;
+
+const CUSTOM_MODEL_SYSTEM_PREFIX_ZH = `# 角色（Role）
+
+你是一个面向 **数据分析** 场景的智能体。你的目标是遵循用户指令，不断**分析（Analyze）、 编写可执行代码（Code）、根据输出理解数据（Understand），**，并最终产出高质量的** 答案(Answer) **。每次输出时，由你自己决定下一步的动作。
+
+---
+# 输入格式：\`# Instruction\` 与 \`# Data\`
+
+你会收到用户指令，内容采用如下结构：
+
+- \`# Instruction\`：用户的任务指令（你需要做什么）。
+- \`# Data\`：上下文数据块，包含文件名和文件大小。
+
+你必须：
+
+- 严格按 \`# Instruction\` 执行；
+- 仅把 \`# Data\` 作为可获取的参考，不要凭空杜撰不存在的数据；
+
+---
+# 输出范式（必须遵守）
+
+你必须用以下 XML 风格标签组织输出（标签名区分大小写）：
+
+- \`<Analyze>...</Analyze>\`：你的分析、假设、方案选择、风险与取舍。
+- \`<Code>...</Code>\`：要在Python 中执行的代码。
+- \`<Understand>...</Understand>\`：你对数据内容、上下文的确认与理解。
+- \`<Answer>...</Answer>\`：最终对用户的结论与交付物（报告/解释/表格结论等）。
+- 你在输出\`</Code>\`之后，应结束输出。此时你刚才写的代码会送到python执行环境中执行，并将执行结果返回给你。
+
+---
+
+# 交互流程（系统如何使用你的输出）
+
+系统会按如下方式与你交互：
+
+1. 你收到 \`# Instruction/# Data\` 后，在 \`<Analyze>\` 中制定计划，然后用 \`<Code>\` 产出下一步可执行动作。
+2. 系统会执行 \`<Code>\` 中的代码，并把执行输出以“执行结果”消息回传给你。
+3. 你阅读执行结果后，决定进行数据理解\`<Understand>\`、分析\`<Analyze>\`还是得出最终的答案\`<Answer>\`。
+
+---
+
+# 额外约束（必须遵守）
+
+- 每个 \`<Code>\` 块都会作为独立的 Python 脚本运行，不会继承之前 \`<Code>\` 块中的变量。因此你的每次\`<Code>\`里的代码都需要是独立可运行的完整python代码。
+- 生成文件或图表时，请直接保存在当前目录，不要创建子目录。`;
 type WorkspaceNode = {
   name: string;
   path: string; // relative path
@@ -417,6 +517,27 @@ type StructuredSectionType =
   | "Answer"
   | "File";
 
+const normalizeCodeBlockForSection = (
+  content: string
+): { language: string; code: string } => {
+  const codeBlockMatch = content.match(/```([\w+-]+)?\n?([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    return {
+      language: codeBlockMatch[1]?.trim() || "python",
+      code: codeBlockMatch[2].trim(),
+    };
+  }
+  return {
+    language: "python",
+    code: content.trim(),
+  };
+};
+
+const buildCodeFenceForSection = (content: string): string => {
+  const normalized = normalizeCodeBlockForSection(content);
+  return `\`\`\`${normalized.language}\n${normalized.code}\n\`\`\``;
+};
+
 const StreamingMarkdownBlock = memo(
   function StreamingMarkdownBlock({
     content,
@@ -449,6 +570,13 @@ const StreamingSectionBody = memo(
     renderSectionContent: (content: string) => React.ReactNode;
   }) {
     if (!content.trim()) return null;
+    if (type === "Code" && isComplete) {
+      return (
+        <div className="markdown-content">
+          {renderSectionContent(buildCodeFenceForSection(content))}
+        </div>
+      );
+    }
     if (!isComplete) {
       if (type === "Code" || type === "Execute") {
         return (
@@ -470,6 +598,115 @@ const StreamingSectionBody = memo(
     prev.renderSectionContent === next.renderSectionContent
 );
 
+const StreamingSectionViewport = memo(function StreamingSectionViewport({
+  enabled,
+  bodyClassName,
+  children,
+}: {
+  enabled: boolean;
+  bodyClassName?: string;
+  children: React.ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+
+  const syncOverflowState = useCallback(() => {
+    const el = containerRef.current;
+    if (!el || !enabled) {
+      setIsOverflowing(false);
+      setIsAtBottom(true);
+      return;
+    }
+    const overflowing = el.scrollHeight - el.clientHeight > 1;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
+    setIsOverflowing(overflowing);
+    setIsAtBottom(atBottom || !overflowing);
+  }, [enabled]);
+
+  useEffect(() => {
+    let rafId: number | null = null;
+    const scheduleSync = () => {
+      if (typeof window === "undefined") return;
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        syncOverflowState();
+      });
+    };
+
+    scheduleSync();
+    const el = containerRef.current;
+    if (!enabled || !el) {
+      return () => {
+        if (rafId !== null && typeof window !== "undefined") {
+          window.cancelAnimationFrame(rafId);
+        }
+      };
+    }
+
+    let resizeObserver: ResizeObserver | null = null;
+    let mutationObserver: MutationObserver | null = null;
+
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        scheduleSync();
+      });
+      resizeObserver.observe(el);
+      if (el.firstElementChild) {
+        resizeObserver.observe(el.firstElementChild);
+      }
+    }
+
+    if (typeof MutationObserver !== "undefined") {
+      mutationObserver = new MutationObserver(() => {
+        scheduleSync();
+      });
+      mutationObserver.observe(el, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }
+
+    return () => {
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+      if (rafId !== null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [enabled, children, syncOverflowState]);
+
+  return (
+    <div className="relative">
+      <div
+        ref={containerRef}
+        onScroll={enabled ? syncOverflowState : undefined}
+        className={`p-3 ${bodyClassName || ""} ${
+          enabled ? "overflow-y-auto overflow-x-hidden" : ""
+        }`}
+        style={
+          enabled
+            ? { height: `${STREAMING_SECTION_FIXED_HEIGHT_PX}px` }
+            : undefined
+        }
+      >
+        {children}
+      </div>
+      {enabled && isOverflowing && !isAtBottom && (
+        <div className="pointer-events-none absolute bottom-1 right-2">
+          <div className="flex h-5 w-5 items-center justify-center rounded-full border border-gray-300/70 bg-white/85 text-gray-500 shadow-sm dark:border-gray-600/70 dark:bg-black/65 dark:text-gray-300 animate-pulse">
+            <ChevronDown className="h-3 w-3" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
 export function ThreePanelInterface() {
   const { toast } = useToast();
   const [isDarkMode, setIsDarkMode] = useState(false); // 服务端默认 false
@@ -479,6 +716,9 @@ export function ThreePanelInterface() {
     Record<string, boolean>
   >({});
   const [autoCollapseEnabled, setAutoCollapseEnabled] = useState(true);
+  const [fixedStreamingSectionHeightEnabled, setFixedStreamingSectionHeightEnabled] =
+    useState(false);
+  const [moveDialogToLeftPanel, setMoveDialogToLeftPanel] = useState(false);
   const [manualLocks, setManualLocks] = useState<Record<string, boolean>>({});
 
   // Session ID：用于区分不同浏览器用户（无需登录）
@@ -514,6 +754,18 @@ export function ThreePanelInterface() {
       if (savedAuto !== null) {
         setAutoCollapseEnabled(savedAuto !== "false");
       }
+      const savedFixedStreamingHeight = localStorage.getItem(
+        "fixedStreamingSectionHeightEnabled"
+      );
+      if (savedFixedStreamingHeight !== null) {
+        setFixedStreamingSectionHeightEnabled(
+          savedFixedStreamingHeight === "true"
+        );
+      }
+      const savedMoveDialog = localStorage.getItem("moveDialogToLeftPanel");
+      if (savedMoveDialog !== null) {
+        setMoveDialogToLeftPanel(savedMoveDialog === "true");
+      }
 
       const savedLanguage = localStorage.getItem("deepanalyze.uiLanguage");
       if (savedLanguage === "en" || savedLanguage === "zh") {
@@ -526,8 +778,19 @@ export function ThreePanelInterface() {
       }
 
       const savedProvider = localStorage.getItem("deepanalyze.llmProvider");
-      if (savedProvider === "local" || savedProvider === "heywhale") {
-        setLlmProvider(savedProvider);
+      if (
+        savedProvider === "local" ||
+        savedProvider === "heywhale" ||
+        savedProvider === "custom"
+      ) {
+        setLlmProvider(savedProvider as LlmProvider);
+      }
+
+      const savedCustomModelName =
+        localStorage.getItem("deepanalyze.customModelName") ||
+        localStorage.getItem("deepanalyze.modelName");
+      if (savedCustomModelName) {
+        setCustomModelName(savedCustomModelName);
       }
 
       const savedTemperature = localStorage.getItem("deepanalyze.modelTemperature");
@@ -540,9 +803,14 @@ export function ThreePanelInterface() {
         setHeywhaleApiKey(savedApiKey);
       }
 
-      const savedPromptPanel = localStorage.getItem("deepanalyze.showPromptPanel");
-      if (savedPromptPanel !== null) {
-        setShowPromptPanel(savedPromptPanel !== "false");
+      const savedCustomApiBase = localStorage.getItem("deepanalyze.customApiBase");
+      if (savedCustomApiBase) {
+        setCustomApiBase(savedCustomApiBase);
+      }
+
+      const savedCustomApiKey = sessionStorage.getItem("deepanalyze.customApiKey");
+      if (savedCustomApiKey) {
+        setCustomApiKey(savedCustomApiKey);
       }
 
       const savedPresetId = localStorage.getItem("deepanalyze.selectedPresetId");
@@ -746,12 +1014,14 @@ export function ThreePanelInterface() {
   >("uploaded");
   const [workspaceSearch, setWorkspaceSearch] = useState("");
   const [selectedWorkspacePath, setSelectedWorkspacePath] = useState("");
-  const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [uiLanguage, setUiLanguage] = useState<UILanguage>("en");
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
-  const [llmProvider, setLlmProvider] = useState<"local" | "heywhale">("local");
+  const [llmProvider, setLlmProvider] = useState<LlmProvider>("local");
+  const [customModelName, setCustomModelName] = useState(DEFAULT_MODEL_NAME);
   const [modelTemperature, setModelTemperature] = useState("0.4");
   const [heywhaleApiKey, setHeywhaleApiKey] = useState("");
+  const [customApiBase, setCustomApiBase] = useState("");
+  const [customApiKey, setCustomApiKey] = useState("");
   const [selectedPresetId, setSelectedPresetId] = useState(
     DATA_ANALYSIS_PROMPT_PRESETS[0]?.id || ""
   );
@@ -774,6 +1044,11 @@ export function ThreePanelInterface() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    localStorage.setItem("deepanalyze.customModelName", customModelName);
+  }, [customModelName]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     localStorage.setItem("deepanalyze.modelTemperature", modelTemperature);
   }, [modelTemperature]);
 
@@ -784,11 +1059,13 @@ export function ThreePanelInterface() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(
-      "deepanalyze.showPromptPanel",
-      showPromptPanel ? "true" : "false"
-    );
-  }, [showPromptPanel]);
+    localStorage.setItem("deepanalyze.customApiBase", customApiBase);
+  }, [customApiBase]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem("deepanalyze.customApiKey", customApiKey);
+  }, [customApiKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -843,6 +1120,9 @@ export function ThreePanelInterface() {
   const aiDisplayedContentRef = useRef<string>("");
   const streamRafRef = useRef<number | null>(null);
   const streamAbortControllerRef = useRef<AbortController | null>(null);
+  const workspaceFilesAbortRef = useRef<AbortController | null>(null);
+  const workspaceFilesLoadingRef = useRef(false);
+  const lastWorkspaceFilesErrorRef = useRef("");
   const isTypingRef = useRef(false);
   const toastRef = useRef(toast);
   const collapsedSectionsRef = useRef<Record<string, boolean>>({});
@@ -997,28 +1277,19 @@ export function ThreePanelInterface() {
     toast({ description: "已清空聊天" });
   };
 
-  useEffect(() => {
-    if (sessionId) {
-      loadWorkspaceFiles();
-    }
-  }, [sessionId]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const isVisible =
-        typeof document !== "undefined" && document.visibilityState === "visible";
-      if (!isUploading && !isTyping && isVisible) {
-        loadWorkspaceFiles();
-      }
-    }, 10000);
-    return () => clearInterval(id);
-  }, [isTyping, isUploading]);
-
-  const loadWorkspaceFiles = async () => {
+  const loadWorkspaceFiles = useCallback(async () => {
     if (!sessionId) return;
+    if (workspaceFilesLoadingRef.current) return;
+    const controller = new AbortController();
+    workspaceFilesAbortRef.current = controller;
+    workspaceFilesLoadingRef.current = true;
     try {
       const response = await fetch(
-        `${API_URLS.WORKSPACE_FILES}?session_id=${sessionId}`
+        `${API_URLS.WORKSPACE_FILES}?session_id=${sessionId}`,
+        {
+          signal: controller.signal,
+          cache: "no-store",
+        }
       );
       if (response.ok) {
         const data = await response.json();
@@ -1040,9 +1311,57 @@ export function ThreePanelInterface() {
         });
       }
     } catch (error) {
+      if ((error as Error)?.name === "AbortError") {
+        return;
+      }
+      const errorMsg =
+        error instanceof Error ? error.message : String(error || "");
+      const isTransientFetchError =
+        /failed to fetch|networkerror|load failed/i.test(errorMsg);
+      if (isTransientFetchError) {
+        if (lastWorkspaceFilesErrorRef.current !== errorMsg) {
+          lastWorkspaceFilesErrorRef.current = errorMsg;
+          console.warn("Workspace files polling unavailable:", errorMsg);
+        }
+        return;
+      }
       console.error("Failed to load workspace files:", error);
+    } finally {
+      if (workspaceFilesAbortRef.current === controller) {
+        workspaceFilesAbortRef.current = null;
+      }
+      workspaceFilesLoadingRef.current = false;
     }
-  };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+    lastWorkspaceFilesErrorRef.current = "";
+    workspaceFilesAbortRef.current?.abort();
+    workspaceFilesLoadingRef.current = false;
+    void loadWorkspaceFiles();
+  }, [sessionId, loadWorkspaceFiles]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const isVisible =
+        typeof document !== "undefined" && document.visibilityState === "visible";
+      if (!isUploading && !isTyping && isVisible) {
+        void loadWorkspaceFiles();
+      }
+    }, 10000);
+    return () => window.clearInterval(id);
+  }, [isTyping, isUploading, loadWorkspaceFiles]);
+
+  useEffect(() => {
+    return () => {
+      workspaceFilesAbortRef.current?.abort();
+      workspaceFilesAbortRef.current = null;
+      workspaceFilesLoadingRef.current = false;
+    };
+  }, []);
 
   const loadWorkspaceTree = async () => {
     if (!sessionId) return;
@@ -1115,6 +1434,8 @@ export function ThreePanelInterface() {
         uiLanguage === "zh"
           ? "中间只保留对话、流式分析和快捷操作"
           : "The center stays focused on chat, streaming analysis, and quick actions.",
+      moveDialogToLeft:
+        uiLanguage === "zh" ? "对话框移到左栏" : "Move Dialog Left",
       presetsDescription:
         uiLanguage === "zh" ? "预设会同步到输入框" : "Presets sync to the input box",
       emptySystemPrompt:
@@ -1122,6 +1443,12 @@ export function ThreePanelInterface() {
       modelProvider: uiLanguage === "zh" ? "模型来源" : "Model Provider",
       providerLocal: uiLanguage === "zh" ? "本地" : "Local",
       providerHeywhale: uiLanguage === "zh" ? "和鲸 API" : "HeyWhale API",
+      providerCustom: uiLanguage === "zh" ? "自定义模型" : "Custom Model",
+      modelName: uiLanguage === "zh" ? "模型名称" : "Model Name",
+      modelNamePlaceholder:
+        uiLanguage === "zh"
+          ? "例如：DeepAnalyze-8B 或 gpt-4o-mini"
+          : "For example: DeepAnalyze-8B or gpt-4o-mini",
       temperature: uiLanguage === "zh" ? "温度" : "Temperature",
       temperatureHint:
         uiLanguage === "zh"
@@ -1132,6 +1459,28 @@ export function ThreePanelInterface() {
         uiLanguage === "zh"
           ? "输入和鲸平台申请的 API Key"
           : "Enter the API key issued by HeyWhale",
+      customApiBase: uiLanguage === "zh" ? "自定义 API Base" : "Custom API Base",
+      customApiBasePlaceholder:
+        uiLanguage === "zh"
+          ? "例如：https://api.example.com/v1"
+          : "For example: https://api.example.com/v1",
+      customApiKey: uiLanguage === "zh" ? "自定义 API Key" : "Custom API Key",
+      customApiKeyPlaceholder:
+        uiLanguage === "zh"
+          ? "请输入你自己的 API Key（可选）"
+          : "Enter your API key (optional)",
+      needHeywhaleKey:
+        uiLanguage === "zh"
+          ? "请先填写和鲸 API Key"
+          : "Please provide a HeyWhale API key first.",
+      needCustomModel:
+        uiLanguage === "zh"
+          ? "请先填写自定义模型名称"
+          : "Please provide a custom model name first.",
+      needCustomApiBase:
+        uiLanguage === "zh"
+          ? "请先填写自定义 API Base 地址"
+          : "Please provide a custom API base URL first.",
       exportCenter: uiLanguage === "zh" ? "导出中心" : "Export Center",
       exportHint:
         uiLanguage === "zh"
@@ -1193,6 +1542,12 @@ export function ThreePanelInterface() {
     [uiLanguage]
   );
 
+  const fileStatsTitle = uiLanguage === "zh" ? "文件统计" : "File Stats";
+  const fileStatsHint =
+    uiLanguage === "zh"
+      ? "点击卡片可切换左侧文件筛选。"
+      : "Click a card to switch the file filter on the left.";
+
   const selectedPreset = useMemo(
     () =>
       DATA_ANALYSIS_PROMPT_PRESETS.find((item) => item.id === selectedPresetId) ||
@@ -1201,17 +1556,73 @@ export function ThreePanelInterface() {
   );
 
   const selectedPresetPrompt = selectedPreset?.prompt[uiLanguage] || "";
-  const selectedPresetLabel = selectedPreset?.label[uiLanguage] || "";
-  const selectedPresetDescription = selectedPreset?.description[uiLanguage] || "";
 
-  const isGeneratedWorkspaceFile = useCallback((file?: Pick<WorkspaceFile, "is_generated"> | null) => {
-    return !!file?.is_generated;
+  const normalizeWorkspacePath = useCallback((path?: string | null) => {
+    return String(path || "")
+      .replace(/\\/g, "/")
+      .replace(/^\/+/, "")
+      .trim();
   }, []);
 
-  const isGeneratedBundleFile = useCallback((file?: Pick<WorkspaceFile, "path"> | null) => {
-    const path = file?.path || "";
-    return path === "generated" || path.startsWith("generated/");
-  }, []);
+  const isGeneratedPath = useCallback(
+    (path?: string | null) => {
+      const normalized = normalizeWorkspacePath(path);
+      return normalized === "generated" || normalized.startsWith("generated/");
+    },
+    [normalizeWorkspacePath]
+  );
+
+  const isSessionRootFilePath = useCallback(
+    (path?: string | null) => {
+      const normalized = normalizeWorkspacePath(path);
+      return !!normalized && !normalized.includes("/");
+    },
+    [normalizeWorkspacePath]
+  );
+
+  const isGeneratedDirectFilePath = useCallback(
+    (path?: string | null) => {
+      const normalized = normalizeWorkspacePath(path);
+      return /^generated\/[^/]+$/.test(normalized);
+    },
+    [normalizeWorkspacePath]
+  );
+
+  const generatedDirectNameSet = useMemo(() => {
+    const set = new Set<string>();
+    workspaceFiles.forEach((file) => {
+      if (isGeneratedDirectFilePath(file.path)) {
+        set.add(String(file.name || "").toLowerCase());
+      }
+    });
+    return set;
+  }, [isGeneratedDirectFilePath, workspaceFiles]);
+
+  const rightPanelSourceFiles = useMemo(
+    () => workspaceFiles.filter((file) => isSessionRootFilePath(file.path)),
+    [isSessionRootFilePath, workspaceFiles]
+  );
+
+  const isGeneratedWorkspaceFile = useCallback(
+    (file?: Pick<WorkspaceFile, "path" | "name"> | null) => {
+      if (!file) return false;
+      if (isGeneratedDirectFilePath(file.path)) {
+        return true;
+      }
+      if (!isSessionRootFilePath(file.path)) {
+        return false;
+      }
+      return generatedDirectNameSet.has(String(file.name || "").toLowerCase());
+    },
+    [generatedDirectNameSet, isGeneratedDirectFilePath, isSessionRootFilePath]
+  );
+
+  const isGeneratedBundleFile = useCallback(
+    (file?: Pick<WorkspaceFile, "path"> | null) => {
+      return isGeneratedPath(file?.path);
+    },
+    [isGeneratedPath]
+  );
 
   const dedupeGeneratedDisplayFiles = useCallback((files: WorkspaceFile[]) => {
     const result: WorkspaceFile[] = [];
@@ -1248,6 +1659,41 @@ export function ThreePanelInterface() {
     return Math.min(2, Math.max(0, parsed));
   }, [modelTemperature]);
 
+  const effectiveSystemPrompt = useMemo(() => {
+    const trimmed = systemPrompt.trim();
+    let mergedPrompt = trimmed;
+
+    if (llmProvider === "custom") {
+      const customPrefix =
+        uiLanguage === "zh"
+          ? CUSTOM_MODEL_SYSTEM_PREFIX_ZH
+          : CUSTOM_MODEL_SYSTEM_PREFIX_EN;
+      if (!mergedPrompt) {
+        mergedPrompt = customPrefix;
+      } else if (!mergedPrompt.startsWith(customPrefix)) {
+        mergedPrompt = `${customPrefix}\n\n${mergedPrompt}`;
+      }
+
+    }
+
+    if (
+      !isDeepAnalyzeModelName(
+        llmProvider === "custom" ? customModelName : DEFAULT_MODEL_NAME
+      ) &&
+      !mergedPrompt.includes(EXECUTE_RESULT_PREFIX)
+    ) {
+      const executeResultNotice =
+        uiLanguage === "zh"
+          ? EXECUTE_RESULT_NOTICE_ZH
+          : EXECUTE_RESULT_NOTICE_EN;
+      mergedPrompt = mergedPrompt
+        ? `${mergedPrompt}\n\n${executeResultNotice}`
+        : executeResultNotice;
+    }
+
+    return mergedPrompt;
+  }, [customModelName, llmProvider, systemPrompt, uiLanguage]);
+
   useEffect(() => {
     if (!selectedPresetPrompt) return;
     setInputValue(selectedPresetPrompt);
@@ -1265,9 +1711,21 @@ export function ThreePanelInterface() {
     };
   }, [isGeneratedBundleFile, workspaceFiles]);
 
+  const workspaceFileCounts = useMemo(() => {
+    const generated = rightPanelSourceFiles.filter((file) =>
+      isGeneratedWorkspaceFile(file)
+    ).length;
+    const all = rightPanelSourceFiles.length;
+    return {
+      uploaded: Math.max(all - generated, 0),
+      generated,
+      all,
+    };
+  }, [isGeneratedWorkspaceFile, rightPanelSourceFiles]);
+
   const filteredWorkspaceFiles = useMemo(() => {
     const query = workspaceSearch.trim().toLowerCase();
-    const filtered = workspaceFiles
+    const filtered = rightPanelSourceFiles
       .filter((file) => {
         const isGenerated = isGeneratedWorkspaceFile(file);
         if (workspaceView === "generated" && !isGenerated) return false;
@@ -1288,7 +1746,7 @@ export function ThreePanelInterface() {
   }, [
     dedupeGeneratedDisplayFiles,
     isGeneratedWorkspaceFile,
-    workspaceFiles,
+    rightPanelSourceFiles,
     workspaceSearch,
     workspaceView,
   ]);
@@ -1863,12 +2321,29 @@ export function ThreePanelInterface() {
   const clearWorkspace = async () => {
     if (!sessionId) return;
     try {
-      const response = await fetch(
-        `${API_URLS.WORKSPACE_CLEAR}?session_id=${sessionId}`,
-        {
-          method: "DELETE",
-        }
+      const clearUrl = buildApiUrlWithParams(
+        API_CONFIG.ENDPOINTS.WORKSPACE_CLEAR,
+        { session_id: sessionId }
       );
+      let response: Response;
+      try {
+        response = await fetch(clearUrl, { method: "DELETE" });
+      } catch (deleteError) {
+        console.warn(
+          "clear workspace DELETE failed, fallback to POST:",
+          deleteError
+        );
+        response = await fetch(clearUrl, { method: "POST" });
+      }
+
+      if (response.status === 405) {
+        response = await fetch(clearUrl, { method: "POST" });
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
       if (response.ok) {
         setWorkspaceFiles([]);
         await loadWorkspaceTree();
@@ -1992,54 +2467,84 @@ export function ThreePanelInterface() {
 
   const resolveWorkspaceRelativePath = useCallback(
     (rawPath: string): string => {
-      const normalizedRawPath = String(rawPath || "")
-        .trim()
-        .replace(/\\/g, "/")
-        .replace(/^\.\//, "")
-        .replace(/^\/+/, "");
+      const decodeSafe = (value: string): string => {
+        try {
+          return decodeURIComponent(value);
+        } catch {
+          return value;
+        }
+      };
 
-      if (!normalizedRawPath) {
+      const stripped = String(rawPath || "")
+        .trim()
+        .replace(/^<(.+)>$/, "$1");
+      if (!stripped) {
         return "";
       }
 
+      const normalizedRawPath = stripped
+        .replace(/\\/g, "/")
+        .replace(/^\.\/+/, "")
+        .replace(/^\/+/, "");
       const [pathWithoutQuery] = normalizedRawPath.split(/[?#]/, 1);
-      if (!pathWithoutQuery || pathWithoutQuery.includes("/")) {
-        return normalizedRawPath;
+      if (!pathWithoutQuery) {
+        return "";
       }
 
-      let decodedName = pathWithoutQuery;
-      try {
-        decodedName = decodeURIComponent(pathWithoutQuery);
-      } catch {
-        decodedName = pathWithoutQuery;
+      const normalizedSegments: string[] = [];
+      for (const segment of pathWithoutQuery.split("/")) {
+        const current = segment.trim();
+        if (!current || current === ".") continue;
+        if (current === "..") {
+          if (normalizedSegments.length > 0) {
+            normalizedSegments.pop();
+          }
+          continue;
+        }
+        normalizedSegments.push(current);
       }
 
-      const normalizedName = decodedName.toLowerCase();
+      const normalizedPath = normalizedSegments.join("/");
+      if (!normalizedPath) {
+        return "";
+      }
+
+      const normalizedTarget = decodeSafe(normalizedPath).toLowerCase();
+      const hasSlash = normalizedPath.includes("/");
       const matchedFile = workspaceFiles
         .filter((file) => {
           const filePath = String(file.path || "")
             .replace(/\\/g, "/")
-            .replace(/^\/+/, "");
+            .replace(/^\/+/, "")
+            .trim();
           if (!filePath) {
             return false;
           }
-          const lowerFilePath = filePath.toLowerCase();
-          const lowerFileName = String(file.name || "").toLowerCase();
+          const lowerFilePath = decodeSafe(filePath).toLowerCase();
+          const lowerFileName = decodeSafe(String(file.name || "")).toLowerCase();
           return (
-            lowerFilePath === normalizedName ||
-            lowerFileName === normalizedName ||
-            lowerFilePath.endsWith(`/${normalizedName}`)
+            lowerFilePath === normalizedTarget ||
+            (!hasSlash &&
+              (lowerFileName === normalizedTarget ||
+                lowerFilePath.endsWith(`/${normalizedTarget}`)))
           );
         })
         .sort((left, right) => {
           const score = (file: WorkspaceFile) => {
-            const filePath = String(file.path || "")
+            const filePath = decodeSafe(
+              String(file.path || "")
               .replace(/\\/g, "/")
               .replace(/^\/+/, "")
-              .toLowerCase();
+              .trim()
+            ).toLowerCase();
             let current = 0;
-            if (filePath === normalizedName) current += 100;
-            if (String(file.name || "").toLowerCase() === normalizedName) current += 20;
+            if (filePath === normalizedTarget) current += 100;
+            if (
+              !hasSlash &&
+              decodeSafe(String(file.name || "")).toLowerCase() === normalizedTarget
+            ) {
+              current += 20;
+            }
             if (filePath.startsWith("generated/")) current += 10;
             if (file.category === "image") current += 5;
             return current;
@@ -2047,7 +2552,7 @@ export function ThreePanelInterface() {
           return score(right) - score(left);
         })[0];
 
-      return matchedFile?.path || normalizedRawPath;
+      return matchedFile?.path || normalizedPath;
     },
     [workspaceFiles]
   );
@@ -2063,8 +2568,17 @@ export function ThreePanelInterface() {
         return "";
       }
 
-      const trimmed = String(rawUrl).trim();
+      const trimmed = String(rawUrl)
+        .trim()
+        .replace(/^<(.+)>$/, "$1")
+        .trim();
+      if (!trimmed) {
+        return "";
+      }
       const desiredDownload = options?.download ?? false;
+      if (/^(data:|blob:)/i.test(trimmed)) {
+        return trimmed;
+      }
 
       if (/^\/\//.test(trimmed)) {
         const proto =
@@ -2146,7 +2660,7 @@ export function ThreePanelInterface() {
         return trimmed;
       }
 
-      const rel = trimmed.replace(/^\.\//, "").replace(/^\/+/, "");
+      const rel = resolveWorkspaceRelativePath(trimmed);
       if (!rel) {
         return "";
       }
@@ -2436,6 +2950,8 @@ export function ThreePanelInterface() {
       const data = await requestExport(API_URLS.EXPORT_REPORT, payload);
       const pdfStatus = data.pdf_status || (data.files?.pdf ? "ok" : null);
       const pdfError = (data.pdf_error || "").trim();
+      const withPdfErrorDetail = (base: string) =>
+        isPdfRequest && pdfError ? `${base} (${pdfError})` : base;
       const preferredFile =
         pickExportedFile(data, format) ||
         (format === "pdf"
@@ -2444,10 +2960,10 @@ export function ThreePanelInterface() {
 
       if (!preferredFile?.download_url) {
         if (isPdfRequest && pdfStatus === "missing_compiler") {
-          throw new Error(textLabels.exportCompilerMissing);
+          throw new Error(withPdfErrorDetail(textLabels.exportCompilerMissing));
         }
         if (isPdfRequest && pdfStatus === "missing_dependency") {
-          throw new Error(textLabels.exportDependencyMissing);
+          throw new Error(withPdfErrorDetail(textLabels.exportDependencyMissing));
         }
         throw new Error(pdfError || "missing exported report");
       }
@@ -2468,10 +2984,11 @@ export function ThreePanelInterface() {
 
       if (isPdfRequest && pdfStatus === "missing_compiler") {
         toast({
-          description:
+          description: withPdfErrorDetail(
             resolvedFormat === "md"
               ? textLabels.exportCompilerMissingFallback
-              : textLabels.exportCompilerMissing,
+              : textLabels.exportCompilerMissing
+          ),
           variant: "destructive",
         });
         return;
@@ -2479,10 +2996,11 @@ export function ThreePanelInterface() {
 
       if (isPdfRequest && pdfStatus === "missing_dependency") {
         toast({
-          description:
+          description: withPdfErrorDetail(
             resolvedFormat === "md"
               ? textLabels.exportDependencyMissingFallback
-              : textLabels.exportDependencyMissing,
+              : textLabels.exportDependencyMissing
+          ),
           variant: "destructive",
         });
         return;
@@ -2579,11 +3097,11 @@ export function ThreePanelInterface() {
   const recentGeneratedFiles = useMemo(
     () =>
       dedupeGeneratedDisplayFiles(
-        workspaceFiles
+        rightPanelSourceFiles
           .filter((file) => isGeneratedWorkspaceFile(file))
           .sort((left, right) => right.name.localeCompare(left.name))
       ).slice(0, 8),
-    [dedupeGeneratedDisplayFiles, isGeneratedWorkspaceFile, workspaceFiles]
+    [dedupeGeneratedDisplayFiles, isGeneratedWorkspaceFile, rightPanelSourceFiles]
   );
 
   const handleMessagesScroll = useCallback(
@@ -2693,6 +3211,14 @@ export function ThreePanelInterface() {
     });
   }, []);
 
+  const buildSectionKey = useCallback(
+    (type: StructuredSectionType, position: number, messageIndex?: number) => {
+      const suffix = `${type}-pos${position}`;
+      return messageIndex !== undefined ? `msg${messageIndex}-${suffix}` : suffix;
+    },
+    []
+  );
+
   const renderMarkdownContent = useCallback((
     content: string,
     options?: { withinSection?: boolean }
@@ -2796,7 +3322,7 @@ export function ThreePanelInterface() {
         })}
       </div>
     );
-  }, [isDarkMode]);
+  }, [isDarkMode, resolveWorkspaceFileUrl]);
 
   const renderSectionContent = useCallback(
     (content: string) => {
@@ -2863,7 +3389,6 @@ export function ThreePanelInterface() {
       const parts: React.ReactNode[] = [];
       const openRe = /<(Analyze|Understand|Code|Execute|Answer|File)>/g;
       let cursor = 0;
-      let sectionIndex = 0;
       let m: RegExpExecArray | null;
 
       while ((m = openRe.exec(content)) !== null) {
@@ -2890,24 +3415,20 @@ export function ThreePanelInterface() {
         const bodyEnd = isComplete ? closeIdx : content.length;
         const body = content.slice(openEnd, bodyEnd).trim();
 
-        const baseKey = `${type}-${sectionIndex}`;
-        const msgKey =
-          messageIndex !== undefined ? `msg${messageIndex}-${type}-${sectionIndex}` : baseKey;
-        const sectionKey = msgKey;
+        const sectionKey = buildSectionKey(type, start, messageIndex);
         const collapseState = collapsedSectionsRef.current;
-        const isCollapsed =
-          (collapseState as any)[msgKey] ??
-          (collapseState as any)[baseKey] ??
-          false;
+        const isCollapsed = autoCollapseEnabled
+          ? !!(collapseState as any)[sectionKey]
+          : !!manualLocks[sectionKey] && !!(collapseState as any)[sectionKey];
 
         const toggleSection = () => {
           setCollapsedSections((prev) => {
             const next = { ...prev } as Record<string, boolean>;
-            const current = (prev as any)[msgKey] ?? (prev as any)[baseKey] ?? false;
-            next[msgKey] = !current;
-            next[baseKey] = !current;
+            const current = !!(prev as any)[sectionKey];
+            next[sectionKey] = !current;
             return next;
           });
+          setManualLocks((prev) => ({ ...prev, [sectionKey]: true }));
           touchMessageAt(messageIndex);
         };
 
@@ -2946,21 +3467,102 @@ export function ThreePanelInterface() {
                   </span>
                 )}
               </div>
+              <div className="flex items-center gap-1">
+                {type === "Answer" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      if (isTypingRef.current) {
+                        toastRef.current({
+                          description: textLabels.exportBlockedWhileStreaming,
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      await exportReportBackendRef.current();
+                    }}
+                    className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    title={textLabels.exportActionTitle}
+                  >
+                    <Download className="h-3 w-3" />
+                  </Button>
+                )}
+                {(type === "Code" ||
+                  type === "Analyze" ||
+                  type === "Understand") && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        const text =
+                          type === "Code" ? extractCode(body || "") : body || "";
+                        const ok = await copyToClipboard(text.trim());
+                        toastRef.current({
+                          description: ok ? "已复制" : "复制失败",
+                          variant: ok ? undefined : "destructive",
+                        });
+                      }}
+                      className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    {type === "Code" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const code = extractCode(body || "");
+                          setCodeEditorContent(code);
+                          setSelectedCodeSection(body || "");
+                          setShowCodeEditor(true);
+                        }}
+                        className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </>
+                )}
+                {type === "Execute" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      const executionOutput = extractCode(body || "");
+                      const textToCopy = executionOutput || body || "";
+                      if (textToCopy.trim()) {
+                        const ok = await copyToClipboard(textToCopy.trim());
+                        toastRef.current({
+                          description: ok ? "已复制" : "复制失败",
+                          variant: ok ? undefined : "destructive",
+                        });
+                      }
+                    }}
+                    className="h-5 px-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    title={uiLanguage === "zh" ? "复制 Execute 输出" : "Copy Execute Output"}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             </div>
             {!isCollapsed && (
-              <div className="p-3">
+              <StreamingSectionViewport
+                enabled={fixedStreamingSectionHeightEnabled}
+              >
                 <StreamingSectionBody
                   type={type}
                   content={body}
                   isComplete={isComplete}
                   renderSectionContent={renderSectionContent}
                 />
-              </div>
+              </StreamingSectionViewport>
             )}
           </div>
         );
 
-        sectionIndex += 1;
         cursor = isComplete ? closeIdx + closeTag.length : content.length;
         openRe.lastIndex = cursor;
 
@@ -2988,7 +3590,19 @@ export function ThreePanelInterface() {
 
       return <>{parts}</>;
     },
-    [renderMarkdownContent, renderSectionContent, textLabels.sectionGenerating, touchMessageAt]
+    [
+      autoCollapseEnabled,
+      buildSectionKey,
+      fixedStreamingSectionHeightEnabled,
+      manualLocks,
+      renderMarkdownContent,
+      renderSectionContent,
+      textLabels.exportActionTitle,
+      textLabels.exportBlockedWhileStreaming,
+      textLabels.sectionGenerating,
+      touchMessageAt,
+      uiLanguage,
+    ]
   );
 
   const renderMessageWithSections = useCallback((
@@ -3079,31 +3693,26 @@ export function ThreePanelInterface() {
 
       // 添加结构化标签
       const config = sectionConfigs[match.type];
-      const baseKey = `${match.type}-${index}`;
-      const msgKey =
-        messageIndex !== undefined
-          ? `msg${messageIndex}-${match.type}-${index}`
-          : baseKey;
-      const sectionKey = msgKey;
+      const sectionKey = buildSectionKey(
+        match.type as StructuredSectionType,
+        match.position,
+        messageIndex
+      );
       const collapseState = collapsedSectionsRef.current;
-      const isCollapsed =
-        (collapseState as any)[msgKey] ??
-        (collapseState as any)[baseKey] ??
-        false;
+      const isCollapsed = autoCollapseEnabled
+        ? !!(collapseState as any)[sectionKey]
+        : !!manualLocks[sectionKey] && !!(collapseState as any)[sectionKey];
 
       const toggleSection = () => {
         setCollapsedSections((prev) => {
           const next = { ...prev } as Record<string, boolean>;
-          const current =
-            (prev as any)[msgKey] ?? (prev as any)[baseKey] ?? false;
-          next[msgKey] = !current;
-          next[baseKey] = !current;
+          const current = !!(prev as any)[sectionKey];
+          next[sectionKey] = !current;
           return next;
         });
         setManualLocks((prev) => ({
           ...prev,
-          [msgKey]: true,
-          [baseKey]: true,
+          [sectionKey]: true,
         }));
         touchMessageAt(messageIndex);
       };
@@ -3168,8 +3777,8 @@ export function ThreePanelInterface() {
 
       parts.push(
         <div
-          key={`section-${index}`}
-          className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+          key={`section-${sectionKey}`}
+          className={`mb-4 border rounded-lg overflow-hidden ${config.color}`}
           data-section={match.type}
           data-section-key={sectionKey}
           style={{
@@ -3177,7 +3786,7 @@ export function ThreePanelInterface() {
             containIntrinsicSize: isCollapsed ? "56px" : "240px",
           }}
         >
-          <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between px-3 py-2 bg-white/60 dark:bg-black/30 border-b border-black/5 dark:border-white/10">
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -3284,12 +3893,15 @@ export function ThreePanelInterface() {
             </div>
           </div>
           {!isCollapsed && (
-            <div
-              className={`p-3 ${match.type === "Answer" ? "answer-body" : ""}`}
+            <StreamingSectionViewport
+              enabled={fixedStreamingSectionHeightEnabled}
+              bodyClassName={match.type === "Answer" ? "answer-body" : ""}
             >
-              {renderSectionContent(sectionBody)}
+              {match.type === "Code"
+                ? renderSectionContent(buildCodeFenceForSection(sectionBody))
+                : renderSectionContent(sectionBody)}
               {fileGallery}
-            </div>
+            </StreamingSectionViewport>
           )}
         </div>
       );
@@ -3310,7 +3922,7 @@ export function ThreePanelInterface() {
     }
 
     return <>{parts}</>;
-  }, [renderMarkdownContent, renderSectionContent, textLabels.exportActionTitle, textLabels.exportBlockedWhileStreaming, textLabels.relatedFiles, touchMessageAt]);
+  }, [autoCollapseEnabled, buildSectionKey, fixedStreamingSectionHeightEnabled, manualLocks, renderMarkdownContent, renderSectionContent, textLabels.exportActionTitle, textLabels.exportBlockedWhileStreaming, textLabels.relatedFiles, touchMessageAt]);
 
   // 根据完整内容自动折叠：除最后一个块外全部折叠
   const autoCollapseForContent = useCallback(
@@ -3324,36 +3936,31 @@ export function ThreePanelInterface() {
         "File",
         "Answer",
       ] as const;
-      const matches: Array<{ type: string; index: number; pos: number }> = [];
+      const matches: Array<{ type: StructuredSectionType; pos: number }> = [];
       sectionTypes.forEach((t) => {
         const re = new RegExp(`<${t}>([\\s\\S]*?)</${t}>`, "g");
         let m: RegExpExecArray | null;
-        let local = 0;
         while ((m = re.exec(content)) !== null) {
-          matches.push({ type: t, index: local++, pos: m.index });
+          matches.push({ type: t, pos: m.index });
         }
       });
       if (matches.length === 0) return;
       matches.sort((a, b) => a.pos - b.pos);
       const next: Record<string, boolean> = {};
       matches.forEach((m, i) => {
-        const baseKey = `${m.type}-${i}`;
-        const msgKey =
-          messageIndex !== undefined ? `msg${messageIndex}-${m.type}-${i}` : null;
-        const key = msgKey || baseKey;
+        const key = buildSectionKey(m.type, m.pos, messageIndex);
         next[key] = i !== matches.length - 1; // 最后一个不折叠
       });
       setCollapsedSections((prev) => {
         const merged: Record<string, boolean> = { ...prev };
         // 只在未手动锁定的 key 上更新，保留用户手动状态
         for (const key in next) {
-          const baseKey = key.replace(/^msg\d+-/, "");
-          if (!manualLocks[key] && !manualLocks[baseKey]) merged[key] = next[key];
+          if (!manualLocks[key]) merged[key] = next[key];
         }
         return merged;
       });
     },
-    [autoCollapseEnabled, manualLocks]
+    [autoCollapseEnabled, buildSectionKey, manualLocks]
   );
 
 
@@ -3577,7 +4184,36 @@ export function ThreePanelInterface() {
       }
 
       if (previewType === "text") {
+        const previewExtension = (
+          previewTitle.split(".").pop() || "text"
+        ).toLowerCase();
+        const previewLanguage = guessLanguageByExtension(previewExtension);
         if (compact) {
+          if (previewLanguage === "json") {
+            return (
+              <div className="h-48 overflow-hidden p-2">
+                <div className="h-full min-h-0 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
+                  <Editor
+                    height="100%"
+                    defaultLanguage="json"
+                    language="json"
+                    value={previewContent.slice(0, 1200)}
+                    theme={isDarkMode ? "vs-dark" : "light"}
+                    options={{
+                      readOnly: true,
+                      wordWrap: "on",
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      fontFamily: "var(--font-mono), 'Courier New', monospace",
+                      fontSize: 12,
+                      lineNumbers: "off",
+                      automaticLayout: true,
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          }
           return (
             <pre className="max-h-48 overflow-auto whitespace-pre-wrap p-3 text-xs text-gray-700 dark:text-gray-300">
               {previewContent.slice(0, 1200)}
@@ -3590,12 +4226,8 @@ export function ThreePanelInterface() {
               <div className="h-full min-h-0">
                 <Editor
                   height="100%"
-                  defaultLanguage={guessLanguageByExtension(
-                    previewTitle.split(".").pop() || "text"
-                  )}
-                  language={guessLanguageByExtension(
-                    previewTitle.split(".").pop() || "text"
-                  )}
+                  defaultLanguage={previewLanguage}
+                  language={previewLanguage}
                   value={previewContent}
                   theme={isDarkMode ? "vs-dark" : "light"}
                   options={{
@@ -3859,12 +4491,13 @@ export function ThreePanelInterface() {
     // 按位置排序，然后生成 sectionKey（与 renderMessageWithSections 逻辑一致）
     allMatches.sort((a, b) => a.position - b.position);
 
-    return allMatches.map((m, index) => ({
+    return allMatches.map((m) => ({
       type: m.type,
-      sectionKey:
-        messageIndex !== undefined
-          ? `msg${messageIndex}-${m.type}-${index}` // 包含消息索引
-          : `${m.type}-${index}`, // 兼容旧逻辑
+      sectionKey: buildSectionKey(
+        m.type as StructuredSectionType,
+        m.position,
+        messageIndex
+      ),
       config: sectionConfigs[m.type],
     }));
   };
@@ -3880,13 +4513,12 @@ export function ThreePanelInterface() {
     // 展开目标块（如果它是折叠的）
     setCollapsedSections((prev) => {
       const next = { ...prev };
-      // 提取 baseKey（去掉 msg{index}- 前缀）
-      const baseKey = sectionKey.replace(/^msg\d+-/, "");
+      // 仅处理当前 sectionKey
 
-      // 如果该块是折叠的，则展开它（同时更新两种格式的 key）
-      if (prev[sectionKey] || prev[baseKey]) {
+      // 如果该块是折叠的，则展开它
+
+      if (prev[sectionKey]) {
         next[sectionKey] = false;
-        next[baseKey] = false;
         return next;
       }
       return prev;
@@ -3894,11 +4526,9 @@ export function ThreePanelInterface() {
 
     // 标记为手动操作，防止自动折叠覆盖
     setManualLocks((prev) => {
-      const baseKey = sectionKey.replace(/^msg\d+-/, "");
       return {
         ...prev,
         [sectionKey]: true,
-        [baseKey]: true,
       };
     });
     touchMessageAt(parseMessageIndexFromSectionKey(sectionKey));
@@ -4226,12 +4856,24 @@ export function ThreePanelInterface() {
       await handleStopMessage();
       return;
     }
+    const trimmedCustomModelName = customModelName.trim();
     if (llmProvider === "heywhale" && !heywhaleApiKey.trim()) {
       toastRef.current({
-        description:
-          uiLanguage === "zh"
-            ? "请先填写和鲸 API Key"
-            : "Please provide a HeyWhale API key first.",
+        description: textLabels.needHeywhaleKey,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (llmProvider === "custom" && !trimmedCustomModelName) {
+      toastRef.current({
+        description: textLabels.needCustomModel,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (llmProvider === "custom" && !customApiBase.trim()) {
+      toastRef.current({
+        description: textLabels.needCustomApiBase,
         variant: "destructive",
       });
       return;
@@ -4264,16 +4906,26 @@ export function ThreePanelInterface() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "DeepAnalyze-8B", // 修正模型名
+          model:
+            llmProvider === "custom"
+              ? trimmedCustomModelName || DEFAULT_MODEL_NAME
+              : DEFAULT_MODEL_NAME,
           provider: llmProvider,
-          api_key: llmProvider === "heywhale" ? heywhaleApiKey.trim() : "",
+          api_key:
+            llmProvider === "heywhale"
+              ? heywhaleApiKey.trim()
+              : llmProvider === "custom"
+                ? customApiKey.trim()
+                : "",
+          api_base: llmProvider === "custom" ? customApiBase.trim() : "",
           temperature: normalizedTemperature,
+          ui_language: uiLanguage,
           messages: [
-            ...(systemPrompt.trim()
+            ...(effectiveSystemPrompt
               ? [
                   {
                     role: "system",
-                    content: systemPrompt.trim(),
+                    content: effectiveSystemPrompt,
                   },
                 ]
               : []),
@@ -4288,7 +4940,7 @@ export function ThreePanelInterface() {
               content: inputValue,
             },
           ],
-          stream: true, // [修改] 明确开启流式模式
+          stream: true,
           session_id: sessionId,
         }),
       });
@@ -4504,6 +5156,149 @@ export function ThreePanelInterface() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const renderClearChatButton = (buttonClassName: string) => (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={buttonClassName}
+          title={uiLanguage === "zh" ? "清空聊天" : "Clear Chat"}
+          disabled={isTyping}
+        >
+          <Eraser className="h-3.5 w-3.5" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {uiLanguage === "zh" ? "清空聊天？" : "Clear chat?"}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {uiLanguage === "zh"
+              ? "将删除当前会话内的所有消息，仅保留欢迎提示。"
+              : "This removes all messages in the current session and keeps only the welcome message."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={clearChat}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {uiLanguage === "zh" ? "确认清空" : "Confirm"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  const renderChatComposer = (
+    wrapperClassName: string,
+    options?: { stacked?: boolean }
+  ) => {
+    const stacked = !!options?.stacked;
+    return (
+      <div className={wrapperClassName}>
+        <div className={stacked ? "space-y-3" : "flex gap-3 items-end"}>
+          {stacked ? (
+            <Textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder={
+                uiLanguage === "zh"
+                  ? "\u8f93\u5165\u4f60\u7684\u5206\u6790\u9700\u6c42\uff0c\u6216\u5728\u5de6\u4fa7\u5207\u6362\u9884\u8bbe Prompt..."
+                  : "Describe your analysis task, or pick a preset from the left panel..."
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black pr-4"
+            />
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-10 w-10 p-0 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                title={uiLanguage === "zh" ? "\u4e0a\u4f20\u6587\u4ef6" : "Upload Files"}
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
+              <div className="flex-1 relative">
+                <Textarea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder={
+                    uiLanguage === "zh"
+                      ? "\u8f93\u5165\u4f60\u7684\u5206\u6790\u9700\u6c42\uff0c\u6216\u5728\u5de6\u4fa7\u5207\u6362\u9884\u8bbe Prompt..."
+                      : "Describe your analysis task, or pick a preset from the left panel..."
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black pr-4"
+                />
+              </div>
+            </>
+          )}
+
+          <div className={stacked ? "flex items-center justify-between gap-3" : "flex items-center gap-2"}>
+            {stacked && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-10 w-10 p-0 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  title={uiLanguage === "zh" ? "\u4e0a\u4f20\u6587\u4ef6" : "Upload Files"}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              {isTyping ? (
+                <Button
+                  onClick={handleStopMessage}
+                  size="sm"
+                  className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+                  title={uiLanguage === "zh" ? "\u6b63\u5728\u751f\u6210" : "Generating"}
+                  disabled={isStopping}
+                >
+                  {isStopping ? (
+                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Square className="h-3.5 w-3.5 mr-1 fill-current" />
+                  )}
+                  {uiLanguage === "zh" ? "\u505c\u6b62" : "Stop"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSendMessage}
+                  size="sm"
+                  disabled={!inputValue.trim() && attachments.length === 0}
+                  className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+                >
+                  <Send className="h-4 w-4 mr-1" />
+                  {uiLanguage === "zh" ? "\u53d1\u9001" : "Send"}
+                </Button>
+              )}
+              {renderClearChatButton("h-10 rounded-full px-3")}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <div
@@ -4532,60 +5327,6 @@ export function ThreePanelInterface() {
                     className="hidden"
                     accept={UPLOAD_ACCEPT_TYPES}
                   />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowPromptPanel((prev) => !prev)}
-                    className="h-8 w-8 p-0"
-                    title={textLabels.promptPresets}
-                  >
-                    <WandSparkles className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      loadWorkspaceTree();
-                      loadWorkspaceFiles();
-                    }}
-                    className="h-8 w-8 p-0"
-                    title="refresh"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
-                        title="clear workspace"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {uiLanguage === "zh" ? "清空 workspace？" : "Clear workspace?"}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {uiLanguage === "zh"
-                            ? "将删除 workspace 根目录下的所有文件与文件夹，此操作不可撤销。"
-                            : "This deletes all files and folders under the workspace root. This action cannot be undone."}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-red-600 hover:bg-red-700"
-                          onClick={clearWorkspace}
-                        >
-                          {uiLanguage === "zh" ? "确认清空" : "Confirm"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
                 </div>
               </div>
 
@@ -4593,8 +5334,7 @@ export function ThreePanelInterface() {
                 ref={treeContainerRef}
                 className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-3"
               >
-                {showPromptPanel && (
-                  <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3 space-y-3">
+                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -4631,15 +5371,6 @@ export function ThreePanelInterface() {
                         </Select>
                       </div>
                     </div>
-                    <div className="rounded-xl bg-gray-50 dark:bg-gray-900/60 px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
-                      <div className="font-medium text-gray-800 dark:text-gray-100">
-                        {selectedPresetLabel}
-                      </div>
-                      <div className="mt-1">{selectedPresetDescription}</div>
-                      <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-                        {textLabels.promptHint}
-                      </div>
-                    </div>
                     <div>
                       <div className="mb-1.5 flex items-center justify-between">
                         <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -4657,10 +5388,15 @@ export function ThreePanelInterface() {
                       <Textarea
                         value={systemPrompt}
                         onChange={(e) => setSystemPrompt(e.target.value)}
-                        className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black text-sm"
+                        className="min-h-20 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black text-sm"
                         placeholder={textLabels.systemPromptPlaceholder}
                       />
                     </div>
+                    {moveDialogToLeftPanel &&
+                      renderChatComposer(
+                        "rounded-2xl border border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/40 p-3",
+                        { stacked: true }
+                      )}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -4669,7 +5405,7 @@ export function ThreePanelInterface() {
                         <Select
                           value={llmProvider}
                           onValueChange={(value) =>
-                            setLlmProvider(value as "local" | "heywhale")
+                            setLlmProvider(value as LlmProvider)
                           }
                         >
                           <SelectTrigger className="w-full rounded-xl">
@@ -4678,6 +5414,7 @@ export function ThreePanelInterface() {
                           <SelectContent>
                             <SelectItem value="local">{textLabels.providerLocal}</SelectItem>
                             <SelectItem value="heywhale">{textLabels.providerHeywhale}</SelectItem>
+                            <SelectItem value="custom">{textLabels.providerCustom}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -4702,6 +5439,31 @@ export function ThreePanelInterface() {
                         </div>
                       </div>
                     </div>
+                    <div>
+                      <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                        {textLabels.modelName}
+                      </div>
+                      <Input
+                        value={
+                          llmProvider === "custom"
+                            ? customModelName
+                            : DEFAULT_MODEL_NAME
+                        }
+                        onChange={(e) => {
+                          if (llmProvider === "custom") {
+                            setCustomModelName(e.target.value);
+                          }
+                        }}
+                        className="rounded-xl border-gray-200 dark:border-gray-800"
+                        placeholder={
+                          llmProvider === "custom"
+                            ? textLabels.modelNamePlaceholder
+                            : DEFAULT_MODEL_NAME
+                        }
+                        readOnly={llmProvider !== "custom"}
+                        disabled={llmProvider !== "custom"}
+                      />
+                    </div>
                     {llmProvider === "heywhale" && (
                       <div>
                         <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -4716,8 +5478,34 @@ export function ThreePanelInterface() {
                         />
                       </div>
                     )}
+                    {llmProvider === "custom" && (
+                      <div className="space-y-3">
+                        <div>
+                          <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {textLabels.customApiBase}
+                          </div>
+                          <Input
+                            value={customApiBase}
+                            onChange={(e) => setCustomApiBase(e.target.value)}
+                            className="rounded-xl border-gray-200 dark:border-gray-800"
+                            placeholder={textLabels.customApiBasePlaceholder}
+                          />
+                        </div>
+                        <div>
+                          <div className="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {textLabels.customApiKey}
+                          </div>
+                          <Input
+                            type="password"
+                            value={customApiKey}
+                            onChange={(e) => setCustomApiKey(e.target.value)}
+                            className="rounded-xl border-gray-200 dark:border-gray-800"
+                            placeholder={textLabels.customApiKeyPlaceholder}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </Card>
-                )}
 
                 <div className="space-y-4">
                   <div
@@ -4828,45 +5616,6 @@ export function ThreePanelInterface() {
                   </div>
                 )}
 
-                {previewTitle && (
-                  <Card className="p-3 rounded-2xl border-gray-200/80 dark:border-gray-800/80">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="rounded-full px-2.5">
-                            {textLabels.recentPreview}
-                          </Badge>
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {getLocalizedPreviewType(previewType)}
-                          </span>
-                        </div>
-                        <div className="mt-2 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {previewTitle}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8"
-                          onClick={() => setIsPreviewOpen(true)}
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1" />
-                          {textLabels.preview}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={handleDownload}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                )}
-
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-3 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -4914,7 +5663,7 @@ export function ThreePanelInterface() {
                   </div>
                 </Card>
 
-                <div className="space-y-2">
+                <div className="hidden space-y-2">
                   <Input
                     value={workspaceSearch}
                     onChange={(e) => setWorkspaceSearch(e.target.value)}
@@ -4936,7 +5685,7 @@ export function ThreePanelInterface() {
                   </Tabs>
                 </div>
 
-                <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
+                <Card className="hidden rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
                   <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/60">
                     <Badge variant="secondary" className="rounded-full px-2.5">
                       {workspaceView === "generated"
@@ -5074,6 +5823,38 @@ export function ThreePanelInterface() {
                         }
                       }}
                     />
+                    <span className="ml-2">
+                      {uiLanguage === "zh"
+                        ? "流式固定高度"
+                        : "Fixed Stream Height"}
+                    </span>
+                    <Switch
+                      className="data-[state=unchecked]:bg-gray-200 data-[state=unchecked]:border data-[state=unchecked]:border-gray-300"
+                      checked={fixedStreamingSectionHeightEnabled}
+                      onCheckedChange={(v: boolean) => {
+                        setFixedStreamingSectionHeightEnabled(!!v);
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem(
+                            "fixedStreamingSectionHeightEnabled",
+                            (!!v).toString()
+                          );
+                        }
+                      }}
+                    />
+                    <span className="ml-2">{textLabels.moveDialogToLeft}</span>
+                    <Switch
+                      className="data-[state=unchecked]:bg-gray-200 data-[state=unchecked]:border data-[state=unchecked]:border-gray-300"
+                      checked={moveDialogToLeftPanel}
+                      onCheckedChange={(v: boolean) => {
+                        setMoveDialogToLeftPanel(!!v);
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem(
+                            "moveDialogToLeftPanel",
+                            (!!v).toString()
+                          );
+                        }
+                      }}
+                    />
                   </div>
                   <Button
                     variant="outline"
@@ -5118,6 +5899,7 @@ export function ThreePanelInterface() {
               </div>
 
               {/* Input Area */}
+              {!moveDialogToLeftPanel && (
               <div className="p-4 border-t border-gray-200 dark:border-gray-800 shrink-0 bg-white/80 dark:bg-gray-950/80">
                 <div className="flex gap-3 items-end">
                   <Button
@@ -5147,68 +5929,38 @@ export function ThreePanelInterface() {
                       className="min-h-24 rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-black pr-4"
                     />
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
+                  <div className="flex items-center gap-2">
+                    {isTyping ? (
                       <Button
-                        variant="outline"
+                        onClick={handleStopMessage}
                         size="sm"
-                        title={uiLanguage === "zh" ? "清空聊天" : "Clear Chat"}
-                        className="h-10 px-3 rounded-full"
-                        disabled={isTyping}
+                        className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+                        title={uiLanguage === "zh" ? "正在生成" : "Generating"}
+                        disabled={isStopping}
                       >
-                        <Eraser className="h-4 w-4" />
+                        {isStopping ? (
+                          <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Square className="h-3.5 w-3.5 mr-1 fill-current" />
+                        )}
+                        {uiLanguage === "zh" ? "停止" : "Stop"}
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {uiLanguage === "zh" ? "清空聊天？" : "Clear chat?"}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {uiLanguage === "zh"
-                            ? "将删除当前会话内的所有消息，仅保留欢迎提示。"
-                            : "This removes all messages in the current session and keeps only the welcome message."}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={clearChat}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          {uiLanguage === "zh" ? "确认清空" : "Confirm"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                  {isTyping ? (
-                    <Button
-                      onClick={handleStopMessage}
-                      size="sm"
-                      className="h-10 rounded-full px-4 bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
-                      title={uiLanguage === "zh" ? "正在生成" : "Generating"}
-                      disabled={isStopping}
-                    >
-                      {isStopping ? (
-                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                      ) : (
-                        <Square className="h-3.5 w-3.5 mr-1 fill-current" />
-                      )}
-                      {uiLanguage === "zh" ? "停止" : "Stop"}
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleSendMessage}
-                      size="sm"
-                      disabled={!inputValue.trim() && attachments.length === 0}
-                      className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
-                    >
-                      <Send className="h-4 w-4 mr-1" />
-                      {uiLanguage === "zh" ? "发送" : "Send"}
-                    </Button>
-                  )}
+                    ) : (
+                      <Button
+                        onClick={handleSendMessage}
+                        size="sm"
+                        disabled={!inputValue.trim() && attachments.length === 0}
+                        className="h-10 rounded-full bg-black px-4 text-white dark:bg-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200"
+                      >
+                        <Send className="h-4 w-4 mr-1" />
+                        {uiLanguage === "zh" ? "发送" : "Send"}
+                      </Button>
+                    )}
+                    {renderClearChatButton("h-10 rounded-full px-3")}
+                  </div>
                 </div>
               </div>
+              )}
 
             </div>
           </ResizablePanel>
@@ -5218,12 +5970,12 @@ export function ThreePanelInterface() {
           {/* Right Panel - Inspector */}
           <ResizablePanel defaultSize={22} minSize={18}>
             <div className="flex h-full min-h-0 flex-col bg-white/80 dark:bg-gray-950/80 border-l border-gray-200/70 dark:border-gray-800/70">
-              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-3 shrink-0">
+              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-2 shrink-0">
                 <div>
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {uiLanguage === "zh" ? "检查栏" : "Inspector"}
                   </h2>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {uiLanguage === "zh"
                       ? "预览当前文件、查看最近产物和快速进入代码工作台"
                       : "Preview the current file, inspect recent artifacts, and jump into the code lab."}
@@ -5244,21 +5996,26 @@ export function ThreePanelInterface() {
               <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
                   <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-3">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {uiLanguage === "zh" ? "当前预览" : "Current Preview"}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 shrink-0">
+                        {uiLanguage === "zh" ? "当前预览" : "Current Preview"}
+                      </div>
+                      {previewTitle && (
+                        <>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">/</span>
+                          <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {previewTitle}
+                          </div>
+                          <div className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                            {getLocalizedPreviewType(previewType)}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="p-4">
                     {previewTitle ? (
                       <div className="space-y-3">
-                        <div>
-                          <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {previewTitle}
-                          </div>
-                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            {getLocalizedPreviewType(previewType)}
-                          </div>
-                        </div>
                         <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
                           {renderPreviewContent({ compact: true })}
                         </div>
@@ -5293,6 +6050,334 @@ export function ThreePanelInterface() {
                 </Card>
 
                 <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
+                  <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {fileStatsTitle}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {fileStatsHint}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            loadWorkspaceTree();
+                            loadWorkspaceFiles();
+                          }}
+                          className="h-8 w-8 p-0"
+                          title="refresh"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+                              title="clear workspace"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                {uiLanguage === "zh" ? "清空 workspace？" : "Clear workspace?"}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {uiLanguage === "zh"
+                                  ? "将删除 workspace 根目录下的所有文件与文件夹，此操作不可撤销。"
+                                  : "This deletes all files and folders under the workspace root. This action cannot be undone."}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{uiLanguage === "zh" ? "取消" : "Cancel"}</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 hover:bg-red-700"
+                                onClick={clearWorkspace}
+                              >
+                                {uiLanguage === "zh" ? "确认清空" : "Confirm"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 p-3">
+                    <button
+                      type="button"
+                      className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                        workspaceView === "uploaded"
+                          ? "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20"
+                          : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
+                      }`}
+                      onClick={() => setWorkspaceView("uploaded")}
+                    >
+                      <Upload className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                        {textLabels.uploaded}
+                      </div>
+                      <div className="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">
+                        {workspaceFileCounts.uploaded}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                        workspaceView === "generated"
+                          ? "border-purple-300 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/20"
+                          : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
+                      }`}
+                      onClick={() => setWorkspaceView("generated")}
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                      <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                        {textLabels.generated}
+                      </div>
+                      <div className="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">
+                        {workspaceFileCounts.generated}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                        workspaceView === "all"
+                          ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20"
+                          : "border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60"
+                      }`}
+                      onClick={() => setWorkspaceView("all")}
+                    >
+                      <FolderOpen className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                        {textLabels.all}
+                      </div>
+                      <div className="mt-0.5 text-base font-semibold text-gray-900 dark:text-gray-100">
+                        {workspaceFileCounts.all}
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="border-t border-gray-200/80 dark:border-gray-800/80 p-3 space-y-3">
+                    <Input
+                      value={workspaceSearch}
+                      onChange={(e) => setWorkspaceSearch(e.target.value)}
+                      placeholder={textLabels.search}
+                      className="h-9 rounded-xl border-gray-200 dark:border-gray-800"
+                    />
+
+                    <div className="rounded-xl border border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/60">
+                        <Badge variant="secondary" className="rounded-full px-2.5">
+                          {workspaceView === "generated"
+                            ? textLabels.generated
+                            : workspaceView === "uploaded"
+                              ? textLabels.uploaded
+                              : textLabels.all}
+                        </Badge>
+                        <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                          {textLabels.clickToPreview}
+                        </span>
+                      </div>
+                      {filteredWorkspaceFiles.length ? (
+                        <div className="flex flex-wrap gap-3 p-3">
+                          {filteredWorkspaceFiles.map((file, index) => {
+                            const isImage = file.category === "image" && !!file.preview_url;
+                            const imageUrl = resolveWorkspaceFileUrl(file.preview_url || file.download_url);
+                            const ext = (file.extension || "").replace(/^\./, "").toUpperCase() || "FILE";
+                            return (
+                              <button
+                                key={`${file.path || file.name}-${index}`}
+                                className={`group w-[156px] shrink-0 text-left rounded-2xl border p-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${getFileAccentClasses(file)} ${selectedWorkspacePath === file.path ? "ring-2 ring-blue-300 dark:ring-blue-800" : ""}`}
+                                onClick={() => {
+                                  setSelectedWorkspacePath(file.path);
+                                  openPreview(file);
+                                }}
+                                onDoubleClick={() => {
+                                  setSelectedWorkspacePath(file.path);
+                                  openFullPreview(file);
+                                }}
+                                type="button"
+                              >
+                                <div className="aspect-square overflow-hidden rounded-xl bg-white/80 dark:bg-gray-950/70 border border-white/60 dark:border-gray-800 flex items-center justify-center">
+                                  {isImage ? (
+                                    <img
+                                      src={imageUrl}
+                                      alt={file.name}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : file.category === "table" ? (
+                                    <div className="flex flex-col items-center justify-center text-emerald-700 dark:text-emerald-300">
+                                      <FileSpreadsheet className="h-9 w-9" />
+                                      <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                    </div>
+                                  ) : ["json", "sqlite", "db"].includes((file.extension || "").replace(/^\./, "")) ? (
+                                    <div className="flex flex-col items-center justify-center text-amber-700 dark:text-amber-300">
+                                      <FileJson className="h-9 w-9" />
+                                      <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                    </div>
+                                  ) : ["py", "sql", "js", "ts", "tsx", "jsx", "ipynb"].includes((file.extension || "").replace(/^\./, "")) ? (
+                                    <div className="flex flex-col items-center justify-center text-violet-700 dark:text-violet-300">
+                                      <FileCode2 className="h-9 w-9" />
+                                      <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                    </div>
+                                  ) : file.category === "image" ? (
+                                    <div className="flex flex-col items-center justify-center text-blue-700 dark:text-blue-300">
+                                      <FileImage className="h-9 w-9" />
+                                      <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center justify-center text-gray-700 dark:text-gray-300">
+                                      <FileText className="h-9 w-9" />
+                                      <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="px-1 pt-2">
+                                  <div className="truncate text-xs font-medium text-gray-900 dark:text-gray-100" title={file.path}>
+                                    {file.name}
+                                  </div>
+                                  <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                                    <span className="truncate">{formatFileSize(file.size)}</span>
+                                    <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[10px]">
+                                      {isGeneratedWorkspaceFile(file)
+                                        ? textLabels.generated
+                                        : textLabels.uploaded}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full px-4 py-10 text-sm text-gray-500 dark:text-gray-400">
+                          {textLabels.noFiles}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+
+                <div className="hidden space-y-2">
+                  <Input
+                    value={workspaceSearch}
+                    onChange={(e) => setWorkspaceSearch(e.target.value)}
+                    placeholder={textLabels.search}
+                    className="h-9 rounded-xl border-gray-200 dark:border-gray-800"
+                  />
+                  <Tabs
+                    value={workspaceView}
+                    onValueChange={(value) =>
+                      setWorkspaceView(value as "all" | "uploaded" | "generated")
+                    }
+                    className="gap-0"
+                  >
+                    <TabsList className="grid w-full grid-cols-3 rounded-xl">
+                      <TabsTrigger value="uploaded">{textLabels.uploaded}</TabsTrigger>
+                      <TabsTrigger value="generated">{textLabels.generated}</TabsTrigger>
+                      <TabsTrigger value="all">{textLabels.all}</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+
+                <Card className="hidden rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-900/60">
+                    <Badge variant="secondary" className="rounded-full px-2.5">
+                      {workspaceView === "generated"
+                        ? textLabels.generated
+                        : workspaceView === "uploaded"
+                          ? textLabels.uploaded
+                          : textLabels.all}
+                    </Badge>
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                      {textLabels.clickToPreview}
+                    </span>
+                  </div>
+                  {filteredWorkspaceFiles.length ? (
+                    <div className="flex flex-wrap gap-3 p-3">
+                      {filteredWorkspaceFiles.map((file, index) => {
+                        const isImage = file.category === "image" && !!file.preview_url;
+                        const imageUrl = resolveWorkspaceFileUrl(file.preview_url || file.download_url);
+                        const ext = (file.extension || "").replace(/^\./, "").toUpperCase() || "FILE";
+                        return (
+                          <button
+                            key={`${file.path || file.name}-${index}`}
+                            className={`group w-[156px] shrink-0 text-left rounded-2xl border p-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${getFileAccentClasses(file)} ${selectedWorkspacePath === file.path ? "ring-2 ring-blue-300 dark:ring-blue-800" : ""}`}
+                            onClick={() => {
+                              setSelectedWorkspacePath(file.path);
+                              openPreview(file);
+                            }}
+                            onDoubleClick={() => {
+                              setSelectedWorkspacePath(file.path);
+                              openFullPreview(file);
+                            }}
+                            type="button"
+                          >
+                            <div className="aspect-square overflow-hidden rounded-xl bg-white/80 dark:bg-gray-950/70 border border-white/60 dark:border-gray-800 flex items-center justify-center">
+                              {isImage ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={file.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : file.category === "table" ? (
+                                <div className="flex flex-col items-center justify-center text-emerald-700 dark:text-emerald-300">
+                                  <FileSpreadsheet className="h-9 w-9" />
+                                  <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                </div>
+                              ) : ["json", "sqlite", "db"].includes((file.extension || "").replace(/^\./, "")) ? (
+                                <div className="flex flex-col items-center justify-center text-amber-700 dark:text-amber-300">
+                                  <FileJson className="h-9 w-9" />
+                                  <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                </div>
+                              ) : ["py", "sql", "js", "ts", "tsx", "jsx", "ipynb"].includes((file.extension || "").replace(/^\./, "")) ? (
+                                <div className="flex flex-col items-center justify-center text-violet-700 dark:text-violet-300">
+                                  <FileCode2 className="h-9 w-9" />
+                                  <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                </div>
+                              ) : file.category === "image" ? (
+                                <div className="flex flex-col items-center justify-center text-blue-700 dark:text-blue-300">
+                                  <FileImage className="h-9 w-9" />
+                                  <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center justify-center text-gray-700 dark:text-gray-300">
+                                  <FileText className="h-9 w-9" />
+                                  <span className="mt-2 text-[11px] font-medium">{ext}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="px-1 pt-2">
+                              <div className="truncate text-xs font-medium text-gray-900 dark:text-gray-100" title={file.path}>
+                                {file.name}
+                              </div>
+                              <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                                <span className="truncate">{formatFileSize(file.size)}</span>
+                                <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[10px]">
+                                  {isGeneratedWorkspaceFile(file)
+                                    ? textLabels.generated
+                                    : textLabels.uploaded}
+                                </Badge>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full px-4 py-10 text-sm text-gray-500 dark:text-gray-400">
+                      {textLabels.noFiles}
+                    </div>
+                  )}
+                </Card>
+
+                <Card className="hidden rounded-2xl border-gray-200/80 dark:border-gray-800/80 overflow-hidden">
                   <div className="border-b border-gray-200/80 dark:border-gray-800/80 px-4 py-3">
                     <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {uiLanguage === "zh" ? "最近生成文件" : "Generated Files"}
@@ -5351,16 +6436,6 @@ export function ThreePanelInterface() {
                   </div>
                 </Card>
 
-                {activePreviewFile && (
-                  <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 p-4">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {uiLanguage === "zh" ? "当前选中路径" : "Selected Path"}
-                    </div>
-                    <div className="mt-2 break-all text-xs text-gray-500 dark:text-gray-400">
-                      {activePreviewFile.path}
-                    </div>
-                  </Card>
-                )}
               </div>
             </div>
           </ResizablePanel>

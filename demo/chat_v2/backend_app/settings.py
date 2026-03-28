@@ -85,6 +85,14 @@ class Settings:
         True,
     )
     pdf_cjk_mainfont: str = os.getenv("DEEPANALYZE_PDF_CJK_MAINFONT", "").strip()
+    pdf_auto_download_pandoc: bool = _get_bool_env(
+        "DEEPANALYZE_PDF_AUTO_DOWNLOAD_PANDOC",
+        True,
+    )
+    pdf_pandoc_cache_dir: str = os.getenv(
+        "DEEPANALYZE_PDF_PANDOC_CACHE_DIR",
+        "",
+    ).strip()
 
     @property
     def file_server_base(self) -> str:

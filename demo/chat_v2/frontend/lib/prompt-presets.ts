@@ -57,7 +57,8 @@ export const DATA_ANALYSIS_PROMPT_PRESETS: PromptPreset[] = [
     },
     prompt: {
       en: "Please generate a set of presentation-ready visualizations for the current data, highlight key trends, comparisons, and anomalies, and explain the business meaning of each chart.",
-      zh: "请为当前数据生成一组适合汇报的可视化，突出关键趋势、对比和异常，并说明每张图的业务含义。",
+      // en: "Please generate a set of presentation-ready visualizations for the current data, highlight key trends, comparisons, and anomalies, and explain the business meaning of each chart. In the final answer, you need to reference the relevant images in Markdown format like ![xxx](xxx.png).",
+      zh: "请为当前数据生成一组适合汇报的可视化，突出关键趋势、对比和异常，并说明每张图的业务含义。在最终的答案中你需要对相关图片进行markdown格式的引用,如![xxx](xxx.png)。",
     },
   },
   {
