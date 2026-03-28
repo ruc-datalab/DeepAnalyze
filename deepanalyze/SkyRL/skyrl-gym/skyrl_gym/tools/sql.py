@@ -5,6 +5,17 @@ import sqlite3
 import sys
 import os
 
+_ALLOWED_SQL_ACTIONS = {
+    sqlite3.SQLITE_SELECT,
+    sqlite3.SQLITE_READ,
+    sqlite3.SQLITE_FUNCTION,
+}
+
+
+def _is_read_only_sql(action_code):
+    """Return True if SQLite is only preparing read-only operations."""
+    return action_code in _ALLOWED_SQL_ACTIONS
+
 
 class SQLCodeExecutorToolGroup(ToolGroup):
     def __init__(self, db_file_path: str):
@@ -15,17 +26,25 @@ class SQLCodeExecutorToolGroup(ToolGroup):
     def sql(self, db_id, sql, turns_left, timeout=5) -> str:
         def _execute_sql(db_file, sql):
             try:
-                conn = sqlite3.connect(db_file)
+                # Open database in read-only mode and let SQLite reject non-read operations.
+                conn = sqlite3.connect(f"file:{db_file}?mode=ro", uri=True)
+                conn.set_authorizer(
+                    lambda action, _arg1, _arg2, _db, _trigger: (
+                        sqlite3.SQLITE_OK
+                        if _is_read_only_sql(action)
+                        else sqlite3.SQLITE_DENY
+                    )
+                )
                 cursor = conn.cursor()
-                conn.execute("BEGIN TRANSACTION;")
                 cursor.execute(sql)
                 execution_res = frozenset(cursor.fetchall())
-                conn.rollback()
                 conn.close()
                 return execution_res
             except Exception as e:
-                conn.rollback()
-                conn.close()
+                try:
+                    conn.close()
+                except Exception:
+                    pass
                 return f"Error executing SQL: {str(e)}, db file: {db_file}"
 
         def _execute_sql_wrapper(db_file, sql, timeout=5) -> str:
@@ -51,6 +70,15 @@ class SQLCodeExecutorToolGroup(ToolGroup):
                 res = f"SQL Timeout:\n{sql}"
             except Exception as e:
                 res = str(e)
+
+            if isinstance(res, str) and (
+                "not authorized" in res.lower()
+                or "you can only execute one statement" in res.lower()
+            ):
+                res = (
+                    "SQL blocked: only read-only SELECT queries are allowed. "
+                    "Statements that modify data or database structure are not permitted."
+                )
 
             return res
 
