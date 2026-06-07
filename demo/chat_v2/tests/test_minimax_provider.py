@@ -84,9 +84,9 @@ class TestBuildChatRuntimeConfigMiniMax:
         cfg = build_chat_runtime_config({
             "provider": "minimax",
             "api_key": "key123",
-            "model": "MiniMax-M2.5-highspeed",
+            "model": "MiniMax-M2.7-highspeed",
         })
-        assert cfg.model == "MiniMax-M2.5-highspeed"
+        assert cfg.model == "MiniMax-M2.7-highspeed"
 
     def test_temperature_clamped_to_minimax_range(self):
         cfg = build_chat_runtime_config({
@@ -192,7 +192,7 @@ class TestIterMiniMaxStream:
             provider="minimax",
             api_key="my-key",
             api_base="https://api.minimax.io/v1",
-            model="MiniMax-M2.7",
+            model="MiniMax-M3",
             temperature=0.7,
         )
         conversation = [{"role": "user", "content": "test"}]
@@ -204,7 +204,7 @@ class TestIterMiniMaxStream:
         )
         mock_client.chat.completions.create.assert_called_once()
         call_kwargs = mock_client.chat.completions.create.call_args[1]
-        assert call_kwargs["model"] == "MiniMax-M2.7"
+        assert call_kwargs["model"] == "MiniMax-M3"
         assert call_kwargs["temperature"] == 0.7
         assert call_kwargs["stream"] is True
 

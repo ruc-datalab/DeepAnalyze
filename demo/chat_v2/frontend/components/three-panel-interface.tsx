@@ -4291,7 +4291,7 @@ export function ThreePanelInterface() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: llmProvider === "minimax" ? "MiniMax-M2.7" : "DeepAnalyze-8B",
+          model: llmProvider === "minimax" ? "MiniMax-M3" : "DeepAnalyze-8B",
           provider: llmProvider,
           api_key: llmProvider === "heywhale" ? heywhaleApiKey.trim() : llmProvider === "minimax" ? minimaxApiKey.trim() : "",
           temperature: normalizedTemperature,

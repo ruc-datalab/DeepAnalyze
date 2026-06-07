@@ -27,7 +27,7 @@ vllm serve DeepAnalyze-8B
 
 默认连接 `http://localhost:8000` 附近的 OpenAI 兼容接口。
 
-也可以在界面中将模型来源切换为 **MiniMax AI**，使用云端模型（MiniMax-M2.7），无需运行本地模型服务。只需在"模型来源"下拉菜单中选择"MiniMax AI"，然后输入从 [MiniMax 平台](https://www.minimaxi.com) 获取的 API Key。
+也可以在界面中将模型来源切换为 **MiniMax AI**，使用云端模型（默认 MiniMax-M3，同时支持 MiniMax-M2.7 与 MiniMax-M2.7-highspeed），无需运行本地模型服务。只需在"模型来源"下拉菜单中选择"MiniMax AI"，然后输入从 [MiniMax 平台](https://www.minimaxi.com) 获取的 API Key。
 
 ### 2. Python 与 Node.js
 

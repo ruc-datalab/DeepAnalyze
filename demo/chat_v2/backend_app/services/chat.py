@@ -28,7 +28,7 @@ HEYWHALE_API_BASE = (
     "https://www.heywhale.com/api/model/services/691d42c36c6dda33df0bf645/app/v1"
 )
 MINIMAX_API_BASE = "https://api.minimax.io/v1"
-MINIMAX_DEFAULT_MODEL = "MiniMax-M2.7"
+MINIMAX_DEFAULT_MODEL = "MiniMax-M3"
 REMOTE_STOP_SEQUENCES = ["</Code>", "</Answer>"]
 
 
