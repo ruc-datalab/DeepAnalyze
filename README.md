@@ -1,4 +1,4 @@
-﻿<p align="center" width="100%">
+<p align="center" width="100%">
 <img src="assets/logo.png" alt="DeepAnalyze" style="width: 60%; min-width: 300px; display: block; margin: auto;">
 </p>
 
@@ -29,6 +29,35 @@
 
 
 ## 🔥 News
+
+- **[2026.07]**: We look forward to releasing **[DeepPrep](https://arxiv.org/abs/2602.07371)**, a data-preparation companion to DeepAnalyze that turns raw tables into analysis-ready data.
+
+  <details>
+  <summary>More about DeepPrep</summary>
+
+  **DeepPrep** is an LLM-powered agentic system for autonomous data preparation. It constructs data-preparation pipelines through execution-grounded interaction with intermediate table states and runtime feedback, helping clean, transform, and standardize raw data before downstream analysis.
+
+  ▶️ Demo:
+
+  https://github.com/user-attachments/assets/6b94927f-5c0c-4cfe-bc33-de56b8e459cd
+
+  </details>
+
+- **[2026.06.15]**: We release **[CoDA-Bench](https://github.com/ruc-datalab/CoDA-Bench)**, a benchmark for evaluating whether code agents can handle data-intensive analytical tasks, closely aligned with DeepAnalyze's target scenarios.
+
+  <details>
+  <summary>More about CoDA-Bench</summary>
+
+  **CoDA-Bench** evaluates agents in a Linux sandbox with hundreds of data files. Given a natural-language question, an agent must discover relevant data, write executable code, and produce the final answer. It provides a benchmark setting for the same type of data discovery and code-execution challenges targeted by DeepAnalyze.
+
+  ▶️ Demo:
+
+  https://github.com/user-attachments/assets/34e50a62-744b-4079-8988-6a8bbfe166a0
+
+  </details>
+
+- **[2026.05.31]**:  **[DA-Studio](http://arxiv.org/abs/2606.31423)**, the system behind DeepAnalyze WebUI v2 (`demo/chat_v2`), has been accepted to the VLDB 2026 Demonstration Track.
+
 
 - **[2026.03.16]**: Update DeepAnalyze **WebUI v2**, featuring a smoother UI, support for the **HeyWhale API**, and support for **Docker-based sandboxed code execution**. More details in [Readme](./demo/chat_v2/README.md) .
 
