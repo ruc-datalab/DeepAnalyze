@@ -30,6 +30,28 @@
 
 ## 🔥 News
 
+- **[2026.06.15]**: Related work from our group: **[CoDA-Bench](https://github.com/ruc-datalab/CoDA-Bench)**, an **ICML 2026** benchmark for data-intensive code agents, is released. CoDA-Bench evaluates whether agents can discover relevant data from large Linux sandboxes, write code, and answer analytical questions, complementing DeepAnalyze’s goal of autonomous data science.
+
+  <details>
+  <summary>▶️ Watch the CoDA-Bench demo</summary>
+
+  https://github.com/user-attachments/assets/34e50a62-744b-4079-8988-6a8bbfe166a0
+
+  </details>
+
+- **[2026.05.31]**: **[DA-Studio](http://arxiv.org/abs/2606.31423)**, the system behind **DeepAnalyze WebUI v2 (`demo/chat_v2`)**, has been accepted to the VLDB 2026 Demonstration Track. DA-Studio provides an interactive, sandboxed, and inspectable end-to-end data analysis interface with streamed action traces, artifact preview, code editing/rerunning, and report export.
+
+- **[2026.03.16]**: Update DeepAnalyze **WebUI v2**, featuring a smoother UI, support for the **HeyWhale API**, and support for **Docker-based sandboxed code execution**. More details in [Readme](./demo/chat_v2/README.md) .
+
+- **[2026.02.07]**: Related work from our group: **[DeepPrep](https://arxiv.org/abs/2602.07371)** is released. DeepPrep is an LLM-powered agentic system for autonomous data preparation that transforms heterogeneous and noisy raw tables into analysis-ready data; the prepared tables can further serve downstream analysis systems such as DeepAnalyze.
+
+  <details>
+  <summary>▶️ Watch the DeepPrep demo</summary>
+
+  https://github.com/user-attachments/assets/6b94927f-5c0c-4cfe-bc33-de56b8e459cd
+
+  </details>
+
 - **[2026.03.16]**: Update DeepAnalyze **WebUI v2**, featuring a smoother UI, support for the **HeyWhale API**, and support for **Docker-based sandboxed code execution**. More details in [Readme](./demo/chat_v2/README.md) .
 
 - **[2026.01.31]**: 🎉🎉🎉DeepAnalyze served as the official agent supporting the **[2026年(第19届)中国大学生计算机设计大赛大数据主题赛 (2026 (19th) China Collegiate Computer Design Contest – Big Data Track)](https://jsjds.dhu.edu.cn/2025/0322/c20379a371447/page.htm)**.
