@@ -35,6 +35,19 @@
 
 ## 🔥 News
 
+- **[2026.09]**: We release **[SkillAdam](https://github.com/ruc-datalab/SkillAdam)** 🚀, an easy-to-use plugin for automatically improving the skills of your AI agents. SkillAdam integrates directly with **Codex, Claude Code, Cursor Agent, and GitHub Copilot**, with simple installation and no need for a local GPU, Docker, or a separate model API key.
+
+  <details>
+  <summary>More about SkillAdam</summary>
+
+  **SkillAdam** makes skill optimization simple and automatic. Just provide a `SKILL.md` and describe what you want to improve. SkillAdam automatically generates relevant tasks, evaluates the current skill, proposes improvements, validates the revised version, and updates the skill when the changes pass evaluation. With a one-step installer, it works directly inside the coding agent you already use.
+
+  ▶️ Demo:
+
+  https://github.com/user-attachments/assets/a15049ee-90b5-4cda-a270-7628a60f76ed
+
+  </details>
+
 - **[2026.07]**: We look forward to releasing **[DeepPrep](https://arxiv.org/abs/2602.07371)**, a data-preparation companion to DeepAnalyze that turns raw tables into analysis-ready data.
 
   <details>
