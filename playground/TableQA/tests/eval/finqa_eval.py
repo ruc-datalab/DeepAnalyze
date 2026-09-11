@@ -168,9 +168,9 @@ def check_answer_correctness(
         expected_value = expected_value * 1000000000
         is_same_unit_type = True
     # Special handling for "$X million" and "X" cases (assuming X alone means millions)
-    elif model_unit == "$" and model_unit == "million" and expected_unit == "":
+    elif model_unit == "million" and expected_unit == "":
         is_same_unit_type = True
-    elif expected_unit == "$" and expected_unit == "million" and model_unit == "":
+    elif expected_unit == "million" and model_unit == "":
         is_same_unit_type = True
 
     if not is_same_unit_type:
