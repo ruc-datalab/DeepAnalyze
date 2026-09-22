@@ -24,29 +24,31 @@
 
 
 **DeepAnalyze** is the first agentic LLM for autonomous data science. It can autonomously complete a wide range of data-centric tasks without human intervention, supporting:
-- 🛠 **Entire data science pipeline**: Automatically perform any data science tasks such as data preparation, analysis, modeling, visualization, and report generation.
-- 🔍 **Open-ended data research**: Conduct deep research on diverse data sources, including structured data (Databases, CSV, Excel), semi-structured data (JSON, XML, YAML), and unstructured data (TXT, Markdown), and finally produce analyst-grade research reports.
-- 📊 **Fully open-source**: The [model](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B), [code](https://github.com/ruc-datalab/DeepAnalyze), [training data](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K), and [demo](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B) of DeepAnalyze are all open-sourced, allowing you to deploy or extend your own data analysis assistant.
+- 馃洜 **Entire data science pipeline**: Automatically perform any data science tasks such as data preparation, analysis, modeling, visualization, and report generation.
+- 馃攳 **Open-ended data research**: Conduct deep research on diverse data sources, including structured data (Databases, CSV, Excel), semi-structured data (JSON, XML, YAML), and unstructured data (TXT, Markdown), and finally produce analyst-grade research reports.
+- 馃搳 **Fully open-source**: The [model](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B), [code](https://github.com/ruc-datalab/DeepAnalyze), [training data](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K), and [demo](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B) of DeepAnalyze are all open-sourced, allowing you to deploy or extend your own data analysis assistant.
 
 <p align="center" width="100%">
 <img src="./assets/deepanalyze.jpg" alt="deepanalyze" style="width: 70%; min-width: 300px; display: block; margin: auto;">
 </p>
 
 
-## 🔥 News
+## 馃敟 News
 
-- **[2026.09]**: We release **[SkillAdam](https://github.com/ruc-datalab/SkillAdam)** 🚀, an easy-to-use plugin for automatically improving the skills of your AI agents. SkillAdam integrates directly with **Codex, Claude Code, Cursor Agent, and GitHub Copilot**, with simple installation and no need for a local GPU, Docker, or a separate model API key.
+- **[2026.09]**: We release **[SkillAdam](https://github.com/ruc-datalab/SkillAdam)** 馃殌, an easy-to-use plugin for automatically improving the skills of your AI agents. SkillAdam integrates directly with **Codex, Claude Code, Cursor Agent, and GitHub Copilot**, with simple installation and no need for a local GPU, Docker, or a separate model API key.
 
   <details>
   <summary>More about SkillAdam</summary>
 
   **SkillAdam** makes skill optimization simple and automatic. Just provide a `SKILL.md` and describe what you want to improve. SkillAdam automatically generates relevant tasks, evaluates the current skill, proposes improvements, validates the revised version, and updates the skill when the changes pass evaluation. With a one-step installer, it works directly inside the coding agent you already use.
 
-  ▶️ Demo:
+  鈻讹笍 Demo:
 
   https://github.com/user-attachments/assets/a15049ee-90b5-4cda-a270-7628a60f76ed
 
   </details>
+
+- **[2026.09]**: We release **[EvoOntology](https://github.com/ruc-datalab/EvoOntology)**, a self-evolving ontology layer for data agents that grounds semantic context in real workloads and continuously adapts through verified execution trajectories.
 
 - **[2026.07]**: We look forward to releasing **[DeepPrep](https://arxiv.org/abs/2602.07371)**, a data-preparation companion to DeepAnalyze that turns raw tables into analysis-ready data.
 
@@ -55,7 +57,7 @@
 
   **DeepPrep** is an LLM-powered agentic system for autonomous data preparation. It constructs data-preparation pipelines through execution-grounded interaction with intermediate table states and runtime feedback, helping clean, transform, and standardize raw data before downstream analysis.
 
-  ▶️ Demo:
+  鈻讹笍 Demo:
 
   https://github.com/user-attachments/assets/6b94927f-5c0c-4cfe-bc33-de56b8e459cd
 
@@ -68,7 +70,7 @@
 
   **CoDA-Bench** evaluates agents in a Linux sandbox with hundreds of data files. Given a natural-language question, an agent must discover relevant data, write executable code, and produce the final answer. It provides a benchmark setting for the same type of data discovery and code-execution challenges targeted by DeepAnalyze.
 
-  ▶️ Demo:
+  鈻讹笍 Demo:
 
   https://github.com/user-attachments/assets/34e50a62-744b-4079-8988-6a8bbfe166a0
 
@@ -79,9 +81,9 @@
 
 - **[2026.03.16]**: Update DeepAnalyze **WebUI v2**, featuring a smoother UI, support for the **HeyWhale API**, and support for **Docker-based sandboxed code execution**. More details in [Readme](./demo/chat_v2/README.md) .
 
-- **[2026.01.31]**: 🎉🎉🎉DeepAnalyze served as the official agent supporting the **[2026年(第19届)中国大学生计算机设计大赛大数据主题赛 (2026 (19th) China Collegiate Computer Design Contest – Big Data Track)](https://jsjds.dhu.edu.cn/2025/0322/c20379a371447/page.htm)**.
+- **[2026.01.31]**: 馃帀馃帀馃帀DeepAnalyze served as the official agent supporting the **[2026骞?绗?9灞?涓浗澶у鐢熻绠楁満璁捐澶ц禌澶ф暟鎹富棰樿禌 (2026 (19th) China Collegiate Computer Design Contest 鈥?Big Data Track)](https://jsjds.dhu.edu.cn/2025/0322/c20379a371447/page.htm)**.
 
-- **[2025.12.28] ANNOUNCEMENT: DeepAnalyze API Keys Are Now Available 🎉🎉🎉**  You can now apply for your API key via this [Google Form](https://forms.gle/YxVkCzczqq8jeciw9) or this [Feishu Form](https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg). For full details and usage instructions, please refer to the [Guide](./docs/DeepAnalyze_API_Key_Usage_Guide.md) or the [Feishu Wiki](https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg).
+- **[2025.12.28] ANNOUNCEMENT: DeepAnalyze API Keys Are Now Available 馃帀馃帀馃帀**  You can now apply for your API key via this [Google Form](https://forms.gle/YxVkCzczqq8jeciw9) or this [Feishu Form](https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg). For full details and usage instructions, please refer to the [Guide](./docs/DeepAnalyze_API_Key_Usage_Guide.md) or the [Feishu Wiki](https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg).
 
 
 - **[2025.11.13]**: DeepAnalyze now supports OpenAI-style API endpointsis and is accessible through the Command Line Terminal UI. Thanks to the contributor [@LIUyizheSDU](https://github.com/LIUyizheSDU/)
@@ -94,13 +96,13 @@
 
 - **[2025.10.21]**: DeepAnalyze's [paper](https://arxiv.org/abs/2510.16872), [code](https://github.com/ruc-datalab/DeepAnalyze), [model](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B), [training data](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K) are released!
 
-## 🖥 Demo
+## 馃枼 Demo
 
 ### WebUI
 
 https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 <p align="center" width="100%">
-Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 🛠
+Upload the data, DeepAnalyze can perform data-oriented deep research 馃攳 and any data-centric tasks 馃洜
 </p>
 
 - Clone this repo and download [DeepAnalyze-8B](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B).
@@ -123,7 +125,7 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
 
 https://github.com/user-attachments/assets/2dd1d2aa-6fb9-4202-bc8d-cbe874844725
 <p align="center" width="100%">
-Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 🛠
+Upload the data, DeepAnalyze can perform data-oriented deep research 馃攳 and any data-centric tasks 馃洜
 </p> 
 
 - A more streamlined UI
@@ -132,7 +134,7 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
 - The usage method is the same as WebUI.
 
     ```bash
-    cd demo/chat_v2/frontend  
+    cd demo/chat_v2/frontend聽 
     npm install
     cd ..
     cp .env.example .env 
@@ -152,7 +154,7 @@ Familiar with Jupyter Notebook? Try DeepAnalyze through the JupyterUI!
 
 - This Demo runs Jupyter Lab as frontend, creating a new notebook, converting `<Analyze|Understand|Answer>` to Markdown cells, converting `<Code>` to Code cells and executing them as `<Execute>`.
 - Go to [demo/jupyter](./demo/jupyter) to see more and try!
-- 👏Thanks a lot to the contributor [@ChengJiale150](https://github.com/ChengJiale150).
+- 馃憦Thanks a lot to the contributor [@ChengJiale150](https://github.com/ChengJiale150).
 
 ### CLI
 
@@ -184,11 +186,11 @@ Try DeepAnalyze through the command-line interface
 >
 > Clone this repository to deploy DeepAnalyze locally as your data analyst, completing any data science tasks without any workflow or closed-source APIs.
 >
-> 🔥 The UI of the demo is an initial version. Welcome to further develop it, and we will include you as a contributor.
+> 馃敟 The UI of the demo is an initial version. Welcome to further develop it, and we will include you as a contributor.
 
-## 🚀 Quick Start
+## 馃殌 Quick Start
 
-### 🔑 **Use the DeepAnalyze API**
+### 馃攽 **Use the DeepAnalyze API**
 
 **API keys are now available!**
 
@@ -196,7 +198,7 @@ To request your key, please fill out one of the following application forms:
 *   **[Primary Form (Google)](https://forms.gle/YxVkCzczqq8jeciw9)**
 *   **[Alternative Form (Feishu)](https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg)**
 
-**📚 For comprehensive usage instructions, please refer to the API guide:**
+**馃摎 For comprehensive usage instructions, please refer to the API guide:**
 
 *   **[Documentation](./docs/DeepAnalyze_API_Key_Usage_Guide.md)**
 *   **[Feishu Wiki](https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg)**
@@ -205,24 +207,24 @@ To request your key, please fill out one of the following application forms:
 
 ### Model Download
 
-Download model in  [RUC-DataLab/DeepAnalyze-8B · Hugging Face](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)  or  [DeepAnalyze-8B · 模型库](https://www.modelscope.cn/models/RUC-DataLab/DeepAnalyze-8B/summary)
+Download model in  [RUC-DataLab/DeepAnalyze-8B 路 Hugging Face](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)  or  [DeepAnalyze-8B 路 妯″瀷搴揮(https://www.modelscope.cn/models/RUC-DataLab/DeepAnalyze-8B/summary)
 
-#### 📊 Memory Configuration Recommended Parameters Table
+#### 馃搳 Memory Configuration Recommended Parameters Table
 
 | GPU Memory | Model Type | Recommended max-model-len | Use FP8 KV Cache |
 |------------|------------|--------------------------|-----------------------|
-| **16GB** | 8-bit Quantized | 8192 | ✓ |
-| **16GB** | 4-bit Quantized | 49152 | ✓ |
-| **24GB** | Original Model | 16384 | ✓ |
-| **24GB** | 8-bit Quantized | 98304 | ✓ |
-| **24GB** | 4-bit Quantized | 131072 | ✓ |
-| **40GB** | Original Model | 131072 | ✓ |
+| **16GB** | 8-bit Quantized | 8192 | 鉁?|
+| **16GB** | 4-bit Quantized | 49152 | 鉁?|
+| **24GB** | Original Model | 16384 | 鉁?|
+| **24GB** | 8-bit Quantized | 98304 | 鉁?|
+| **24GB** | 4-bit Quantized | 131072 | 鉁?|
+| **40GB** | Original Model | 131072 | 鉁?|
 | **40GB** | 8-bit Quantized | 131072 |  |
 | **80GB** | Original Model | 131072 |  |
 
 To obtain the quantized model, you can use `./quantize.py` .
 
-#### 🚀 vLLM Launch Command Template
+#### 馃殌 vLLM Launch Command Template
 
 ##### General Command Template
 ```bash
@@ -280,7 +282,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 - **Limited Memory (<24GB)**: Use 4-bit Quantized Version + FP8 KV Cache
 - **Balanced Configuration (24-40GB)**: Choose model type based on requirements
-- **Sufficient Memory (≥40GB)**: Use Original Model for best precision
+- **Sufficient Memory (鈮?0GB)**: Use Original Model for best precision
 
 After launching, the API service can be accessed via `http://localhost:8000/v1/completions`.
 
@@ -387,7 +389,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
   
 - Refer to API/README.md for details.
 
-## 🎈 Develop Your Own DeepAnalyze
+## 馃巿 Develop Your Own DeepAnalyze
 
 ### 1. Download Model and Training Data
 - Download [DeepSeek-R1-0528-Qwen3-8B](https://huggingface.co/deepseek-ai/DeepSeek-R1-0528-Qwen3-8B). Or you can directly finetune based on [DeepAnalyze-8B](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B).
@@ -418,7 +420,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
 - We have unified the evaluation of most existing data science benchmarks using vLLM (with more being continuously added...). You can directly follow the introduction in [./playground](./playground) to quickly evaluate DeepAnalyze or your own agent.
 
 
-## 👏 Contribution
+## 馃憦 Contribution
 > We welcome all forms of contributions, and merged PRs will be listed as contributors. 
 ### Contribution on Code and Model
 
@@ -432,10 +434,10 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
 - You can place your use cases in a new folder under [`.example/`](.example/). We recommend following the folder structure of [`.example/analysis_on_student_loan/`](.example/analysis_on_student_loan/), which includes three parts:
     - `data/`: stores the uploaded files
     - `prompt.txt`: input instructions
-    - `README.md`: documentation. We suggest including the input, DeepAnalyze’s output, outputs from other closed-source LLMs (optional), and your evaluation/comments of the case.
-- DeepAnalyze only has 8B parameters, so we also welcome examples where DeepAnalyze performs slightly worse than the closed-source LLMs — this will help us improve DeepAnalyze.
+    - `README.md`: documentation. We suggest including the input, DeepAnalyze鈥檚 output, outputs from other closed-source LLMs (optional), and your evaluation/comments of the case.
+- DeepAnalyze only has 8B parameters, so we also welcome examples where DeepAnalyze performs slightly worse than the closed-source LLMs 鈥?this will help us improve DeepAnalyze.
 
-## 🤝 Acknowledgement
+## 馃 Acknowledgement
 
 - **Training Frameworks:** [ms-swift](https://github.com/modelscope/ms-swift), [SkyRL](https://github.com/NovaSky-AI/SkyRL)
 
@@ -446,7 +448,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
    **HeyWhale Community (www.heywhale.com) is a world-leading Chinese hands-on AI community. By providing massive data resources, practical cases, learning materials, and a wide range of AI training activities, it brings together nearly one million AI practitioners and enthusiasts to share insights, exchange ideas, collaborate, and rapidly advance their skills through practice.**
 
 
-## 🖋 Citation
+## 馃枊 Citation
 
 If this repository is useful for you, please cite as:
 
@@ -464,14 +466,15 @@ If this repository is useful for you, please cite as:
 
 If you have any questions, please feel free to submit an issue or contact `zhangshaolei98@ruc.edu.cn`.
 
-## 🌟 Misc
+## Misc
 
-Welcome to join the [RUC-DataLab Feishu group](./assets/feishu.jpg), chat and share ideas with others!
+If you like DeepAnalyze, give it a GitHub Star ⭐
 
-<p align="left" width="100%">
+Welcome to join the [RUC-DataLab Feishu group](./assets/feishu.jpg), chat and share ideas with other users!
+
+<p align="center" width="100%">
+<img src="./assets/wechat.jpg" alt="DeepAnalyze WeChat group" style="width: 35%; min-width: 300px; display: block; margin: auto;">
 <img src="./assets/feishu.jpg" alt="RUC-DataLab Feishu group" style="width: 35%; min-width: 300px; display: block; margin: auto;">
 </p>
 
-If you like DeepAnalyze, give it a GitHub Star ⭐. 
-
-[![Star History Chart](https://star-history.dera.page/svg?repos=ruc-datalab/DeepAnalyze&type=date&legend=top-left)](https://star-history.dera.page/#ruc-datalab/DeepAnalyze&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=ruc-datalab/DeepAnalyze&type=Date&legend=top-left)](https://star-history.com/#ruc-datalab/DeepAnalyze&type=date&legend=top-left)
