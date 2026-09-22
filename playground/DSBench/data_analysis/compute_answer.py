@@ -9,7 +9,7 @@ client = OpenAI(api_key="")
 samples = []
 with open("./data.json", "r") as f:
     for line in f:
-        samples.append(eval(line.strip()))
+        samples.append(json.loads(line.strip()))
 
 
 def evaluate_prediction(client, question, answer, prediction):
@@ -60,7 +60,7 @@ for sample in tqdm(samples):
         predicts = []
         with open(os.path.join(save_path, model, sample["id"] + ".json"), "r") as f:
             for line in f:
-                predicts.append(eval(line.strip()))
+                predicts.append(json.loads(line.strip()))
 
         questions = []
         for id, question_name in enumerate(tqdm(sample["questions"])):
