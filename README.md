@@ -1,4 +1,4 @@
-<p align="center" width="100%">
+﻿<p align="center" width="100%">
 <img src="assets/logo.png" alt="DeepAnalyze" style="width: 60%; min-width: 300px; display: block; margin: auto;">
 </p>
 
@@ -81,7 +81,7 @@
 
 - **[2026.03.16]**: Update DeepAnalyze **WebUI v2**, featuring a smoother UI, support for the **HeyWhale API**, and support for **Docker-based sandboxed code execution**. More details in [Readme](./demo/chat_v2/README.md) .
 
-- **[2026.01.31]**: 馃帀馃帀馃帀DeepAnalyze served as the official agent supporting the **[2026骞?绗?9灞?涓浗澶у鐢熻绠楁満璁捐澶ц禌澶ф暟鎹富棰樿禌 (2026 (19th) China Collegiate Computer Design Contest 鈥?Big Data Track)](https://jsjds.dhu.edu.cn/2025/0322/c20379a371447/page.htm)**.
+- **[2026.01.31]**: 馃帀馃帀馃帀DeepAnalyze served as the official agent supporting the **[2026楠?缁?9鐏?涓浗澶у鐢熻绠楁満璁捐澶ц禌澶ф暟鎹富棰樿禌 (2026 (19th) China Collegiate Computer Design Contest 閳?Big Data Track)](https://jsjds.dhu.edu.cn/2025/0322/c20379a371447/page.htm)**.
 
 - **[2025.12.28] ANNOUNCEMENT: DeepAnalyze API Keys Are Now Available 馃帀馃帀馃帀**  You can now apply for your API key via this [Google Form](https://forms.gle/YxVkCzczqq8jeciw9) or this [Feishu Form](https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg). For full details and usage instructions, please refer to the [Guide](./docs/DeepAnalyze_API_Key_Usage_Guide.md) or the [Feishu Wiki](https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg).
 
@@ -213,12 +213,12 @@ Download model in  [RUC-DataLab/DeepAnalyze-8B 路 Hugging Face](https://hugging
 
 | GPU Memory | Model Type | Recommended max-model-len | Use FP8 KV Cache |
 |------------|------------|--------------------------|-----------------------|
-| **16GB** | 8-bit Quantized | 8192 | 鉁?|
-| **16GB** | 4-bit Quantized | 49152 | 鉁?|
-| **24GB** | Original Model | 16384 | 鉁?|
-| **24GB** | 8-bit Quantized | 98304 | 鉁?|
-| **24GB** | 4-bit Quantized | 131072 | 鉁?|
-| **40GB** | Original Model | 131072 | 鉁?|
+| **16GB** | 8-bit Quantized | 8192 | 閴?|
+| **16GB** | 4-bit Quantized | 49152 | 閴?|
+| **24GB** | Original Model | 16384 | 閴?|
+| **24GB** | 8-bit Quantized | 98304 | 閴?|
+| **24GB** | 4-bit Quantized | 131072 | 閴?|
+| **40GB** | Original Model | 131072 | 閴?|
 | **40GB** | 8-bit Quantized | 131072 |  |
 | **80GB** | Original Model | 131072 |  |
 
@@ -282,7 +282,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 - **Limited Memory (<24GB)**: Use 4-bit Quantized Version + FP8 KV Cache
 - **Balanced Configuration (24-40GB)**: Choose model type based on requirements
-- **Sufficient Memory (鈮?0GB)**: Use Original Model for best precision
+- **Sufficient Memory (閳?0GB)**: Use Original Model for best precision
 
 After launching, the API service can be accessed via `http://localhost:8000/v1/completions`.
 
@@ -435,7 +435,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
     - `data/`: stores the uploaded files
     - `prompt.txt`: input instructions
     - `README.md`: documentation. We suggest including the input, DeepAnalyze鈥檚 output, outputs from other closed-source LLMs (optional), and your evaluation/comments of the case.
-- DeepAnalyze only has 8B parameters, so we also welcome examples where DeepAnalyze performs slightly worse than the closed-source LLMs 鈥?this will help us improve DeepAnalyze.
+- DeepAnalyze only has 8B parameters, so we also welcome examples where DeepAnalyze performs slightly worse than the closed-source LLMs 閳?this will help us improve DeepAnalyze.
 
 ## 馃 Acknowledgement
 
@@ -471,10 +471,10 @@ If you have any questions, please feel free to submit an issue or contact `zhang
 Welcome to join the [RUC-DataLab Feishu group](./assets/feishu.jpg), chat and share ideas with other users.
 
 <p align="center" width="100%">
-<img src="./assets/wechat.jpg" alt="DeepAnalyze WeChat group" style="width: 35%; min-width: 300px; display: block; margin: auto;">
-<img src="./assets/feishu.jpg" alt="RUC-DataLab Feishu group" style="width: 35%; min-width: 300px; display: block; margin: auto;">
+<img src="./assets/wechat.jpg" alt="DeepAnalyze WeChat group" style="width: 35%; height: 420px; min-width: 300px; object-fit: contain; display: block; margin: auto;">
+<img src="./assets/feishu.jpg" alt="RUC-DataLab Feishu group" style="width: 35%; height: 420px; min-width: 300px; object-fit: contain; display: block; margin: auto;">
 </p>
 
-If you like DeepAnalyze, give it a GitHub Star ⭐
-
+If you like DeepAnalyze, give it a GitHub Star 猸?
 [![Star History Chart](https://api.star-history.com/svg?repos=ruc-datalab/DeepAnalyze&type=Date&legend=top-left)](https://star-history.com/#ruc-datalab/DeepAnalyze&type=date&legend=top-left)
+
