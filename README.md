@@ -42,7 +42,7 @@
 
   **SkillAdam** makes skill optimization simple and automatic. Just provide a `SKILL.md` and describe what you want to improve. SkillAdam automatically generates relevant tasks, evaluates the current skill, proposes improvements, validates the revised version, and updates the skill when the changes pass evaluation. With a one-step installer, it works directly inside the coding agent you already use.
 
-  鈻讹笍 Demo:
+  🔗 Demo:
 
   https://github.com/user-attachments/assets/a15049ee-90b5-4cda-a270-7628a60f76ed
 
@@ -57,7 +57,7 @@
 
   **DeepPrep** is an LLM-powered agentic system for autonomous data preparation. It constructs data-preparation pipelines through execution-grounded interaction with intermediate table states and runtime feedback, helping clean, transform, and standardize raw data before downstream analysis.
 
-  鈻讹笍 Demo:
+  🔗 Demo:
 
   https://github.com/user-attachments/assets/6b94927f-5c0c-4cfe-bc33-de56b8e459cd
 
@@ -70,7 +70,7 @@
 
   **CoDA-Bench** evaluates agents in a Linux sandbox with hundreds of data files. Given a natural-language question, an agent must discover relevant data, write executable code, and produce the final answer. It provides a benchmark setting for the same type of data discovery and code-execution challenges targeted by DeepAnalyze.
 
-  鈻讹笍 Demo:
+  🔗 Demo:
 
   https://github.com/user-attachments/assets/34e50a62-744b-4079-8988-6a8bbfe166a0
 
@@ -207,18 +207,18 @@ To request your key, please fill out one of the following application forms:
 
 ### Model Download
 
-Download model in  [RUC-DataLab/DeepAnalyze-8B 路 Hugging Face](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)  or  [DeepAnalyze-8B 路 妯″瀷搴揮(https://www.modelscope.cn/models/RUC-DataLab/DeepAnalyze-8B/summary)
+Download model in  [RUC-DataLab/DeepAnalyze-8B · Hugging Face](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)  or  [DeepAnalyze-8B · ModelScope](https://www.modelscope.cn/models/RUC-DataLab/DeepAnalyze-8B/summary)
 
 #### 📊 Memory Configuration Recommended Parameters Table
 
 | GPU Memory | Model Type | Recommended max-model-len | Use FP8 KV Cache |
 |------------|------------|--------------------------|-----------------------|
-| **16GB** | 8-bit Quantized | 8192 | 閴?|
-| **16GB** | 4-bit Quantized | 49152 | 閴?|
-| **24GB** | Original Model | 16384 | 閴?|
-| **24GB** | 8-bit Quantized | 98304 | 閴?|
-| **24GB** | 4-bit Quantized | 131072 | 閴?|
-| **40GB** | Original Model | 131072 | 閴?|
+| **16GB** | 8-bit Quantized | 8192 | ✅|
+| **16GB** | 4-bit Quantized | 49152 | ✅|
+| **24GB** | Original Model | 16384 | ✅|
+| **24GB** | 8-bit Quantized | 98304 | ✅|
+| **24GB** | 4-bit Quantized | 131072 | ✅|
+| **40GB** | Original Model | 131072 | ✅|
 | **40GB** | 8-bit Quantized | 131072 |  |
 | **80GB** | Original Model | 131072 |  |
 
@@ -434,7 +434,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
 - You can place your use cases in a new folder under [`.example/`](.example/). We recommend following the folder structure of [`.example/analysis_on_student_loan/`](.example/analysis_on_student_loan/), which includes three parts:
     - `data/`: stores the uploaded files
     - `prompt.txt`: input instructions
-    - `README.md`: documentation. We suggest including the input, DeepAnalyze鈥檚 output, outputs from other closed-source LLMs (optional), and your evaluation/comments of the case.
+    - `README.md`: documentation. We suggest including the input, DeepAnalyze's output, outputs from other closed-source LLMs (optional), and your evaluation/comments of the case.
 - DeepAnalyze only has 8B parameters, so we also welcome examples where DeepAnalyze performs slightly worse than the closed-source LLMs — this will help us improve DeepAnalyze.
 
 ## 🤝 Acknowledgement
@@ -477,4 +477,3 @@ Welcome to join the [RUC-DataLab Feishu group](./assets/feishu.jpg), chat and sh
 
 If you like DeepAnalyze, give it a GitHub Star ⭐
 [![Star History Chart](https://api.star-history.com/svg?repos=ruc-datalab/DeepAnalyze&type=Date&legend=top-left)](https://star-history.com/#ruc-datalab/DeepAnalyze&type=date&legend=top-left)
-
