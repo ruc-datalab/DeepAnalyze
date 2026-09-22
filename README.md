@@ -466,10 +466,10 @@ If you have any questions, please feel free to submit an issue or contact `zhang
 
 ## 🌟 Misc
 
-Welcome to join the [DeepAnalyze WeChat group](./assets/wechat.jpg), chat and share ideas with others!
+Welcome to join the [RUC-DataLab Feishu group](./assets/feishu.jpg), chat and share ideas with others!
 
 <p align="left" width="100%">
-<img src="./assets/wechat2.jpg" alt="DeepAnalyze" style="width: 35%; min-width: 300px; display: block; margin: auto;">
+<img src="./assets/feishu.jpg" alt="RUC-DataLab Feishu group" style="width: 35%; min-width: 300px; display: block; margin: auto;">
 </p>
 
 If you like DeepAnalyze, give it a GitHub Star ⭐. 
