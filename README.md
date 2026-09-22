@@ -81,9 +81,9 @@
 
 - **[2026.03.16]**: Update DeepAnalyze **WebUI v2**, featuring a smoother UI, support for the **HeyWhale API**, and support for **Docker-based sandboxed code execution**. More details in [Readme](./demo/chat_v2/README.md) .
 
-- **[2026.01.31]**: 馃帀馃帀🎉DeepAnalyze served as the official agent supporting the **[2026楠?缁?9鐏?涓浗澶у鐢熻绠楁満璁捐澶ц禌澶ф暟鎹富棰樿禌 (2026 (19th) China Collegiate Computer Design Contest 閳?Big Data Track)](https://jsjds.dhu.edu.cn/2025/0322/c20379a371447/page.htm)**.
+- **[2026.01.31]**: 🎉🎉🎉DeepAnalyze served as the official agent supporting the **[2026楠?缁?9鐏?涓浗澶у鐢熻绠楁満璁捐澶ц禌澶ф暟鎹富棰樿禌 (2026 (19th) China Collegiate Computer Design Contest 閳?Big Data Track)](https://jsjds.dhu.edu.cn/2025/0322/c20379a371447/page.htm)**.
 
-- **[2025.12.28] ANNOUNCEMENT: DeepAnalyze API Keys Are Now Available 馃帀馃帀🎉**  You can now apply for your API key via this [Google Form](https://forms.gle/YxVkCzczqq8jeciw9) or this [Feishu Form](https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg). For full details and usage instructions, please refer to the [Guide](./docs/DeepAnalyze_API_Key_Usage_Guide.md) or the [Feishu Wiki](https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg).
+- **[2025.12.28] ANNOUNCEMENT: DeepAnalyze API Keys Are Now Available 🎉🎉🎉**  You can now apply for your API key via this [Google Form](https://forms.gle/YxVkCzczqq8jeciw9) or this [Feishu Form](https://heywhale.feishu.cn/share/base/shrcnnBRgO0x2qhx40yq4m1HxUg). For full details and usage instructions, please refer to the [Guide](./docs/DeepAnalyze_API_Key_Usage_Guide.md) or the [Feishu Wiki](https://heywhale.feishu.cn/wiki/TcVmw314liwCiKkxnttc2CnInfg).
 
 
 - **[2025.11.13]**: DeepAnalyze now supports OpenAI-style API endpointsis and is accessible through the Command Line Terminal UI. Thanks to the contributor [@LIUyizheSDU](https://github.com/LIUyizheSDU/)
@@ -102,7 +102,7 @@
 
 https://github.com/user-attachments/assets/04184975-7ee7-4ae0-8761-7a7550c5c8fe
 <p align="center" width="100%">
-Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 馃洜
+Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 🛠
 </p>
 
 - Clone this repo and download [DeepAnalyze-8B](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B).
@@ -125,7 +125,7 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
 
 https://github.com/user-attachments/assets/2dd1d2aa-6fb9-4202-bc8d-cbe874844725
 <p align="center" width="100%">
-Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 馃洜
+Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 🛠
 </p> 
 
 - A more streamlined UI
@@ -282,7 +282,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 - **Limited Memory (<24GB)**: Use 4-bit Quantized Version + FP8 KV Cache
 - **Balanced Configuration (24-40GB)**: Choose model type based on requirements
-- **Sufficient Memory (閳?0GB)**: Use Original Model for best precision
+- **Sufficient Memory (≥ 0GB)**: Use Original Model for best precision
 
 After launching, the API service can be accessed via `http://localhost:8000/v1/completions`.
 
@@ -435,7 +435,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
     - `data/`: stores the uploaded files
     - `prompt.txt`: input instructions
     - `README.md`: documentation. We suggest including the input, DeepAnalyze鈥檚 output, outputs from other closed-source LLMs (optional), and your evaluation/comments of the case.
-- DeepAnalyze only has 8B parameters, so we also welcome examples where DeepAnalyze performs slightly worse than the closed-source LLMs 閳?this will help us improve DeepAnalyze.
+- DeepAnalyze only has 8B parameters, so we also welcome examples where DeepAnalyze performs slightly worse than the closed-source LLMs — this will help us improve DeepAnalyze.
 
 ## 🤝 Acknowledgement
 
@@ -475,6 +475,6 @@ Welcome to join the [RUC-DataLab Feishu group](./assets/feishu.jpg), chat and sh
 <img src="./assets/feishu.jpg" alt="RUC-DataLab Feishu group" style="width: 35%; height: 420px; min-width: 300px; object-fit: contain; display: block; margin: auto;">
 </p>
 
-If you like DeepAnalyze, give it a GitHub Star 猸?
+If you like DeepAnalyze, give it a GitHub Star ⭐
 [![Star History Chart](https://api.star-history.com/svg?repos=ruc-datalab/DeepAnalyze&type=Date&legend=top-left)](https://star-history.com/#ruc-datalab/DeepAnalyze&type=date&legend=top-left)
 
