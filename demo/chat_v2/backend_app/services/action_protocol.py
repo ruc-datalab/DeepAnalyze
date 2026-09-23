@@ -37,7 +37,10 @@ def mask_backticked_content(content: str) -> str:
             tick_count += 1
         delimiter = "`" * tick_count
         end_index = raw.find(delimiter, cursor + tick_count)
-        end_index = len(raw) if end_index == -1 else end_index + tick_count
+        if end_index == -1:
+            cursor += tick_count
+            continue
+        end_index += tick_count
         for index in range(cursor, end_index):
             chars[index] = " "
         cursor = end_index
