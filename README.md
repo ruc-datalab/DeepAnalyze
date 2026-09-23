@@ -1,4 +1,4 @@
-﻿<p align="center" width="100%">
+<p align="center" width="100%">
 <img src="assets/logo.png" alt="DeepAnalyze" style="width: 60%; min-width: 300px; display: block; margin: auto;">
 </p>
 
@@ -13,9 +13,9 @@
 [![model](https://img.shields.io/badge/%F0%9F%A4%97%20Huggingface%20-DeepAnalyze--8B-orange.svg)](https://huggingface.co/RUC-DataLab/DeepAnalyze-8B)
 [![data](https://img.shields.io/badge/%F0%9F%93%9A%20Datasets%20-DataScience--Instruct--500K-darkgreen.svg)](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K)
 [![star](https://img.shields.io/github/stars/ruc-datalab/DeepAnalyze?style=social&label=Code+Stars)](https://github.com/ruc-datalab/DeepAnalyze)
-![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2Fruc-datalab%2FDeepAnalyze&label=Visitors&icon=graph-up&color=%23dc3545&message=&style=flat&tz=UTC)  [![wechat](https://img.shields.io/badge/WeChat-%E5%8A%A0%E5%85%A5DeepAnalyze%E4%BA%A4%E6%B5%81%E8%AE%A8%E8%AE%BA%E7%BE%A4-black?logo=wechat&logoColor=07C160)](./assets/wechat.jpg) [![feishu](https://img.shields.io/badge/Feishu-%E5%8A%A0%E5%85%A5RUC--DataLab%E4%BA%A4%E6%B5%81%E7%BE%A4-black?logo=lark&logoColor=00D6B9)](./assets/feishu.jpg) 
+![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2Fruc-datalab%2FDeepAnalyze&label=Visitors&icon=graph-up&color=%23dc3545&message=&style=flat&tz=UTC)  [![wechat](https://img.shields.io/badge/WeChat-%E5%8A%A0%E5%85%A5DeepAnalyze%E4%BA%A4%E6%B5%81%E8%AE%A8%E8%AE%BA%E7%BE%A4-black?logo=wechat&logoColor=07C160)](./assets/wechat.jpg) [![wecom](https://img.shields.io/badge/WeCom-%E5%8A%A0%E5%85%A5Data%2BAI%E4%BA%A4%E6%B5%81%E7%BE%A4-black?logo=wechat&logoColor=07C160)](./assets/wecom.jpg)
 
-[![twitter](https://img.shields.io/badge/@Brian%20Roemmele-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/BrianRoemmele/status/1981015483823571352) [![twitter](https://img.shields.io/badge/@Dr%20Singularity-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/Dr_Singularity/status/1981010771338498241) [![twitter](https://img.shields.io/badge/@Gorden%20Sun-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/Gorden_Sun/status/1980573407386423408) [![twitter](https://img.shields.io/badge/@AIGCLINK-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/aigclink/status/1980554517126246642) [![twitter](https://img.shields.io/badge/@Python%20Developer-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/Python_Dv/status/1980667557318377871) [![twitter](https://img.shields.io/badge/@meng%20shao-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/shao__meng/status/1980623242114314531) 
+[![twitter](https://img.shields.io/badge/@Brian%20Roemmele-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/BrianRoemmele/status/1981015483823571352) [![twitter](https://img.shields.io/badge/@Dr%20Singularity-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/Dr_Singularity/status/1981010771338498241) [![twitter](https://img.shields.io/badge/@Gorden%20Sun-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/Gorden_Sun/status/1980573407386423408) [![twitter](https://img.shields.io/badge/@AIGCLINK-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/aigclink/status/1980554517126246642) [![twitter](https://img.shields.io/badge/@Python%20Developer-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/Python_Dv/status/1980667557318377871) [![twitter](https://img.shields.io/badge/@meng%20shao-gray?logo=x&logoColor=white&labelColor=black)](https://x.com/shao__meng/status/1980623242114314531)
 
 
 > **Authors**: **[Shaolei Zhang](https://zhangshaolei1998.github.io/), [Ju Fan*](http://iir.ruc.edu.cn/~fanj/), [Meihao Fan](https://scholar.google.com/citations?user=9RTm2qoAAAAJ), [Guoliang Li](https://dbgroup.cs.tsinghua.edu.cn/ligl/), [Xiaoyong Du](http://info.ruc.edu.cn/jsky/szdw/ajxjgcx/jsjkxyjsx1/js2/7374b0a3f58045fc9543703ccea2eb9c.htm)**
@@ -113,10 +113,10 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
     npm install
     cd ..
     bash start.sh
-    
+
     # stop the api and interface
     bash stop.sh
-    
+
     # stop vllm if needed
     ```
 - If you want to deploy under a specific IP, please replace localhost with your IP address in [./demo/chat/backend.py](./demo/chat/backend.py) and [./demo/chat/frontend/lib/config.ts](./demo/chat/frontend/lib/config.ts)
@@ -126,7 +126,7 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
 https://github.com/user-attachments/assets/2dd1d2aa-6fb9-4202-bc8d-cbe874844725
 <p align="center" width="100%">
 Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and any data-centric tasks 🛠
-</p> 
+</p>
 
 - A more streamlined UI
 - Added support for HeyWhale API keys
@@ -134,14 +134,14 @@ Upload the data, DeepAnalyze can perform data-oriented deep research 🔍 and an
 - The usage method is the same as WebUI.
 
     ```bash
-    cd demo/chat_v2/frontend  
+    cd demo/chat_v2/frontend
     npm install
     cd ..
-    cp .env.example .env 
+    cp .env.example .env
     bash start.sh
     # stop the api and interface
     bash stop.sh
-    
+
     # stop vllm if needed
     ```
 
@@ -169,18 +169,18 @@ Try DeepAnalyze through the command-line interface
     ```bash
     cd API
     python start_server.py  # In one terminal
-    
+
     cd demo/cli
     python api_cli.py       # In another terminal (English)
     # or
     python api_cli_ZH.py    # In another terminal (Chinese)
     ```
-    
+
 - The CLI provides a Rich-based beautiful interface with file upload support and real-time streaming responses.
 
 - Supports both English and Chinese interfaces .
 
-    
+
 
 > [!TIP]
 >
@@ -293,7 +293,7 @@ After launching, the API service can be accessed via `http://localhost:8000/v1/c
     conda create -n deepanalyze python=3.12 -y
     conda activate deepanalyze
     pip install -r requirements.txt
-    
+
     # For training
     (cd ./deepanalyze/ms-swift/ && pip install -e .)
     (cd ./deepanalyze/SkyRL/ && pip install -e .)
@@ -313,10 +313,10 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
 
   ```python
   from deepanalyze import DeepAnalyzeVLLM
-  
+
   prompt = """# Instruction
   Generate a data science report.
-  
+
   # Data
   File 1: {"name": "bool.xlsx", "size": "4.8KB"}
   File 2: {"name": "person.csv", "size": "10.6KB"}
@@ -328,9 +328,9 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
   File 8: {"name": "no_payment_due.xlsx", "size": "15.6KB"}
   File 9: {"name": "unemployed.xlsx", "size": "5.6KB"}
   File 10: {"name": "enrolled.csv", "size": "20.4KB"}"""
-  
+
   workspace = "/home/u2023000922/zhangshaolei/deepanalyze_public/DeepAnalyze/example/analysis_on_student_loan/"
-  
+
   deepanalyze = DeepAnalyzeVLLM(
       "/fs/fast/u2023000922/zhangshaolei/checkpoints/deepanalyze-8b/"
   )
@@ -340,13 +340,13 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
   You shoud get a deep research report, which can be rendered as a PDF.:
   ```text
   # Comprehensive Analysis of Student Enrollment Patterns and Institutional Transfers
-  
+
   ## Introduction and Research Context
-  
+
   The analysis of student enrollment patterns represents a critical area of educational research with significant implications for institutional planning, resource allocation, and student support services. This comprehensive study examines a comprehensive dataset encompassing 1,194 enrollment records across six educational institutions, merged with supplementary demographic, financial, and employment status data. The research employs advanced analytical techniques including network analysis, predictive modeling, and temporal pattern recognition to uncover both macro-level institutional trends and micro-level student mobility patterns. The dataset's longitudinal nature, spanning fifteen months of enrollment records, provides unique insights into the complex dynamics of student pathways through higher education systems.
-  
+
   Our methodological approach combines quantitative analysis of enrollment durations, transfer probabilities, and financial indicators with qualitative ...
-  
+
   The research contributes to the growing body of literature on student mobility by providing empirical evidence of institutional transfer networks and their relationship to student outcomes...
   .....
   ```
@@ -369,9 +369,9 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
   FILE_RESPONSE=$(curl -s -X POST "http://localhost:8200/v1/files" \
       -F "file=@data.csv" \
       -F "purpose=file-extract")
-  
+
   FILE_ID=$(echo $FILE_RESPONSE | jq -r '.id')
-  
+
   curl -X POST http://localhost:8200/v1/chat/completions \
        -H "Content-Type: application/json" \
        -d "{
@@ -386,7 +386,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
         }"
   # wait for a while
   ```
-  
+
 - Refer to API/README.md for details.
 
 ## 🎈 Develop Your Own DeepAnalyze
@@ -399,7 +399,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
     ```shell
     MODEL_PATH=path_to_DeepSeek-R1-0528-Qwen3-8B
     SAVE_PATH=path_to_save_DeepSeek-R1-0528-Qwen3-8B-addvocab
-    
+
     python deepanalyze/add_vocab.py \
       --model_path "$MODEL_PATH" \
       --save_path "$SAVE_PATH" \
@@ -407,7 +407,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
     ```
 
 - Download training data [DataScience-Instruct-500K](https://huggingface.co/datasets/RUC-DataLab/DataScience-Instruct-500K).
-  
+
   - unzip `DataScience-Instruct-500K/RL/data.zip`
 
 
@@ -421,10 +421,10 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
 
 
 ## 👏 Contribution
-> We welcome all forms of contributions, and merged PRs will be listed as contributors. 
+> We welcome all forms of contributions, and merged PRs will be listed as contributors.
 ### Contribution on Code and Model
 
-- We welcome all forms of contributions on DeepAnalyze's code, model and UI, such as Docker packaging, DeepAnalyze model conversion and quantization, and submitting DeepAnalyze workflows based on closed-source LLMs. 
+- We welcome all forms of contributions on DeepAnalyze's code, model and UI, such as Docker packaging, DeepAnalyze model conversion and quantization, and submitting DeepAnalyze workflows based on closed-source LLMs.
 - You can submit a pull request directly.
 - Please refer to the [Developer Guides](https://matchbench.github.io/md_file/DeveloperGuides.html) for contribution guidelines.
 
@@ -454,13 +454,13 @@ If this repository is useful for you, please cite as:
 
 ```
 @misc{deepanalyze,
-      title={DeepAnalyze: Agentic Large Language Models for Autonomous Data Science}, 
+      title={DeepAnalyze: Agentic Large Language Models for Autonomous Data Science},
       author={Shaolei Zhang and Ju Fan and Meihao Fan and Guoliang Li and Xiaoyong Du},
       year={2025},
       eprint={2510.16872},
       archivePrefix={arXiv},
       primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2510.16872}, 
+      url={https://arxiv.org/abs/2510.16872},
 }
 ```
 
@@ -468,11 +468,11 @@ If you have any questions, please feel free to submit an issue or contact `zhang
 
 ## Misc
 
-Welcome to join the [RUC-DataLab Feishu group](./assets/feishu.jpg), chat and share ideas with other users.
+Welcome to join the [Data+AI Enterprise WeChat group](./assets/wecom.jpg), chat and share ideas with other users.
 
 <p align="center" width="100%">
 <img src="./assets/wechat.jpg" alt="DeepAnalyze WeChat group" style="width: 35%; height: 420px; min-width: 300px; object-fit: contain; display: block; margin: auto;">
-<img src="./assets/feishu.jpg" alt="RUC-DataLab Feishu group" style="width: 35%; height: 420px; min-width: 300px; object-fit: contain; display: block; margin: auto;">
+<img src="./assets/wecom.jpg" alt="Data+AI Enterprise WeChat group" style="width: 35%; height: 420px; min-width: 300px; object-fit: contain; display: block; margin: auto;">
 </p>
 
 If you like DeepAnalyze, give it a GitHub Star ⭐
