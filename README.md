@@ -35,6 +35,13 @@
 
 ## 🔥 News
 
+- **[2026.09]**: We release **[EvoOntology](https://github.com/ruc-datalab/EvoOntology)**, a self-evolving ontology layer for data agents that grounds semantic context in real workloads and continuously adapts through verified execution trajectories.
+  <details>
+    🔗 Demo:
+    
+    https://github.com/user-attachments/assets/e15f4acd-7161-4ae1-ba41-f2f3ea05488b
+  </details>
+
 - **[2026.09]**: We release **[SkillAdam](https://github.com/ruc-datalab/SkillAdam)** 🚀, an easy-to-use plugin for automatically improving the skills of your AI agents. SkillAdam integrates directly with **Codex, Claude Code, Cursor Agent, and GitHub Copilot**, with simple installation and no need for a local GPU, Docker, or a separate model API key.
 
   <details>
@@ -48,7 +55,6 @@
 
   </details>
 
-- **[2026.09]**: We release **[EvoOntology](https://github.com/ruc-datalab/EvoOntology)**, a self-evolving ontology layer for data agents that grounds semantic context in real workloads and continuously adapts through verified execution trajectories.
 
 - **[2026.07]**: We look forward to releasing **[DeepPrep](https://arxiv.org/abs/2602.07371)**, a data-preparation companion to DeepAnalyze that turns raw tables into analysis-ready data.
 
