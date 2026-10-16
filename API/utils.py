@@ -41,7 +41,28 @@ def build_download_url(thread_id: str, rel_path: str) -> str:
 
 def uniquify_path(target: Path) -> Path:
     """Return a unique path if target already exists"""
-    return target
+    if not target.exists():
+        return target
+
+    parent = target.parent
+    stem = target.stem
+    suffix = target.suffix
+    match = re.match(r"^(.*) \((\d+)\)$", stem)
+    base = stem
+    start = 1
+    if match:
+        base = match.group(1)
+        try:
+            start = int(match.group(2)) + 1
+        except ValueError:
+            start = 1
+
+    index = start
+    while True:
+        candidate = parent / f"{base} ({index}){suffix}"
+        if not candidate.exists():
+            return candidate
+        index += 1
 
 
 def _normalize_openai_message_content(raw_content: Any) -> str:
