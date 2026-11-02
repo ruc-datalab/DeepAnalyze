@@ -50,15 +50,37 @@
       🎁 <strong>Exclusive benefit:</strong> <a href="https://88api.ai/sign-up?aff=QpZX">Sign up through this link</a> to receive bonus API credits. International payments and invoicing are supported. API endpoint: <code>https://api.88api.ai</code>.
     </td>
   </tr>
+  <tr>
+    <td width="190" align="center" valign="middle">
+      <a href="mailto:zhangshaolei98@ruc.edu.cn"><strong>Open for Sponsorship</strong></a>
+    </td>
+    <td>
+      <strong>Become a DeepAnalyze sponsor</strong><br>
+      We welcome sponsors who share our vision for autonomous data science. Support DeepAnalyze and connect with our open-source community.<br><br>
+      <a href="mailto:zhangshaolei98@ruc.edu.cn">Contact us about sponsorship</a>.
+    </td>
+  </tr>
 </table>
 
 </details>
 
 
+## DeepAnalyze.net
+
+**[Try DeepAnalyze.net →](https://deepanalyze.net)**
+
+Welcome to [DeepAnalyze.net](https://deepanalyze.net)! Bring your data and questions to explore autonomous data analysis, visualization, and report generation directly in your browser.
+
+### See DeepAnalyze in Action
+
+https://github.com/user-attachments/assets/71cc31a3-9899-4420-9ccd-62d43be0f3dc
+
 ## 🔥 News
 
 - **[2026.09]**: We release **[EvoOntology](https://github.com/ruc-datalab/EvoOntology)**, a self-evolving ontology layer for data agents that grounds semantic context in real workloads and continuously adapts through verified execution trajectories.
   <details>
+  <summary>More about EvoOntology</summary>
+
     🔗 Demo:
     
     https://github.com/user-attachments/assets/e15f4acd-7161-4ae1-ba41-f2f3ea05488b
@@ -458,7 +480,7 @@ For training, please refer to [`./deepanalyze/ms-swift/requirements.txt`](./deep
 ### Contribution on Case Study
 
 - We also especially encourage you to share your use cases and feedback when using DeepAnalyze; these are extremely valuable for helping us improve DeepAnalyze.
-- You can place your use cases in a new folder under [`.example/`](.example/). We recommend following the folder structure of [`.example/analysis_on_student_loan/`](.example/analysis_on_student_loan/), which includes three parts:
+- You can place your use cases in a new folder under [`example/`](example/). We recommend following the folder structure of [`example/analysis_on_student_loan/`](example/analysis_on_student_loan/), which includes three parts:
     - `data/`: stores the uploaded files
     - `prompt.txt`: input instructions
     - `README.md`: documentation. We suggest including the input, DeepAnalyze’s output, outputs from other closed-source LLMs (optional), and your evaluation/comments of the case.
