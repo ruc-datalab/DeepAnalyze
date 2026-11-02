@@ -208,7 +208,7 @@ Familiar with Jupyter Notebook? Try DeepAnalyze through the JupyterUI!
 
 ### CLI
 
-https://github.com/user-attachments/assets/018acae5-b979-4143-ae1e-5b74da453c1d
+[CLI usage and examples](./demo/cli/README.md)
 <p align="center" width="100%">
 Try DeepAnalyze through the command-line interface
 </p>
