@@ -32,6 +32,19 @@
 </p>
 
 
+<h2 align="center">Welcome to Your AI Data Analysis Platform</h2>
+
+<p align="center">
+  <strong>DeepAnalyze</strong> brings autonomous data analysis, visualization, and reporting to your browser.<br>
+  Bring your data and questions, and discover what your data can tell you.
+</p>
+
+<p align="center">
+  <a href="https://deepanalyze.net"><img src="https://img.shields.io/badge/Try%20DeepAnalyze.net-087F8C?style=for-the-badge" alt="Try DeepAnalyze.net" height="32"></a>
+</p>
+
+https://github.com/user-attachments/assets/7177a3e8-0d30-419c-91c5-8a6b3684580f
+
 <details open>
 <summary><strong>❤️ Sponsors</strong></summary>
 
@@ -64,16 +77,6 @@
 
 </details>
 
-
-## DeepAnalyze.net
-
-**[Try DeepAnalyze.net →](https://deepanalyze.net)**
-
-Welcome to [DeepAnalyze.net](https://deepanalyze.net)! Bring your data and questions to explore autonomous data analysis, visualization, and report generation directly in your browser.
-
-### See DeepAnalyze in Action
-
-https://github.com/user-attachments/assets/7177a3e8-0d30-419c-91c5-8a6b3684580f
 
 ## 🔥 News
 
