@@ -73,7 +73,7 @@ Welcome to [DeepAnalyze.net](https://deepanalyze.net)! Bring your data and quest
 
 ### See DeepAnalyze in Action
 
-https://github.com/user-attachments/assets/71cc31a3-9899-4420-9ccd-62d43be0f3dc
+https://github.com/user-attachments/assets/7177a3e8-0d30-419c-91c5-8a6b3684580f
 
 ## 🔥 News
 
